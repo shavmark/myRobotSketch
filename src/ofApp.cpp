@@ -13,7 +13,7 @@ void RobotMotionData::setup() {
 	setY(200);
 	echo();
 	setSend();
-	draw();
+	draw(); 
 }
 
 void RobotMotionData::echo() {
