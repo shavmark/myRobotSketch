@@ -5,19 +5,35 @@
 class RobotMotionData {
 public:
 
+	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	void setup();
-	
 	void draw();
 
-	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
 	void home();
+	void home90();
+	void moveArm();
+
+	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
+	void setDefaults();
 	//Set 3D Cartesian mode / straight wrist and go to home
 	void set3DCartesianStraightWristAndGoHome();
 	void set3DCartesian90DegreeWristAndGoHome();
-	void setX(uint16_t x= 512);
-	void setY(uint16_t y = 150);
-	void echo();
+	void set3DCylindricalStraightWristAndGoHome();
+	void set3DCylindrical90DegreeWristAndGoHome();
+	void setBackhoeJointAndGoHome();
+	void centerAllServos();
+	void emergencyStop();
+	void sleepArm();
+
+	void moveXLeft(int x= 0);
+	void moveYout(uint16_t y = 235);
+	void moveZup(uint16_t z = 210);
+	void setWristAngledown(int a = 60);
+	void setWristRotate(int a= 512);
+	void openGripper(uint16_t distance = 512);
 	void setSpeed(uint8_t speed = 128);
+	void echo();
+	void sendNow();
 private:
 	// offsets
 	static const uint16_t xHighByteOffset = 1;
@@ -33,7 +49,7 @@ private:
 	static const uint16_t gripperHighByteOffset = 11;
 	static const uint16_t gripperLowByteOffset = 12;
 	static const uint16_t deltaValBytesOffset = 13;
-	static const uint16_t buttonByteOffset = 14;
+	static const uint16_t buttonByteOffset = 14;//bugbug not supported
 	static const uint16_t extValBytesOffset = 15;
 	static const uint16_t checksum = 16;
 	static const uint16_t count = 17;
@@ -47,7 +63,10 @@ private:
 	ofSerial serial;
 
 	bool sendData = false; // only send data once
-
+	bool in90 = false; // arm 90 degrees down
+	enum mode { Cartesian, Cylindrical, Backhoe	};
+	mode armMode;
+	bool inRange(int low90, int high90, int low, int high, int value);
 };
 class ofApp : public ofBaseApp{
 
