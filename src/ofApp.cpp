@@ -1,5 +1,15 @@
 #include "ofApp.h"
 #include <algorithm> 
+
+RobotLocation::RobotLocation() {
+	x.second = false;
+	y.second = false;
+	z.second = false;
+	wristAngle.second = false;
+	wristRotate.second = false;
+	gripper.second = false;
+	distance.second = false;
+}
 void RobotState::setup() {
 	serial.listDevices();
 	serial.setup(1, 38400);//bugbug get from xml 
@@ -9,12 +19,29 @@ void RobotState::setup() {
 	sendNow();//bugbug make list of items to draw with delays etc
 	setDefaults();
 	moveArm();
+	RobotLocation loc;
+	loc.moveYout(260);
+	loc.moveZup(250);
+	path.push_back(loc);
+	loc.moveXleft(-212);
+	path.push_back(loc);
+	path.push_back(loc);
+	loc.moveXleft(200);
 	while(1) {
-		moveYout(260);
-		moveZup(250);
-		moveXLeft(-212, true);
+		//bugbug make helper function
+		for (int i = 0; i < path.size(); ++i) {
+			if (path[i].x.second) {
+				moveXleft(path[i].x.first);
+			}
+			if (path[i].y.second) {
+				moveYout(path[i].y.first);
+			}
+			if (path[i].z.second) {
+				moveZup(path[i].z.first);
+			}
+			sendNow();
+		}
 		Sleep(1000);
-		moveXLeft(200, true);
 	}
 }
 void RobotState::sendNow() {
@@ -74,7 +101,7 @@ void RobotState::write() {
 void RobotState::setSpeed(uint8_t speed) {
 	set(deltaValBytesOffset, min(speed, (uint8_t)254));
 }
-bool RobotState::inRange(int low90, int high90, int low, int high, int value) {
+bool RobotState::inRange(int32_t low90, int32_t high90, int32_t low, int32_t high, int32_t value) {
 	// bugbug only Cartesian Positioning  supported right now
 	if (in90) {
 		if (value > high90 || value < low90) {
@@ -91,7 +118,7 @@ bool RobotState::inRange(int low90, int high90, int low, int high, int value) {
 	return true;
 }
 
-void RobotState::moveXLeft(int x, bool send) {
+void RobotState::moveXleft(int32_t x, bool send) {
 	ofLogNotice() << "moveXLeft " << x;
 	//The parameters X and WristAngle both can have negative values.However all of the values transmitted via the 
 	///ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
@@ -131,13 +158,13 @@ void RobotState::moveZup(uint16_t z, bool send) {
 		}
 	}
 }
-int RobotState::getDefault(int int90, int intStraight) {
+int RobotState::getDefault(int32_t int90, int32_t intStraight) {
 	if (in90) {
 		return int90;
 	}
 	return intStraight;
 }
-int RobotState::getDefault(int cart90, int cart, int cyn90, int cyn) {
+int RobotState::getDefault(int32_t cart90, int32_t cart, int32_t cyn90, int32_t cyn) {
 	if (armMode == Cartesian) {
 		if (in90) {
 			return cart90;
@@ -156,7 +183,7 @@ int RobotState::getDefault(int cart90, int cart, int cyn90, int cyn) {
 //transmitted via the ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
 //To compensate for this fact, X and WristAngle are transmitted as offset values.
 //Add 90 to Wrist Angle to obtain the value to transmit over Arm Link. 
-void RobotState::setWristAngledown(int a, bool send) {
+void RobotState::setWristAngledown(int32_t a, bool send) {
 	ofLogNotice() << "setWristAngledown " << a;
 	if (inRange(-90, -45, -30, 30, a)) {
 		set(wristAngleHighByteOffset, wristAngleLowByteOffset, 90+a);
@@ -165,7 +192,7 @@ void RobotState::setWristAngledown(int a, bool send) {
 		}
 	}
 }
-void RobotState::setWristRotate(int a, bool send) {
+void RobotState::setWristRotate(int32_t a, bool send) {
 	ofLogNotice() << "setWristRotate " << a;
 	if (inRange(0, 1023, 0, 1023, a)) {
 		set(wristRotateHighByteOffset, wristRotateLowByteOffset, 512);
@@ -184,7 +211,7 @@ void RobotState::openGripper(uint16_t distance, bool send) {
 }
 void RobotState::centerAllServos() {
 	setBackhoeJointAndGoHome();
-	moveXLeft(512);
+	moveXleft(512);
 	moveYout(512);
 	moveZup(512);
 	setWristAngledown(getDefault(-90,0));
@@ -196,7 +223,7 @@ void RobotState::centerAllServos() {
 void RobotState::setDefaults() {
 	ofLogNotice() << "setDefaults";
 	moveArm();
-	moveXLeft(getDefault(0,0,512,512));
+	moveXleft(getDefault(0,0,512,512));
 	moveYout(getDefault(140, 235, 140, 235));
 	moveZup(getDefault(30, 210, 30, 210));
 	setWristAngledown(getDefault(-90, 0));

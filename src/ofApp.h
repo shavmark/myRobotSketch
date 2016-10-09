@@ -2,6 +2,25 @@
 
 #include "ofMain.h"
 
+class RobotLocation {
+public:
+	RobotLocation();
+	void moveXleft(int32_t x) { this->x.first = x; this->x.second = true; }
+	void moveYout(uint16_t y) { this->y.first = y; this->y.second = true; }
+	void moveZup(uint16_t z) { this->z.first = z; this->z.second = true; }
+	void setWristAngledown(int a) { this->wristAngle.first = a; this->wristAngle.second = true;  }
+	void setWristRotate(int32_t a) { this->wristRotate.first = a; this->wristRotate.second = true;	}
+	void openGripper(uint16_t distance = 512) { this->distance.first = distance; this->distance.second = true;	}
+
+	pair<int32_t, bool> x;
+	pair<uint16_t, bool> y;
+	pair<uint16_t, bool> z;
+	pair<uint16_t, bool> wristAngle;
+	pair<int32_t, bool> wristRotate;
+	pair<uint16_t, bool> gripper;
+	pair<uint16_t, bool> distance;
+
+};
 class RobotState {
 public:
 
@@ -23,16 +42,19 @@ public:
 	void centerAllServos();
 	void emergencyStop();
 	void sleepArm();
-	void moveXLeft(int x, bool send=false);
-	void moveYout(uint16_t y, bool send = false);
-	void moveZup(uint16_t z, bool send = false);
-	void setWristAngledown(int a, bool send = false);
-	void setWristRotate(int a, bool send = false);
-	void openGripper(uint16_t distance = 512, bool send = false);
 	void setSpeed(uint8_t speed = 128);
 	void echo();
 	void sendNow();
+	vector <RobotLocation> path; // bugug add access wraper, use shared_ptr
+
 protected:
+	
+	void moveXleft(int32_t x, bool send = false);
+	void moveYout(uint16_t y, bool send = false);
+	void moveZup(uint16_t z, bool send = false);
+	void setWristAngledown(int32_t a, bool send = false);
+	void setWristRotate(int32_t a, bool send = false);
+	void openGripper(uint16_t distance = 512, bool send = false);
 	// offsets
 	static const uint16_t xHighByteOffset = 1;
 	static const uint16_t xLowByteOffset = 2;
@@ -56,13 +78,13 @@ protected:
 	void setSend(bool b = true) { sendData = b; }
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	int getDefault(int cart90, int cart, int cyn90, int cyn);
-	int getDefault(int int90, int intStraight);
+	int getDefault(int32_t cart90, int32_t cart, int32_t cyn90, int32_t cyn);
+	int getDefault(int32_t int90, int32_t intStraight);
 	bool sendData = false; // only send data once
 	bool in90 = false; // arm 90 degrees down
 	enum mode { Cartesian, Cylindrical, Backhoe };
 	mode armMode;
-	bool inRange(int low90, int high90, int low, int high, int value);
+	bool inRange(int32_t low90, int32_t high90, int32_t low, int32_t high, int32_t value);
 	void write();
 private:
 	uint8_t data[count]; // data to send
