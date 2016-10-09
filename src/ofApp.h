@@ -11,7 +11,7 @@ public:
 	void setWristAngledown(int a) { this->wristAngle.first = a; this->wristAngle.second = true;  }
 	void setWristRotate(int32_t a) { this->wristRotate.first = a; this->wristRotate.second = true;	}
 	void openGripper(uint16_t distance = 512) { this->distance.first = distance; this->distance.second = true;	}
-
+	void reset();
 	pair<int32_t, bool> x;
 	pair<uint16_t, bool> y;
 	pair<uint16_t, bool> z;
@@ -23,13 +23,20 @@ public:
 };
 class RobotState {
 public:
-
+	// from firmware
+	enum mode {
+		IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE
+	} ;
+	enum ID {
+		InterbotiXPhantomXReactorArm
+	};
 	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	void setup();
+	void draw();
 
 	void home();
 	void home90();
-	void moveArm();
+	void enableMoveArm();
 
 	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
 	void setDefaults();
@@ -45,7 +52,7 @@ public:
 	void setSpeed(uint8_t speed = 128);
 	void echo();
 	void sendNow();
-	vector <RobotLocation> path; // bugug add access wraper, use shared_ptr
+	queue <RobotLocation> path; // bugug add access wraper, use shared_ptr
 
 protected:
 	
@@ -81,12 +88,14 @@ protected:
 	int getDefault(int32_t cart90, int32_t cart, int32_t cyn90, int32_t cyn);
 	int getDefault(int32_t int90, int32_t intStraight);
 	bool sendData = false; // only send data once
-	bool in90 = false; // arm 90 degrees down
-	enum mode { Cartesian, Cylindrical, Backhoe };
 	mode armMode;
+	ID id;
 	bool inRange(int32_t low90, int32_t high90, int32_t low, int32_t high, int32_t value);
 	void write();
+	bool ArmIDResponsePacket();
 private:
+
+	int readBytes(unsigned char *bytes, int bytesRequired = 5);
 	uint8_t data[count]; // data to send
 	ofSerial serial;
 };

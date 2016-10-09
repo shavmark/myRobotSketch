@@ -1,7 +1,82 @@
 #include "ofApp.h"
 #include <algorithm> 
 
+int RobotState::readBytes(unsigned char *bytes, int bytesRequired) {
+	int readIn = 0;
+	if (bytes) {
+		*bytes = 0;// null out to show data read
+		int bytesRemaining = bytesRequired;
+		// loop until we've read everything
+		while (bytesRemaining > 0) {
+			// check for data
+			if (serial.available() > 0) {
+				// try to read - note offset into the bytes[] array, this is so
+				// that we don't overwrite the bytes we already have
+				int bytesArrayOffset = bytesRequired - bytesRemaining;
+				int result = serial.readBytes(&bytes[bytesArrayOffset],	bytesRemaining);
+
+				// check for error code
+				if (result == OF_SERIAL_ERROR) {
+					// something bad happened
+					ofLog(OF_LOG_ERROR, "unrecoverable error reading from serial");
+					// bail out
+					break;
+				}
+				else if (result == OF_SERIAL_NO_DATA) {
+					// nothing was read, try again
+				}
+				else {
+					// we read some data!
+					readIn += result;
+					bytesRemaining -= result;
+				}
+			}
+		}
+	}
+	return readIn;
+}
 RobotLocation::RobotLocation() {
+	reset();
+}
+
+bool RobotState::ArmIDResponsePacket() {
+	// see what occured
+	set(extValBytesOffset, 112);
+	sendNow();
+	unsigned char bytes[5];
+	if (readBytes(bytes, 5) == 5) {
+		switch (bytes[2]) {
+		case 1:
+			armMode = IKM_IK3D_CARTESIAN;
+			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN";
+			break;
+		case 2:
+			armMode = IKM_IK3D_CARTESIAN_90;
+			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN_90";
+			break;
+		case 3:
+			armMode = IKM_CYLINDRICAL;
+			ofLogNotice() << "arm mode IKM_CYLINDRICAL";
+			break;
+		case 4:
+			armMode = IKM_CYLINDRICAL_90;
+			ofLogNotice() << "arm mode IKM_CYLINDRICAL_90";
+			break;
+		case 5:
+			armMode = IKM_BACKHOE;
+			ofLogNotice() << "arm mode IKM_BACKHOE";
+			break;
+		}
+		switch (bytes[1]) {
+		case 2:
+			id = InterbotiXPhantomXReactorArm;
+			break;
+		}
+		return true;
+	}
+	return false;
+}
+void RobotLocation::reset() {
 	x.second = false;
 	y.second = false;
 	z.second = false;
@@ -17,32 +92,38 @@ void RobotState::setup() {
 	setSpeed(255);
 	set3DCartesianStraightWristAndGoHome();
 	sendNow();//bugbug make list of items to draw with delays etc
+	ArmIDResponsePacket();
 	setDefaults();
-	moveArm();
+}
+void RobotState::draw() {
+	//bugbug make helper function
 	RobotLocation loc;
 	loc.moveYout(260);
 	loc.moveZup(250);
-	path.push_back(loc);
+	path.push(loc);
+	loc.reset();
 	loc.moveXleft(-212);
-	path.push_back(loc);
-	path.push_back(loc);
+	path.push(loc);
+	loc.reset();
 	loc.moveXleft(200);
-	while(1) {
-		//bugbug make helper function
-		for (int i = 0; i < path.size(); ++i) {
-			if (path[i].x.second) {
-				moveXleft(path[i].x.first);
-			}
-			if (path[i].y.second) {
-				moveYout(path[i].y.first);
-			}
-			if (path[i].z.second) {
-				moveZup(path[i].z.first);
-			}
-			sendNow();
+	loc.moveYout(200);
+	path.push(loc);
+	while (!path.empty()) {
+		loc = path.front();
+		if (loc.x.second) {
+			//moveXleft(loc.x.first);
 		}
-		Sleep(1000);
+		if (loc.y.second) {
+			moveYout(loc.y.first);
+		}
+		if (loc.z.second) {
+			moveZup(loc.z.first);
+		}
+		sendNow();
+		path.pop();
 	}
+
+	Sleep(1000);
 }
 void RobotState::sendNow() {
 	setSend();
@@ -64,7 +145,7 @@ void RobotState::emergencyStop() {
 	set(extValBytesOffset, 17);
 	sendNow();
 }
-void RobotState::moveArm() {
+void RobotState::enableMoveArm() {
 	set(extValBytesOffset, 0);
 }
 
@@ -103,7 +184,8 @@ void RobotState::setSpeed(uint8_t speed) {
 }
 bool RobotState::inRange(int32_t low90, int32_t high90, int32_t low, int32_t high, int32_t value) {
 	// bugbug only Cartesian Positioning  supported right now
-	if (in90) {
+	
+	if (armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90){
 		if (value > high90 || value < low90) {
 			ofLogError() << "out of range " << value << " (" << low90 << ", " << high90 << ")";
 			return false;
@@ -124,12 +206,12 @@ void RobotState::moveXleft(int32_t x, bool send) {
 	///ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
 	//To compensate for this fact, X and WristAngle are transmitted as offset values.
 	//Add 512 to X to obtain the value to transmit over Arm Link.
-	if (armMode == Cartesian) {
+	if (armMode == IKM_IK3D_CARTESIAN) {
 		if (!inRange(-300, 300, -300, 300, x)) {
 			return;
 		}
 	}
-	else if (armMode == Cylindrical) {
+	else if (armMode == IKM_CYLINDRICAL) {
 		if (!inRange(0, 1023, 0, 1023, x)) {
 			return;
 		}
@@ -159,24 +241,25 @@ void RobotState::moveZup(uint16_t z, bool send) {
 	}
 }
 int RobotState::getDefault(int32_t int90, int32_t intStraight) {
-	if (in90) {
+	if (armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90) {
 		return int90;
 	}
 	return intStraight;
 }
 int RobotState::getDefault(int32_t cart90, int32_t cart, int32_t cyn90, int32_t cyn) {
-	if (armMode == Cartesian) {
-		if (in90) {
-			return cart90;
-		}
+	switch (armMode) {
+	case IKM_IK3D_CARTESIAN:
 		return cart;
-	}
-	if (armMode == Cylindrical) {
-		if (in90) {
-			return cyn90;
-		}
+	case IKM_IK3D_CARTESIAN_90:
+		return cart90;
+	case IKM_CYLINDRICAL:
 		return cyn;
+	case IKM_CYLINDRICAL_90:
+		return cyn90;
+	case IKM_BACKHOE:
+		break;
 	}
+	return -1;
 }
 
 //The parameters X and WristAngle both can have negative values.However all of the values 
@@ -210,6 +293,7 @@ void RobotState::openGripper(uint16_t distance, bool send) {
 	}
 }
 void RobotState::centerAllServos() {
+	ofLogNotice() << "centerAllServos";
 	setBackhoeJointAndGoHome();
 	moveXleft(512);
 	moveYout(512);
@@ -222,7 +306,7 @@ void RobotState::centerAllServos() {
 }
 void RobotState::setDefaults() {
 	ofLogNotice() << "setDefaults";
-	moveArm();
+	enableMoveArm();
 	moveXleft(getDefault(0,0,512,512));
 	moveYout(getDefault(140, 235, 140, 235));
 	moveZup(getDefault(30, 210, 30, 210));
@@ -232,37 +316,34 @@ void RobotState::setDefaults() {
 	setSpeed(); // slow is 255, 10 is super fast
 	set(buttonByteOffset, 0);
 	set(extValBytesOffset, 0);
+	enableMoveArm();
 }
 void RobotState::set3DCylindricalStraightWristAndGoHome() {
 	ofLogNotice() << "set3DCylindricalStraightWristAndGoHome";
-	in90 = false;
-	armMode = Cylindrical;
+	armMode = IKM_CYLINDRICAL;
 	set(extValBytesOffset, 48);
 }
 
 void RobotState::set3DCartesian90DegreeWristAndGoHome() {
 	ofLogNotice() << "set3DCartesian90DegreeWristAndGoHome";
-	in90 = true;
-	armMode = Cartesian;
+	armMode = IKM_IK3D_CARTESIAN_90;
 	set(extValBytesOffset, 40);
 }
 //Set 3D Cartesian mode / straight wrist and go to home
 void RobotState::set3DCartesianStraightWristAndGoHome() {
 	ofLogNotice() << "set3DCartesianStraightWristAndGoHome";
-	in90 = false;
-	armMode = Cartesian;
+	armMode = IKM_IK3D_CARTESIAN;
 	set(extValBytesOffset, 32);
 }
 void RobotState::set3DCylindrical90DegreeWristAndGoHome() {
 	ofLogNotice() << "set3DCylindrical90DegreeWristAndGoHome";
-	in90 = true;
-	armMode = Cylindrical;
+	armMode = IKM_CYLINDRICAL_90;
 	set(extValBytesOffset, 56);
 }
 //backhoe not fully supported
 void RobotState::setBackhoeJointAndGoHome() {
 	ofLogNotice() << "setBackhoeJointAndGoHome";
-	armMode = Backhoe;
+	armMode = IKM_BACKHOE;
 	set(extValBytesOffset, 64);
 }
 
@@ -284,7 +365,7 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-	
+	robot.draw();
 }
 
 //--------------------------------------------------------------
