@@ -74,6 +74,7 @@ bool RobotState::ArmIDResponsePacket() {
 	return false;
 }
 void RobotLocation::reset() {
+	setNoCommand();
 	x.second = false;
 	y.second = false;
 	z.second = false;
@@ -88,12 +89,35 @@ void RobotState::setup() {
 	data[0] = 0xFF; // header, byte 0
 	setSpeed(255);
 	set3DCartesianStraightWristAndGoHome();
-	sendNow();//bugbug make list of items to draw with delays etc
+	sendNow();
 	ArmIDResponsePacket();
 	setDefaults();
 }
 void RobotState::update() {
 	RobotLocation loc;
+	
+	loc.setHome();
+	loc.reset();
+	enableMoveArm();
+	loc.moveYout(50);
+	path.push(loc);
+	loc.reset();
+	loc.moveYout(350);
+	path.push(loc);
+	return;
+	loc.reset();
+	loc.moveXleft(10); // 300 max 60 units covers about 3", 20 units is .75" so given the arch its not just inches
+	loc.moveYout(350);
+	path.push(loc);
+	loc.reset();
+	loc.moveZup(250);
+	loc.moveXleft(-10); // -300 max
+	path.push(loc);
+	loc.reset();
+	loc.setDelay(1000);
+	path.push(loc);
+	/*
+	loc.reset();
 	loc.moveYout(260);
 	loc.moveZup(250);
 	path.push(loc);
@@ -104,23 +128,37 @@ void RobotState::update() {
 	loc.moveXleft(200);
 	loc.moveYout(200);
 	path.push(loc);
+	*/
 }
 void RobotState::draw() {
-	//bugbug make helper function
+	
 	while (!path.empty()) {
 		RobotLocation loc;
+		
 		loc = path.front();
-		if (loc.x.second) {
-			moveXleft(loc.x.first);
-		}
-		if (loc.y.second) {
-			moveYout(loc.y.first);
-		}
-		if (loc.z.second) {
-			moveZup(loc.z.first);
-		}
-		sendNow();
 		path.pop();
+
+		if (loc.cmd.first == RobotLocation::None) {
+			if (loc.x.second) {
+				moveXleft(loc.x.first);
+			}
+			if (loc.y.second) {
+				moveYout(loc.y.first);
+			}
+			if (loc.z.second) {
+				moveZup(loc.z.first);
+			}
+			sendNow();
+		}
+		else {	// process commands
+			if (loc.cmd.first == RobotLocation::Home) {
+				home();
+			}
+			else if (loc.cmd.first == RobotLocation::Delay) {
+				ofSleepMillis(loc.cmd.second);
+			}
+		}
+		
 	}
 
 
@@ -130,11 +168,12 @@ void RobotState::sendNow() {
 	write();
 }
 void RobotState::home() {
-	set(extValBytesOffset, 80);
-	sendNow();
-}
-void RobotState::home90() {
-	set(extValBytesOffset, 88);
+	if (armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90) {
+		set(extValBytesOffset, 88);
+	}
+	else {
+		set(extValBytesOffset, 80);
+	}
 	sendNow();
 }
 void RobotState::sleepArm() {
@@ -201,7 +240,7 @@ bool RobotState::inRange(int32_t low90, int32_t high90, int32_t low, int32_t hig
 }
 
 void RobotState::moveXleft(int32_t x, bool send) {
-	ofLogNotice() << "moveXLeft " << x;
+	ofLogNotice() << "moveXLeft " << x+512;
 	//The parameters X and WristAngle both can have negative values.However all of the values transmitted via the 
 	///ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
 	//To compensate for this fact, X and WristAngle are transmitted as offset values.

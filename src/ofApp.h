@@ -12,13 +12,29 @@ public:
 	void setWristRotate(int32_t a) { this->wristRotate.first = a; this->wristRotate.second = true;	}
 	void openGripper(uint16_t distance = 512) { this->distance.first = distance; this->distance.second = true;	}
 	void reset();
+
+	enum command {
+		None, Home, Delay
+	};
+
+	void setHome() {
+		cmd = pair<command, int64_t>(Home, 0);
+	}
+	void setDelay(int64_t duration) {
+		cmd = pair<command, int64_t>(Delay, duration);
+	}
+	void setNoCommand() {
+		cmd = pair<command, int64_t>(None, 0);
+	}
+
+	pair<command, int64_t> cmd;
 	pair<int32_t, bool> x;
-	pair<uint16_t, bool> y;
-	pair<uint16_t, bool> z;
-	pair<uint16_t, bool> wristAngle;
+	pair<int32_t, bool> y;
+	pair<int32_t, bool> z;
+	pair<int32_t, bool> wristAngle;
 	pair<int32_t, bool> wristRotate;
-	pair<uint16_t, bool> gripper;
-	pair<uint16_t, bool> distance;
+	pair<int32_t, bool> gripper;
+	pair<int32_t, bool> distance;
 
 };
 class RobotState {
@@ -36,7 +52,6 @@ public:
 	void draw();
 
 	void home();
-	void home90();
 	void enableMoveArm();
 
 	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
