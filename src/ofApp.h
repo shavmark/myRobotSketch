@@ -2,12 +2,11 @@
 
 #include "ofMain.h"
 
-class RobotMotionData {
+class RobotState {
 public:
 
 	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	void setup();
-	void draw();
 
 	void home();
 	void home90();
@@ -24,17 +23,16 @@ public:
 	void centerAllServos();
 	void emergencyStop();
 	void sleepArm();
-
-	void moveXLeft(int x= 0);
-	void moveYout(uint16_t y = 235);
-	void moveZup(uint16_t z = 210);
-	void setWristAngledown(int a = 60);
-	void setWristRotate(int a= 512);
-	void openGripper(uint16_t distance = 512);
+	void moveXLeft(int x, bool send=false);
+	void moveYout(uint16_t y, bool send = false);
+	void moveZup(uint16_t z, bool send = false);
+	void setWristAngledown(int a, bool send = false);
+	void setWristRotate(int a, bool send = false);
+	void openGripper(uint16_t distance = 512, bool send = false);
 	void setSpeed(uint8_t speed = 128);
 	void echo();
 	void sendNow();
-private:
+protected:
 	// offsets
 	static const uint16_t xHighByteOffset = 1;
 	static const uint16_t xLowByteOffset = 2;
@@ -58,16 +56,19 @@ private:
 	void setSend(bool b = true) { sendData = b; }
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-
-	uint8_t data[count];
-	ofSerial serial;
-
+	int getDefault(int cart90, int cart, int cyn90, int cyn);
+	int getDefault(int int90, int intStraight);
 	bool sendData = false; // only send data once
 	bool in90 = false; // arm 90 degrees down
-	enum mode { Cartesian, Cylindrical, Backhoe	};
+	enum mode { Cartesian, Cylindrical, Backhoe };
 	mode armMode;
 	bool inRange(int low90, int high90, int low, int high, int value);
+	void write();
+private:
+	uint8_t data[count]; // data to send
+	ofSerial serial;
 };
+
 class ofApp : public ofBaseApp{
 
 	public:
@@ -87,6 +88,6 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 
-		RobotMotionData robot;
+		RobotState robot;
 		
 };
