@@ -32,6 +32,7 @@ public:
 	};
 	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	void setup();
+	void update();
 	void draw();
 
 	void home();

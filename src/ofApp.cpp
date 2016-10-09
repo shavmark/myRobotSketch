@@ -45,31 +45,28 @@ bool RobotState::ArmIDResponsePacket() {
 	sendNow();
 	unsigned char bytes[5];
 	if (readBytes(bytes, 5) == 5) {
-		switch (bytes[2]) {
-		case 1:
-			armMode = IKM_IK3D_CARTESIAN;
+		armMode = (enum mode)bytes[2];
+		switch (armMode) {
+		case IKM_IK3D_CARTESIAN:
 			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN";
 			break;
-		case 2:
-			armMode = IKM_IK3D_CARTESIAN_90;
+		case IKM_IK3D_CARTESIAN_90:
 			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN_90";
 			break;
-		case 3:
-			armMode = IKM_CYLINDRICAL;
+		case IKM_CYLINDRICAL:
 			ofLogNotice() << "arm mode IKM_CYLINDRICAL";
 			break;
-		case 4:
-			armMode = IKM_CYLINDRICAL_90;
+		case IKM_CYLINDRICAL_90:
 			ofLogNotice() << "arm mode IKM_CYLINDRICAL_90";
 			break;
-		case 5:
-			armMode = IKM_BACKHOE;
+		case IKM_BACKHOE:
 			ofLogNotice() << "arm mode IKM_BACKHOE";
 			break;
 		}
 		switch (bytes[1]) {
 		case 2:
 			id = InterbotiXPhantomXReactorArm;
+			ofLogNotice() << "InterbotiXPhantomXReactorArm";
 			break;
 		}
 		return true;
@@ -95,8 +92,7 @@ void RobotState::setup() {
 	ArmIDResponsePacket();
 	setDefaults();
 }
-void RobotState::draw() {
-	//bugbug make helper function
+void RobotState::update() {
 	RobotLocation loc;
 	loc.moveYout(260);
 	loc.moveZup(250);
@@ -108,10 +104,14 @@ void RobotState::draw() {
 	loc.moveXleft(200);
 	loc.moveYout(200);
 	path.push(loc);
+}
+void RobotState::draw() {
+	//bugbug make helper function
 	while (!path.empty()) {
+		RobotLocation loc;
 		loc = path.front();
 		if (loc.x.second) {
-			//moveXleft(loc.x.first);
+			moveXleft(loc.x.first);
 		}
 		if (loc.y.second) {
 			moveYout(loc.y.first);
@@ -123,7 +123,7 @@ void RobotState::draw() {
 		path.pop();
 	}
 
-	Sleep(1000);
+
 }
 void RobotState::sendNow() {
 	setSend();
@@ -360,7 +360,7 @@ void ofApp::setup(){
 
 //--------------------------------------------------------------
 void ofApp::update(){
-
+	robot.update();
 }
 
 //--------------------------------------------------------------
