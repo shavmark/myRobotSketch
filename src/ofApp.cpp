@@ -1,6 +1,58 @@
 #include "ofApp.h"
 #include <algorithm> 
+void JointValue::set(valueType type, int32_t min, int32_t max, int32_t defaultvalue) {
+	minValue[type] = min;
+	maxValue[type] = max;
+	defaultValue[type] = defaultvalue;
+}
+map<valueType, int32_t> JointValue::minValue;
+map<valueType, int32_t> JointValue::maxValue;
+map<valueType, int32_t> JointValue::defaultValue;
+int32_t JointValue::deltaDefault;
 
+// needs to only be called one time -- uses static data to save time/space
+void JointValue::setup() { 
+	reset();
+
+	set(valueType(IKM_IK3D_CARTESIAN, X), -300, 300, 0);
+	set(valueType(IKM_IK3D_CARTESIAN_90, X), -300, 300, 0);
+	set(valueType(IKM_CYLINDRICAL, X), 0, 1023, 512);
+	set(valueType(IKM_CYLINDRICAL_90, X), 0, 1023, 512);
+	set(valueType(IKM_BACKHOE, X), 0, 0, 512);
+
+	set(valueType(IKM_IK3D_CARTESIAN, Y), 50, 350, 235);
+	set(valueType(IKM_IK3D_CARTESIAN_90, Y), 20, 150, 140);
+	set(valueType(IKM_CYLINDRICAL, Y), 50, 350, 235);
+	set(valueType(IKM_CYLINDRICAL_90, Y), 20, 150, 140);
+	set(valueType(IKM_BACKHOE, Y), 0, 0, 512);
+
+	set(valueType(IKM_IK3D_CARTESIAN, Z), 20, 250, 210);
+	set(valueType(IKM_IK3D_CARTESIAN_90, Z), 10, 150, 30);
+	set(valueType(IKM_CYLINDRICAL, Z), 20, 250, 210);
+	set(valueType(IKM_CYLINDRICAL_90, Z), 10, 150, 30);
+	set(valueType(IKM_BACKHOE, Z), 0, 0, 512);
+
+	set(valueType(IKM_IK3D_CARTESIAN, wristAngle), -30, 30, 0);
+	set(valueType(IKM_IK3D_CARTESIAN_90, wristAngle), -90, -45, -90);
+	set(valueType(IKM_CYLINDRICAL, wristAngle), 30, 30, 0);
+	set(valueType(IKM_CYLINDRICAL_90, wristAngle), -90, -45, -90);
+
+	set(valueType(IKM_IK3D_CARTESIAN, wristRotate), 0, 1023, 512);
+	set(valueType(IKM_IK3D_CARTESIAN_90, wristRotate), 0, 1023, 512);
+	set(valueType(IKM_CYLINDRICAL, wristRotate), 0, 1023, 512);
+	set(valueType(IKM_CYLINDRICAL_90, wristRotate), 0, 1023, 512);
+
+	set(valueType(IKM_IK3D_CARTESIAN, gripper), 0, 512, 512);
+	set(valueType(IKM_IK3D_CARTESIAN_90, gripper), 0, 512, 512);
+	set(valueType(IKM_CYLINDRICAL, gripper), 0, 512, 512);
+	set(valueType(IKM_CYLINDRICAL_90, gripper), 0, 512, 512);
+
+	deltaDefault = 255;
+}
+
+void JointValue::reset() {
+	valueSet = false;
+}
 int RobotState::readBytes(unsigned char *bytes, int bytesRequired) {
 	int readIn = 0;
 	if (bytes) {
@@ -45,7 +97,7 @@ bool RobotState::ArmIDResponsePacket() {
 	sendNow();
 	unsigned char bytes[5];
 	if (readBytes(bytes, 5) == 5) {
-		armMode = (enum mode)bytes[2];
+		armMode = (robotArmMode)bytes[2];
 		switch (armMode) {
 		case IKM_IK3D_CARTESIAN:
 			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN";
@@ -59,8 +111,8 @@ bool RobotState::ArmIDResponsePacket() {
 		case IKM_CYLINDRICAL_90:
 			ofLogNotice() << "arm mode IKM_CYLINDRICAL_90";
 			break;
-		case IKM_BACKHOE:
-			ofLogNotice() << "arm mode IKM_BACKHOE";
+		default:
+			ofLogNotice() << "arm mode IKM_BACKHOE mode?";
 			break;
 		}
 		switch (bytes[1]) {
@@ -75,34 +127,18 @@ bool RobotState::ArmIDResponsePacket() {
 }
 void RobotCommands::reset() {
 	setNoCommand();
-	locations[JointValue::X].reset();
-	locations[JointValue::Y].reset();
-	locations[JointValue::Z].reset();
-	locations[JointValue::wristAngle].reset();
-	locations[JointValue::wristRotate].reset();
-	locations[JointValue::delta].reset();
+	locations[robotArmJointType::X].reset();
+	locations[robotArmJointType::Y].reset();
+	locations[robotArmJointType::Z].reset();
+	locations[robotArmJointType::wristAngle].reset();
+	locations[robotArmJointType::wristRotate].reset();
+	locations[robotArmJointType::delta].reset();
 }
 void RobotState::setup() {
 	serial.listDevices();
 	serial.setup(1, 38400);//bugbug get from xml 
 	data[0] = 0xFF; // header, byte 0
 	setSpeed(255);
-	/* to do
-	valueMap[itemKey(IKM_IK3D_CARTESIAN, X)] = JointValue(-300, 300, 150);
-	valueMap[itemKey(IKM_IK3D_CARTESIAN_90, X)] = JointValue(-300, 300, 150);
-	valueMap[itemKey(IKM_CYLINDRICAL, X)] = JointValue(-300, 300, 150);
-	valueMap[itemKey(IKM_CYLINDRICAL_90, X)] = JointValue(-300, 300, 150);
-	valueMap[itemKey(IKM_BACKHOE, X)] = JointValue(-300, 300, 150); 
-
-	ofLogNotice() << "setWristAngledown " << a;
-	if (inRange(-90, -45, -30, 30, a)) {
-
-	ofLogNotice() << "setWristRotate " << a;
-	if (inRange(0, 1023, 0, 1023, a)) {
-
-
-	*/
-
 	set3DCartesianStraightWristAndGoHome();
 	sendNow();
 	ArmIDResponsePacket();
@@ -154,9 +190,9 @@ void RobotState::draw() {
 		path.pop();
 
 		if (loc.getCommand(nullptr) == RobotCommands::None) {
-			moveXleft(loc.get(JointValue::X));
-			moveYout(loc.get(JointValue::Y));
-			moveZup(loc.get(JointValue::Z));
+			moveXleft(loc.get(robotArmJointType::X));
+			moveYout(loc.get(robotArmJointType::Y));
+			moveZup(loc.get(robotArmJointType::Z));
 			sendNow();
 		}
 		else {	// process commands
@@ -248,75 +284,63 @@ void RobotState::setSpeed(uint8_t speed) {
 }
 
 void RobotState::moveXleft(JointValue& x, bool send) {
-	if (x.isSet()) {
-		//The parameters X and WristAngle both can have negative values.However all of the values transmitted via the 
-		///ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
-		//To compensate for this fact, X and WristAngle are transmitted as offset values.
-		//Add 512 to X to obtain the value to transmit over Arm Link.
-		ofLogNotice() << "moveXLeft " << x + 512;
-		set(xHighByteOffset, xLowByteOffset, x+512);
-		if (send) {
-			sendNow();
-		}
+	//The parameters X and WristAngle both can have negative values.However all of the values transmitted via the 
+	///ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
+	//To compensate for this fact, X and WristAngle are transmitted as offset values.
+	//Add 512 to X to obtain the value to transmit over Arm Link.
+	ofLogNotice() << "moveXLeft " << x + 512;
+	set(xHighByteOffset, xLowByteOffset, x+512);
+	if (send) {
+		sendNow();
 	}
 	
 	//backhoe not supported for X
 }
 void RobotState::moveYout(JointValue& y, bool send) {
-	if (y.isSet()) {
-		ofLogNotice() << "moveYout " << y.value;
-		set(yHighByteOffset, yLowByteOffset, y.value);
-		if (send) {
-			sendNow();
-		}
+	ofLogNotice() << "moveYout " << y.getValue();
+	set(yHighByteOffset, yLowByteOffset, y.getValue());
+	if (send) {
+		sendNow();
 	}
 }
 void RobotState::moveZup(JointValue& z, bool send) {
-	if (z.isSet()) {
-		ofLogNotice() << "moveZup " << z.value;
-		set(zHighByteOffset, zLowByteOffset, z.value);
-		if (send) {
-			sendNow();
-		}
+	ofLogNotice() << "moveZup " << z.getValue();
+	set(zHighByteOffset, zLowByteOffset, z.getValue());
+	if (send) {
+		sendNow();
 	}
 }
 
 void RobotState::setWristAngledown(JointValue& a, bool send) {
-	if (a.isSet()) {
-		ofLogNotice() << "setWristAngledown " << a.value;
-		//The parameters X and WristAngle both can have negative values.However all of the values 
-		//transmitted via the ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
-		//To compensate for this fact, X and WristAngle are transmitted as offset values.
-		//Add 90 to Wrist Angle to obtain the value to transmit over Arm Link. 
-		set(wristAngleHighByteOffset, wristAngleLowByteOffset, a +90);
-		if (send) {
-			sendNow();
-		}
+	ofLogNotice() << "setWristAngledown " << a.getValue()+90;
+	//The parameters X and WristAngle both can have negative values.However all of the values 
+	//transmitted via the ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
+	//To compensate for this fact, X and WristAngle are transmitted as offset values.
+	//Add 90 to Wrist Angle to obtain the value to transmit over Arm Link. 
+	set(wristAngleHighByteOffset, wristAngleLowByteOffset, a + 90);
+	if (send) {
+		sendNow();
 	}
 }
 void RobotState::setWristRotate(JointValue& a, bool send) {
-	if (a.isSet()) {
-		ofLogNotice() << "setWristRotate " << a.value;
-		set(wristRotateHighByteOffset, wristRotateLowByteOffset, a.value);
-		if (send) {
-			sendNow();
-		}
+	ofLogNotice() << "setWristRotate " << a.getValue();
+	set(wristRotateHighByteOffset, wristRotateLowByteOffset, a.getValue());
+	if (send) {
+		sendNow();
 	}
 }
 // 0 close, 512 fully open
 void RobotState::openGripper(JointValue& distance, bool send) {
-	if (distance.isSet()) {
-		ofLogNotice() << "openGripper " << distance.value;
-		set(gripperHighByteOffset, gripperLowByteOffset, distance.value);
-		if (send) {
-			sendNow();
-		}
+	ofLogNotice() << "openGripper " << distance.getValue();
+	set(gripperHighByteOffset, gripperLowByteOffset, distance.getValue());
+	if (send) {
+		sendNow();
 	}
 }
 void RobotState::centerAllServos() {
 	ofLogNotice() << "centerAllServos";
 	setBackhoeJointAndGoHome();
-	moveXleft(512);
+	moveXleft(JointValue(valueType(IKM_BACKHOE, X), 512));
 	moveYout(512);
 	moveZup(512);
 	setWristAngledown(getDefault(-90,0));
@@ -327,13 +351,13 @@ void RobotState::centerAllServos() {
 }
 void RobotState::setDefaults() {
 	ofLogNotice() << "setDefaults";
-	enableMoveArm();
-	moveXleft(getDefault(0,0,512,512));
-	moveYout(getDefault(140, 235, 140, 235));
-	moveZup(getDefault(30, 210, 30, 210));
-	setWristAngledown(getDefault(-90, 0));
-	setWristRotate(getDefault(515, 512));
-	openGripper();
+	// default to IKM_IK3D_CARTESIAN
+	moveXleft(JointValue(valueType(IKM_IK3D_CARTESIAN, X)));
+	moveYout(JointValue(valueType(IKM_IK3D_CARTESIAN, Y)));
+	moveZup(JointValue(valueType(IKM_IK3D_CARTESIAN, Z)));
+	setWristAngledown(JointValue(valueType(IKM_IK3D_CARTESIAN, wristAngle)));
+	setWristRotate(JointValue(valueType(IKM_IK3D_CARTESIAN, wristRotate)));
+	openGripper(JointValue(valueType(IKM_IK3D_CARTESIAN, gripper)));
 	setSpeed(); // slow is 255, 10 is super fast
 	set(buttonByteOffset, 0);
 	set(extValBytesOffset, 0);
