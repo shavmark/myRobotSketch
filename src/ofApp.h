@@ -2,39 +2,71 @@
 
 #include "ofMain.h"
 
-class RobotLocation {
+class JointValue {
 public:
-	RobotLocation();
-	void moveXleft(int32_t x) { this->x.first = x; this->x.second = true; }
-	void moveYout(uint16_t y) { this->y.first = y; this->y.second = true; }
-	void moveZup(uint16_t z) { this->z.first = z; this->z.second = true; }
-	void setWristAngledown(int a) { this->wristAngle.first = a; this->wristAngle.second = true;  }
-	void setWristRotate(int32_t a) { this->wristRotate.first = a; this->wristRotate.second = true;	}
-	void openGripper(uint16_t distance = 512) { this->distance.first = distance; this->distance.second = true;	}
-	void reset();
-
-	enum command {
-		None, Home, Delay
+	enum type {
+		X, Y, Z, wristAngle, wristRotate, gripper, delta
 	};
 
-	void setHome() {
-		cmd = pair<command, int64_t>(Home, 0);
+	JointValue(int32_t min, int32_t max, int32_t defaultValue) {
+		this->min = min;
+		this->max = max;
+		this->defaultValue = defaultValue;
+		valueSet = false;
 	}
-	void setDelay(int64_t duration) {
-		cmd = pair<command, int64_t>(Delay, duration);
+	void reset() { valueSet = false; }
+	bool inRange(int32_t value) {
+		if (value > max || value < min) {
+			ofLogError() << "out of range " << value << " (" << min << ", " << max << ")";
+			return false;
+		}
+		return true;
 	}
-	void setNoCommand() {
-		cmd = pair<command, int64_t>(None, 0);
+	int32_t operator=(int32_t value) {
+		set(value);
+		return value;
 	}
+	int32_t operator+(int32_t valueIn) {
+		return value+ valueIn;
+	}
+	void set(int32_t value) {
+		if (inRange(value)) {
+			this->value = value;
+			valueSet = true;
+		}
+	}
+	bool isSet() { return valueSet; }
 
+	int32_t min, max, defaultValue, value;
+private:
+	bool valueSet; // value not yet set
+};
+
+class RobotCommands {
+public:
+	enum command {
+		None, Home, Delay, Center
+	};
+
+	RobotCommands();
+
+	void moveXleft(int32_t x) { locations[JointValue::X] = x; }
+	void moveYout(int32_t y) { locations[JointValue::Y] = y; }
+	void moveZup(int32_t z) { locations[JointValue::Z] = z; }
+	void setWristAngledown(int a) { locations[JointValue::wristAngle] = a; }
+	void setWristRotate(int32_t a) { locations[JointValue::wristRotate] = a; }
+	void openGripper(uint16_t distance = 512) { locations[JointValue::gripper] = distance; }
+	void reset();
+
+	void setHome() {	cmd = pair<command, int64_t>(Home, 0);}
+	void setCenter() {	cmd = pair<command, int64_t>(Center, 0);}
+	void setDelay(int64_t duration) {	cmd = pair<command, int64_t>(Delay, duration);}
+	void setNoCommand() {	cmd = pair<command, int64_t>(None, 0);	}
+	command getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
+	JointValue& get(JointValue::type jointType) { return locations[jointType]; }
+protected:
 	pair<command, int64_t> cmd;
-	pair<int32_t, bool> x;
-	pair<int32_t, bool> y;
-	pair<int32_t, bool> z;
-	pair<int32_t, bool> wristAngle;
-	pair<int32_t, bool> wristRotate;
-	pair<int32_t, bool> gripper;
-	pair<int32_t, bool> distance;
+	map<JointValue::type, JointValue> locations;
 
 };
 class RobotState {
@@ -44,15 +76,21 @@ public:
 		IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE
 	} ;
 	enum ID {
+		// only 1 supported
 		InterbotiXPhantomXReactorArm
 	};
+	typedef pair<mode, JointValue::type> itemKey;
+	std::map<itemKey, JointValue> valueMap;
+
 	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	void setup();
 	void update();
 	void draw();
 
 	void home();
+	void center();
 	void enableMoveArm();
+	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
 
 	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
 	void setDefaults();
@@ -68,16 +106,17 @@ public:
 	void setSpeed(uint8_t speed = 128);
 	void echo();
 	void sendNow();
-	queue <RobotLocation> path; // bugug add access wraper, use shared_ptr
+	queue <RobotCommands> path; // bugug add access wraper, use shared_ptr
 
 protected:
 	
-	void moveXleft(int32_t x, bool send = false);
-	void moveYout(uint16_t y, bool send = false);
-	void moveZup(uint16_t z, bool send = false);
-	void setWristAngledown(int32_t a, bool send = false);
-	void setWristRotate(int32_t a, bool send = false);
-	void openGripper(uint16_t distance = 512, bool send = false);
+	void moveXleft(JointValue& x, bool send = false);
+	void moveYout(JointValue& y, bool send = false);
+	void moveZup(JointValue& z, bool send = false);
+	void setWristAngledown(JointValue& a, bool send = false);
+	void setWristRotate(JointValue& a, bool send = false);
+	void openGripper(JointValue& distance, bool send = false);
+
 	// offsets
 	static const uint16_t xHighByteOffset = 1;
 	static const uint16_t xLowByteOffset = 2;
@@ -99,18 +138,14 @@ protected:
 	void set(uint16_t high, uint16_t low, uint16_t val);
 	void set(uint16_t offset, uint8_t b) { data[offset] = b; }
 	void setSend(bool b = true) { sendData = b; }
-	uint8_t lowByte(uint16_t a) { return a % 256; }
-	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	int getDefault(int32_t cart90, int32_t cart, int32_t cyn90, int32_t cyn);
-	int getDefault(int32_t int90, int32_t intStraight);
 	bool sendData = false; // only send data once
 	mode armMode;
 	ID id;
-	bool inRange(int32_t low90, int32_t high90, int32_t low, int32_t high, int32_t value);
 	void write();
 	bool ArmIDResponsePacket();
 private:
-
+	uint8_t lowByte(uint16_t a) { return a % 256; }
+	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 	int readBytes(unsigned char *bytes, int bytesRequired = 5);
 	uint8_t data[count]; // data to send
 	ofSerial serial;
