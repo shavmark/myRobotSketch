@@ -10,6 +10,9 @@ enum robotArmMode {
 enum robotArmJointType {
 	X, Y, Z, wristAngle, wristRotate, gripper, delta, JointNotDefined
 };
+enum robotCommand {
+	NoArmCommand, getArmInformation, EnableArmMovement, SignOnDance, HomeArm, DelayArm, CenterArm, setArm3DCylindricalStraightWristAndGoHome, setArm3DCartesian90DegreeWristAndGoHome, setArm3DCartesianStraightWristAndGoHome, setArm3DCylindrical90DegreeWristAndGoHome, setArmBackhoeJointAndGoHome
+};
 
 typedef pair<robotArmMode, robotArmJointType> valueType;
 
@@ -17,30 +20,29 @@ typedef pair<robotArmMode, robotArmJointType> valueType;
 class JointValue {
 public:
 
-	JointValue(valueType type, int32_t value);
+	JointValue(valueType type, uint16_t value);
 	JointValue(valueType type);
 	JointValue();
 	void reset();
 	void setup();
-	bool inRange(int32_t value);
-	int32_t operator=(int32_t value) {set(value);return value;}
-	int32_t operator+(int32_t valueIn) {	return getValue() + valueIn;}
-	void set(int32_t value);
+	bool inRange(uint16_t value);
+	int32_t operator=(uint16_t value) {set(value);return value;}
+	void set(uint16_t value);
 	bool isSet() { return valueSet; }
-	int32_t getDefaultValue() {	return defaultValue[type];}
-	int32_t getValue();
-	int32_t getMin() { return minValue[type]; }
-	int32_t getMax() { return maxValue[type]; }
+	uint16_t getDefaultValue() {	return defaultValue[type];}
+	uint16_t getValue();
+	uint16_t getMin() { return minValue[type]; }
+	uint16_t getMax() { return maxValue[type]; }
 
 protected:
-	static map<valueType, int32_t> minValue;
-	static map<valueType, int32_t> maxValue;
-	static map<valueType, int32_t> defaultValue;
-	static int32_t deltaDefault;
+	static map<valueType, uint16_t> minValue;
+	static map<valueType, uint16_t> maxValue;
+	static map<valueType, uint16_t> defaultValue;
+	static uint16_t deltaDefault;
 
 private:
-	int32_t value;
-	void set(valueType type, int32_t min, int32_t max, int32_t defaultvalue);
+	int32_t value=0; // default to a non fatal value 
+	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);
 	bool valueSet; // value not yet set
 	valueType type;
 };
@@ -48,9 +50,6 @@ private:
 // drives the robot, data can come from any source 
 class RobotCommandsAndData {
 public:
-	enum command {
-		None, Home, Delay, Center
-	};
 
 	RobotCommandsAndData();
 
@@ -62,14 +61,11 @@ public:
 	void openGripper(uint16_t distance = 512) { locations[gripper] = distance; }
 	void reset();
 
-	void setHome() {	cmd = pair<command, int64_t>(Home, 0);}
-	void setCenter() {	cmd = pair<command, int64_t>(Center, 0);}
-	void setDelay(int64_t duration) {	cmd = pair<command, int64_t>(Delay, duration);}
-	void setNoCommand() {	cmd = pair<command, int64_t>(None, 0);	}
-	command getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
+	void setCommand(robotCommand command, int64_t value=0) { cmd = pair<robotCommand, int64_t>(command, value); }
+	robotCommand getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
 	JointValue& get(robotArmJointType jointType) { return locations[jointType]; }
 protected:
-	pair<command, int64_t> cmd;
+	pair<robotCommand, int64_t> cmd;
 	map<robotArmJointType, JointValue> locations;
 
 };
@@ -87,18 +83,19 @@ public:
 	void setup();
 	void update();
 	void draw();
-	void reset() { while (!path.empty()) { path.pop(); } memset(data, 0, sizeof data); };
+	void reset();
 	void home() {	send("home", is90() ? 88 : 80);}
 	void sleepArm() {	send("sleepArm", 96);}
 	void emergencyStop() {	send("emergencyStop", 17);	}
-	void enableMoveArm() {	set(extValBytesOffset, 0);	}
+	void enableMoveArm() {		set(extValBytesOffset, 0);	}
 	// 10 super fast, 255 slow
-	void setSpeed(uint8_t speed = 128) { set(deltaValBytesOffset, min(speed, (uint8_t)254));	}
+	void setSpeed(uint8_t speed = 128) {	set(deltaValBytesOffset, min(speed, (uint8_t)254));	}
+	void setDefaults();
 
 	void center();
+	void dance();
 
 	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
-	void setDefaults();
 	//Set 3D Cartesian mode / straight wrist and go to home
 	void RobotState::set3DCylindricalStraightWristAndGoHome() {
 		setStateAndGoHome("set3DCylindricalStraightWristAndGoHome", IKM_CYLINDRICAL, 48);
@@ -121,7 +118,10 @@ public:
 	void centerAllServos();
 
 protected:
-	
+	// push a copy of data then reset existing data so it can be used again
+	void pushAndClearCommand(RobotCommandsAndData &data) { path.push(data); data.reset();}
+	void waitForSerial() {	while(1) if (serial.available() > 0) { return; }	}
+	void clearSerial() { serial.flush(); }
 	void echo();
 	void sendNow();
 	void moveXleft(JointValue& x, bool send = false);
@@ -176,6 +176,7 @@ private:
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 	int readBytes(unsigned char *bytes, int bytesRequired = 5);
+	int readBytesInOneShot(unsigned char *bytes, int bytesMax = 100);
 	uint8_t data[count]; // data to send
 	ofSerial serial;
 	void setStateAndGoHome(const string& s, robotArmMode mode, uint8_t cmd);
