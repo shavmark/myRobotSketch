@@ -243,10 +243,8 @@ void RobotState::setup() {
 	readin = readBytesInOneShot(bytes, 30);
 	bytes[readin] = 0;
 	ofLogNotice() << bytes;
-
 	set3DCartesianStraightWristAndGoHome(); // go  to a known state
 	setDefaults();
-	sendNow();
 }
 void RobotState::update() {
 	RobotCommandsAndData data;
@@ -287,11 +285,12 @@ void RobotState::update() {
 }
 
 void RobotState::dance() {
+	//setDefaults();
 	// spin nose
 	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMax());
 	sendNow();
 	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMin());
-
+	sendNow();
 	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax());  // go right
 	sendNow();
 	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMin());  // go go left
@@ -398,14 +397,6 @@ void RobotState::write() {
 		readPose(); // pose is sent all the time
 		readPose(); // how often are two sent?
 
-		//if (!readOnly) {
-		//	unsigned char bytes[500];
-		//	if (sent = readBytesInOneShot(bytes, 500)) {
-		//		bytes[sent - 2] = (uint8_t)0;
-		//		ofLogNotice() << "result data " << bytes;
-		//	}
-		//}
-
 		// once it draws set to clean
 		setSend(false);
 	}
@@ -488,24 +479,34 @@ void RobotState::centerAllServos() {
 	setWristRotate(512);
 	openGripper(512);
 	setSpeed(128);
-
+	sendNow();
 }
 // "home" and set data matching state
 void RobotState::setDefaults() {
 	ofLogNotice() << "setDefaults";
-	// set default values so we know them too
-
-	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getDefaultValue());
-	set(yHighByteOffset, yLowByteOffset, JointValue(valueType(armMode, Y)).getDefaultValue());
-	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getDefaultValue());
-	set(wristAngleHighByteOffset, wristAngleLowByteOffset, JointValue(valueType(armMode, wristAngle)).getDefaultValue());
-	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getDefaultValue());
-	set(gripperHighByteOffset, gripperLowByteOffset, JointValue(valueType(armMode, gripper)).getDefaultValue());
-	setSpeed(); // slow is 255, 10 is super fast
+	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getDefaultValue()+512);
+	set(yHighByteOffset, yLowByteOffset, JointValue(valueType(armMode, Y)).getDefaultValue()); //150
+	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getDefaultValue()); //150
+	set(wristAngleHighByteOffset, wristAngleLowByteOffset, JointValue(valueType(armMode, wristAngle)).getDefaultValue() + 90);
+	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getDefaultValue()); // 512
+	set(gripperHighByteOffset, gripperLowByteOffset, JointValue(valueType(armMode, gripper)).getDefaultValue()); //0
 	set(buttonByteOffset, 0);
+	set(deltaValBytesOffset, JointValue(valueType(armMode, delta)).getDefaultValue());
 	set(extValBytesOffset, 0);
-	enableMoveArm();
-	
+
+}
+// set basic data that moves a little bit after starting up
+void RobotState::sanityTest() {
+	ofLogNotice() << "sanityTest";
+	set(xHighByteOffset, xLowByteOffset, 512);
+	set(yHighByteOffset, yLowByteOffset, 150);
+	set(zHighByteOffset, zLowByteOffset, 150);
+	set(wristAngleHighByteOffset, wristAngleLowByteOffset, 90);
+	set(wristRotateHighByteOffset, wristRotateLowByteOffset, 512);
+	set(gripperHighByteOffset, gripperLowByteOffset, 0);
+	set(buttonByteOffset, 0);
+	set(deltaValBytesOffset, 128);
+	set(extValBytesOffset, 0);
 }
 void RobotState::reset() { 
 	while (!path.empty()) { 

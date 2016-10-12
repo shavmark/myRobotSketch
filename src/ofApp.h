@@ -89,7 +89,7 @@ public:
 	void emergencyStop() {	send("emergencyStop", 17);	}
 	void enableMoveArm() {		set(extValBytesOffset, 0);	}
 	// 10 super fast, 255 slow
-	void setSpeed(uint8_t speed = 128) {	set(deltaValBytesOffset, min(speed, (uint8_t)254));	}
+	void setSpeed(uint8_t speed = 128) {	set(deltaValBytesOffset, speed);	}
 	void setDefaults();
 
 	void center();
@@ -114,7 +114,7 @@ public:
 	void RobotState::setBackhoeJointAndGoHome() {
 		setStateAndGoHome("setBackhoeJointAndGoHome", IKM_BACKHOE, 64);
 	}
-
+	void sanityTest();
 	void centerAllServos();
 
 protected:
