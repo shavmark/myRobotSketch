@@ -5,10 +5,10 @@
 // from firmware
 enum robotArmMode {
 	//IKM_BACKHOE not 100% supported
-	IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE
+	IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED
 };
 enum robotArmJointType {
-	X, Y, Z, wristAngle, wristRotate, gripper, delta
+	X, Y, Z, wristAngle, wristRotate, gripper, delta, JointNotDefined
 };
 
 typedef pair<robotArmMode, robotArmJointType> valueType;
@@ -16,56 +16,27 @@ typedef pair<robotArmMode, robotArmJointType> valueType;
 class JointValue {
 public:
 
-	JointValue(valueType type, int32_t value) {
-		reset();
-		set(value);
-		this->type = type;
-	}
-	JointValue(valueType type) {
-		reset();
-		this->type = type;
-	}
+	JointValue(valueType type, int32_t value);
+	JointValue(valueType type);
+	JointValue();
 	void reset();
 	void setup();
-	bool inRange(int32_t value) {
-		if (value > maxValue[type] || value < minValue[type]) {
-			ofLogError() << "out of range " << value << " (" << minValue[type] << ", " << maxValue[type] << ")";
-			return false;
-		}
-		return true;
-	}
-	int32_t operator=(int32_t value) {
-		set(value);
-		return value;
-	}
-	int32_t operator+(int32_t valueIn) {
-		return getValue() + valueIn;
-	}
-	void set(int32_t value) {
-		if (inRange(value)) {
-			this->value = value;
-			valueSet = true;
-		}
-	}
+	bool inRange(int32_t value);
+	int32_t operator=(int32_t value) {set(value);return value;}
+	int32_t operator+(int32_t valueIn) {	return getValue() + valueIn;}
+	void set(int32_t value);
 	bool isSet() { return valueSet; }
-	int32_t getDefaultValue() {
-		return defaultValue[type];
-	}
-	int32_t getValue() {
-		if (isSet()) {
-			return value;
-		}
-		// else
-		return defaultValue[type];
-	}
+	int32_t getDefaultValue() {	return defaultValue[type];}
+	int32_t getValue();
 
-	int32_t value;
+protected:
 	static map<valueType, int32_t> minValue;
 	static map<valueType, int32_t> maxValue;
 	static map<valueType, int32_t> defaultValue;
 	static int32_t deltaDefault;
 
 private:
+	int32_t value;
 	void set(valueType type, int32_t min, int32_t max, int32_t defaultvalue);
 	bool valueSet; // value not yet set
 	valueType type;
@@ -110,6 +81,7 @@ public:
 	void setup();
 	void update();
 	void draw();
+	void reset() { while (!path.empty()) { path.pop(); } memset(data, 0, sizeof data); };
 
 	void home();
 	void center();
@@ -134,11 +106,24 @@ public:
 protected:
 	
 	void moveXleft(JointValue& x, bool send = false);
+	void moveXleft(int32_t x, bool send = false) { moveXleft(JointValue(valueType(armMode, X), x), send); };
+
 	void moveYout(JointValue& y, bool send = false);
+	void moveYout(int32_t y, bool send = false) { moveYout(JointValue(valueType(armMode, Y), y), send); };
+
 	void moveZup(JointValue& z, bool send = false);
+	void moveZup(int32_t z, bool send = false) { moveZup(JointValue(valueType(armMode, Z), z), send); };
+
+
 	void setWristAngledown(JointValue& a, bool send = false);
+	void setWristAngledown(int32_t a, bool send = false) { setWristAngledown(JointValue(valueType(armMode, wristAngle), a), send); };
+
 	void setWristRotate(JointValue& a, bool send = false);
+	void setWristRotate(int32_t a, bool send = false) { setWristRotate(JointValue(valueType(armMode, wristRotate), a), send); };
+
 	void openGripper(JointValue& distance, bool send = false);
+	void openGripper(int32_t distance, bool send = false) { openGripper(JointValue(valueType(armMode, gripper), distance), send); };
+
 
 	// offsets
 	static const uint16_t xHighByteOffset = 1;

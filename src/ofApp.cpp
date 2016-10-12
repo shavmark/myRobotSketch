@@ -10,6 +10,40 @@ map<valueType, int32_t> JointValue::maxValue;
 map<valueType, int32_t> JointValue::defaultValue;
 int32_t JointValue::deltaDefault;
 
+JointValue::JointValue(valueType type, int32_t value) {
+	reset();
+	set(value);
+	this->type = type;
+}
+JointValue::JointValue(valueType type) {
+	reset();
+	this->type = type;
+}
+JointValue::JointValue() {
+	this->type = valueType(IKM_NOT_DEFINED, JointNotDefined);
+}
+void JointValue::set(int32_t value) {
+	if (inRange(value)) {
+		this->value = value;
+		valueSet = true;
+	}
+}
+int32_t JointValue::getValue() {
+	if (isSet()) {
+		return value;
+	}
+	// else
+	return defaultValue[type];
+}
+
+bool JointValue::inRange(int32_t value) {
+	if (value > maxValue[type] || value < minValue[type]) {
+		ofLogError() << "out of range " << value << " (" << minValue[type] << ", " << maxValue[type] << ")";
+		return false;
+	}
+	return true;
+}
+
 // needs to only be called one time -- uses static data to save time/space
 void JointValue::setup() { 
 	reset();
@@ -46,6 +80,9 @@ void JointValue::setup() {
 	set(valueType(IKM_IK3D_CARTESIAN_90, gripper), 0, 512, 512);
 	set(valueType(IKM_CYLINDRICAL, gripper), 0, 512, 512);
 	set(valueType(IKM_CYLINDRICAL_90, gripper), 0, 512, 512);
+
+	set(valueType(IKM_NOT_DEFINED, JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
+	
 
 	deltaDefault = 255;
 }
@@ -135,6 +172,7 @@ void RobotCommands::reset() {
 	locations[robotArmJointType::delta].reset();
 }
 void RobotState::setup() {
+	reset();
 	serial.listDevices();
 	serial.setup(1, 38400);//bugbug get from xml 
 	data[0] = 0xFF; // header, byte 0
@@ -343,7 +381,7 @@ void RobotState::centerAllServos() {
 	moveXleft(JointValue(valueType(IKM_BACKHOE, X), 512));
 	moveYout(512);
 	moveZup(512);
-	setWristAngledown(getDefault(-90,0));
+	setWristAngledown(512);
 	setWristRotate(512);
 	openGripper(512);
 	setSpeed(128);
@@ -352,12 +390,13 @@ void RobotState::centerAllServos() {
 void RobotState::setDefaults() {
 	ofLogNotice() << "setDefaults";
 	// default to IKM_IK3D_CARTESIAN
-	moveXleft(JointValue(valueType(IKM_IK3D_CARTESIAN, X)));
-	moveYout(JointValue(valueType(IKM_IK3D_CARTESIAN, Y)));
-	moveZup(JointValue(valueType(IKM_IK3D_CARTESIAN, Z)));
-	setWristAngledown(JointValue(valueType(IKM_IK3D_CARTESIAN, wristAngle)));
-	setWristRotate(JointValue(valueType(IKM_IK3D_CARTESIAN, wristRotate)));
-	openGripper(JointValue(valueType(IKM_IK3D_CARTESIAN, gripper)));
+	armMode = IKM_IK3D_CARTESIAN;
+	moveXleft(JointValue(valueType(armMode, X)));
+	moveYout(JointValue(valueType(armMode, Y)));
+	moveZup(JointValue(valueType(armMode, Z)));
+	setWristAngledown(JointValue(valueType(armMode, wristAngle)));
+	setWristRotate(JointValue(valueType(armMode, wristRotate)));
+	openGripper(JointValue(valueType(armMode, gripper)));
 	setSpeed(); // slow is 255, 10 is super fast
 	set(buttonByteOffset, 0);
 	set(extValBytesOffset, 0);
@@ -377,6 +416,7 @@ void RobotState::set3DCartesian90DegreeWristAndGoHome() {
 //Set 3D Cartesian mode / straight wrist and go to home
 void RobotState::set3DCartesianStraightWristAndGoHome() {
 	ofLogNotice() << "set3DCartesianStraightWristAndGoHome";
+	reset();
 	armMode = IKM_IK3D_CARTESIAN;
 	set(extValBytesOffset, 32);
 }
