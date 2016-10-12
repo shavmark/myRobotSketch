@@ -13,6 +13,7 @@ enum robotArmJointType {
 
 typedef pair<robotArmMode, robotArmJointType> valueType;
 
+// stores only valid values for specific joints
 class JointValue {
 public:
 
@@ -28,6 +29,8 @@ public:
 	bool isSet() { return valueSet; }
 	int32_t getDefaultValue() {	return defaultValue[type];}
 	int32_t getValue();
+	int32_t getMin() { return minValue[type]; }
+	int32_t getMax() { return maxValue[type]; }
 
 protected:
 	static map<valueType, int32_t> minValue;
@@ -42,17 +45,18 @@ private:
 	valueType type;
 };
 
-class RobotCommands {
+// drives the robot, data can come from any source 
+class RobotCommandsAndData {
 public:
 	enum command {
 		None, Home, Delay, Center
 	};
 
-	RobotCommands();
+	RobotCommandsAndData();
 
-	void moveXleft(int32_t x) { locations[X] = x; }
-	void moveYout(int32_t y) { locations[Y] = y; }
-	void moveZup(int32_t z) { locations[Z] = z; }
+	void setXleft(int32_t x) { locations[X] = x; }
+	void setYout(int32_t y) { locations[Y] = y; }
+	void setZup(int32_t z) { locations[Z] = z; }
 	void setWristAngledown(int a) { locations[wristAngle] = a; }
 	void setWristRotate(int32_t a) { locations[wristRotate] = a; }
 	void openGripper(uint16_t distance = 512) { locations[gripper] = distance; }
@@ -69,42 +73,57 @@ protected:
 	map<robotArmJointType, JointValue> locations;
 
 };
+
+// talks to the robot and keeps its state
 class RobotState {
 public:
 	enum ID {
 		// only 1 supported
 		InterbotiXPhantomXReactorArm
 	};
-	std::list<JointValue> values;
+	queue <RobotCommandsAndData> path; // bugug add access wraper, use shared_ptr
 
 	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	void setup();
 	void update();
 	void draw();
 	void reset() { while (!path.empty()) { path.pop(); } memset(data, 0, sizeof data); };
+	void home() {	send("home", is90() ? 88 : 80);}
+	void sleepArm() {	send("sleepArm", 96);}
+	void emergencyStop() {	send("emergencyStop", 17);	}
+	void enableMoveArm() {	set(extValBytesOffset, 0);	}
+	// 10 super fast, 255 slow
+	void setSpeed(uint8_t speed = 128) { set(deltaValBytesOffset, min(speed, (uint8_t)254));	}
 
-	void home();
 	void center();
-	void enableMoveArm();
 
 	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
 	void setDefaults();
 	//Set 3D Cartesian mode / straight wrist and go to home
-	void set3DCartesianStraightWristAndGoHome();
-	void set3DCartesian90DegreeWristAndGoHome();
-	void set3DCylindricalStraightWristAndGoHome();
-	void set3DCylindrical90DegreeWristAndGoHome();
-	void setBackhoeJointAndGoHome();
+	void RobotState::set3DCylindricalStraightWristAndGoHome() {
+		setStateAndGoHome("set3DCylindricalStraightWristAndGoHome", IKM_CYLINDRICAL, 48);
+	}
+	void RobotState::set3DCartesian90DegreeWristAndGoHome() {
+		setStateAndGoHome("set3DCartesian90DegreeWristAndGoHome", IKM_IK3D_CARTESIAN_90, 40);
+	}
+	//Set 3D Cartesian mode / straight wrist and go to home
+	void RobotState::set3DCartesianStraightWristAndGoHome() {
+		setStateAndGoHome("set3DCartesianStraightWristAndGoHome", IKM_IK3D_CARTESIAN, 32);
+	}
+	void RobotState::set3DCylindrical90DegreeWristAndGoHome() {
+		setStateAndGoHome("set3DCylindrical90DegreeWristAndGoHome", IKM_CYLINDRICAL_90, 56);
+	}
+	//backhoe not fully supported
+	void RobotState::setBackhoeJointAndGoHome() {
+		setStateAndGoHome("setBackhoeJointAndGoHome", IKM_BACKHOE, 64);
+	}
+
 	void centerAllServos();
-	void emergencyStop();
-	void sleepArm();
-	void setSpeed(uint8_t speed = 128);
-	void echo();
-	void sendNow();
-	queue <RobotCommands> path; // bugug add access wraper, use shared_ptr
 
 protected:
 	
+	void echo();
+	void sendNow();
 	void moveXleft(JointValue& x, bool send = false);
 	void moveXleft(int32_t x, bool send = false) { moveXleft(JointValue(valueType(armMode, X), x), send); };
 
@@ -159,6 +178,8 @@ private:
 	int readBytes(unsigned char *bytes, int bytesRequired = 5);
 	uint8_t data[count]; // data to send
 	ofSerial serial;
+	void setStateAndGoHome(const string& s, robotArmMode mode, uint8_t cmd);
+	void send(const string &s, uint8_t cmd);
 };
 
 class ofApp : public ofBaseApp{

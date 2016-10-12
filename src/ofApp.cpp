@@ -1,5 +1,6 @@
 #include "ofApp.h"
 #include <algorithm> 
+
 void JointValue::set(valueType type, int32_t min, int32_t max, int32_t defaultvalue) {
 	minValue[type] = min;
 	maxValue[type] = max;
@@ -124,7 +125,7 @@ int RobotState::readBytes(unsigned char *bytes, int bytesRequired) {
 	}
 	return readIn;
 }
-RobotCommands::RobotCommands() {
+RobotCommandsAndData::RobotCommandsAndData() {
 	reset();
 }
 
@@ -162,14 +163,11 @@ bool RobotState::ArmIDResponsePacket() {
 	}
 	return false;
 }
-void RobotCommands::reset() {
+void RobotCommandsAndData::reset() {
 	setNoCommand();
-	locations[robotArmJointType::X].reset();
-	locations[robotArmJointType::Y].reset();
-	locations[robotArmJointType::Z].reset();
-	locations[robotArmJointType::wristAngle].reset();
-	locations[robotArmJointType::wristRotate].reset();
-	locations[robotArmJointType::delta].reset();
+	for (auto &location : locations) {
+		location.second.reset();
+	}
 }
 void RobotState::setup() {
 	reset();
@@ -183,28 +181,28 @@ void RobotState::setup() {
 	setDefaults();
 }
 void RobotState::update() {
-	RobotCommands loc;
+	RobotCommandsAndData data;
 	
-	loc.setHome();
-	loc.reset();
+	data.setHome();
+	data.reset();
 	enableMoveArm();
-	loc.moveYout(50);
-	path.push(loc);
-	loc.reset();
-	loc.moveYout(350);
-	path.push(loc);
+	data.setYout(50);
+	path.push(data);
+	data.reset();
+	data.setYout(350);
+	path.push(data);
 	return;
-	loc.reset();
-	loc.moveXleft(10); // 300 max 60 units covers about 3", 20 units is .75" so given the arch its not just inches
-	loc.moveYout(350);
-	path.push(loc);
-	loc.reset();
-	loc.moveZup(250);
-	loc.moveXleft(-10); // -300 max
-	path.push(loc);
-	loc.reset();
-	loc.setDelay(1000);
-	path.push(loc);
+	data.reset();
+	data.setXleft(10); // 300 max 60 units covers about 3", 20 units is .75" so given the arch its not just inches
+	data.setYout(350);
+	path.push(data);
+	data.reset();
+	data.setZup(250);
+	data.setXleft(-10); // -300 max
+	path.push(data);
+	data.reset();
+	data.setDelay(1000);
+	path.push(data);
 	/*
 	loc.reset();
 	loc.moveYout(260);
@@ -222,69 +220,45 @@ void RobotState::update() {
 void RobotState::draw() {
 	
 	while (!path.empty()) {
-		RobotCommands loc;
+		RobotCommandsAndData data;
 		
-		loc = path.front();
+		data = path.front();
 		path.pop();
 
-		if (loc.getCommand(nullptr) == RobotCommands::None) {
-			moveXleft(loc.get(robotArmJointType::X));
-			moveYout(loc.get(robotArmJointType::Y));
-			moveZup(loc.get(robotArmJointType::Z));
+		if (data.getCommand(nullptr) == RobotCommandsAndData::None) {
+			moveXleft(data.get(robotArmJointType::X));
+			moveYout(data.get(robotArmJointType::Y));
+			moveZup(data.get(robotArmJointType::Z));
 			sendNow();
 		}
 		else {	// process commands
 			int64_t value;
-			if (loc.getCommand(nullptr) == RobotCommands::Home) {
+			if (data.getCommand(nullptr) == RobotCommandsAndData::Home) {
 				home();
 			}
-			if (loc.getCommand(nullptr) == RobotCommands::Center) {
+			if (data.getCommand(nullptr) == RobotCommandsAndData::Center) {
 				center();
 			}
-			else if (loc.getCommand(&value) == RobotCommands::Delay) {
+			else if (data.getCommand(&value) == RobotCommandsAndData::Delay) {
 				ofSleepMillis(value);
 			}
 		}
-		
 	}
-	
 }
 void RobotState::sendNow() {
 	setSend();
 	write();
 }
-void RobotState::home() {
-	ofLogNotice() << "home";
-	if (is90()) {
-		set(extValBytesOffset, 88);
-	}
-	else {
-		set(extValBytesOffset, 80);
-	}
-	sendNow();
+void RobotState::send(const string &s, uint8_t cmd) {
+	ofLogNotice() << s;
+	set(extValBytesOffset, cmd);
+	sendNow(); 
 }
 void RobotState::center() {
-	ofLogNotice() << "center";
-	if (is90()) {
-		set(extValBytesOffset, 88);
-	}
-	else {
-		set(extValBytesOffset, 80);
-	}
-	sendNow();
-}
-void RobotState::sleepArm() {
-	ofLogNotice() << "sleepArm";
-	set(extValBytesOffset, 96);
-	sendNow();
-}
-void RobotState::emergencyStop() {
-	ofLogNotice() << "emergencyStop";
-	set(extValBytesOffset, 17);
-	sendNow();
-}
-void RobotState::enableMoveArm() {
-	set(extValBytesOffset, 0);
+	ofLogNotice() << "center"; //bugbug left off here
+
+	moveXleft(JointValue(valueType(armMode, X)).getMax() / 2);
+	moveYout(JointValue(valueType(armMode, Y)).getMax() / 2);
 }
 
 void RobotState::echo() {
@@ -315,10 +289,6 @@ void RobotState::write() {
 		// once it draws set to clean
 		setSend(false);
 	}
-}
-// 10 super fast, 255 slow
-void RobotState::setSpeed(uint8_t speed) {
-	set(deltaValBytesOffset, min(speed, (uint8_t)254));
 }
 
 void RobotState::moveXleft(JointValue& x, bool send) {
@@ -389,8 +359,7 @@ void RobotState::centerAllServos() {
 }
 void RobotState::setDefaults() {
 	ofLogNotice() << "setDefaults";
-	// default to IKM_IK3D_CARTESIAN
-	armMode = IKM_IK3D_CARTESIAN;
+	// assume armMode set before this function is called
 	moveXleft(JointValue(valueType(armMode, X)));
 	moveYout(JointValue(valueType(armMode, Y)));
 	moveZup(JointValue(valueType(armMode, Z)));
@@ -402,36 +371,12 @@ void RobotState::setDefaults() {
 	set(extValBytesOffset, 0);
 	enableMoveArm();
 }
-void RobotState::set3DCylindricalStraightWristAndGoHome() {
-	ofLogNotice() << "set3DCylindricalStraightWristAndGoHome";
-	armMode = IKM_CYLINDRICAL;
-	set(extValBytesOffset, 48);
-}
-
-void RobotState::set3DCartesian90DegreeWristAndGoHome() {
-	ofLogNotice() << "set3DCartesian90DegreeWristAndGoHome";
-	armMode = IKM_IK3D_CARTESIAN_90;
-	set(extValBytesOffset, 40);
-}
-//Set 3D Cartesian mode / straight wrist and go to home
-void RobotState::set3DCartesianStraightWristAndGoHome() {
-	ofLogNotice() << "set3DCartesianStraightWristAndGoHome";
+void RobotState::setStateAndGoHome(const string& s, robotArmMode mode, uint8_t cmd) {
 	reset();
-	armMode = IKM_IK3D_CARTESIAN;
-	set(extValBytesOffset, 32);
+	ofLogNotice() << s;
+	armMode = mode;
+	set(extValBytesOffset, cmd);//bugbug what should the data be?
 }
-void RobotState::set3DCylindrical90DegreeWristAndGoHome() {
-	ofLogNotice() << "set3DCylindrical90DegreeWristAndGoHome";
-	armMode = IKM_CYLINDRICAL_90;
-	set(extValBytesOffset, 56);
-}
-//backhoe not fully supported
-void RobotState::setBackhoeJointAndGoHome() {
-	ofLogNotice() << "setBackhoeJointAndGoHome";
-	armMode = IKM_BACKHOE;
-	set(extValBytesOffset, 64);
-}
-
 void RobotState::set(uint16_t high, uint16_t low, uint16_t val) {
 	set(high, highByte(val));
 	set(low, lowByte(val));
