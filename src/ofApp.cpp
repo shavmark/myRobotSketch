@@ -95,7 +95,38 @@ void JointValue::setup() {
 void JointValue::reset() {
 	valueSet = false;
 }
-int RobotState::readBytesInOneShot(unsigned char *bytes, int bytesMax) {
+// get pose data from serial port bugbug decode this
+void RobotState::readPose() {
+	if (serial.available() == 0) {
+		return;
+	}
+	int size = serial.available();
+	uint8_t *bytes = new uint8_t[size+1];
+	int i = 0;
+	for (; true; ++i) {
+		if (readBytesInOneShot(&bytes[i], 1) == 1) {
+			if (bytes[i] == '\r') {
+				i++;
+				readBytesInOneShot(&bytes[i], 1);// get other eol marker
+				i++;
+				break;
+			}
+		}
+		else {
+			break; // data is messed up, try to move on
+		}
+	}
+	bytes[i] = 0;
+	if (i == 5) { // input data is fixed size format etc, just trace stuff
+		ArmIDResponsePacket(bytes);
+	}
+	else {
+		ofLogNotice() << bytes;
+	}
+	delete bytes;
+
+}
+int RobotState::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	int result = 0;
 	if (serial.available() > 0) {
 		if ((result = serial.readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
@@ -115,7 +146,7 @@ int RobotState::readBytesInOneShot(unsigned char *bytes, int bytesMax) {
 	}
 	return result;
 }
-int RobotState::readBytes(unsigned char *bytes, int bytesRequired) {
+int RobotState::readBytes(uint8_t *bytes, int bytesRequired) {
 	int readIn = 0;
 	if (bytes) {
 		*bytes = 0;// null out to show data read
@@ -153,13 +184,9 @@ RobotCommandsAndData::RobotCommandsAndData() {
 	reset();
 }
 
-bool RobotState::ArmIDResponsePacket() {
-	// see what occured
-	clearSerial();
-	set(extValBytesOffset, 112);
-	sendNow();
-	unsigned char bytes[5];
-	if (readBytes(bytes, 5) == 5) {
+// bool readOnly -- just read serial do not send request
+bool RobotState::ArmIDResponsePacket(uint8_t *bytes) {
+	if (bytes != nullptr) {
 		armMode = (robotArmMode)bytes[2];
 		switch (armMode) {
 		case IKM_IK3D_CARTESIAN:
@@ -205,12 +232,18 @@ void RobotState::setup() {
 	ofLogNotice() << "wait for robot...";
 
 	waitForSerial();
-	unsigned char bytes[100];
-	int readin = readBytesInOneShot(bytes, strlen("Interbotix Robot Arm Online.") + 5);
-	bytes[readin] = 0;
-	ofLogNotice() << &bytes[5];
+	
+	unsigned char bytes[31];
+	int readin = readBytesInOneShot(bytes, 5);
+	if (readin == 5) {
+		ArmIDResponsePacket(bytes);
+	}
 
-	serial.flush(); // assure clean data once signed on
+	// get sign on echo from device
+	readin = readBytesInOneShot(bytes, 30);
+	bytes[readin] = 0;
+	ofLogNotice() << bytes;
+
 	set3DCartesianStraightWristAndGoHome(); // go  to a known state
 	setDefaults();
 	sendNow();
@@ -312,9 +345,6 @@ void RobotState::draw() {
 			case setArmBackhoeJointAndGoHome:
 				setBackhoeJointAndGoHome();
 				break;
-			case getArmInformation:
-				ArmIDResponsePacket(); // check response
-				break;
 			case EnableArmMovement:
 				enableMoveArm(); 
 				break;
@@ -365,11 +395,16 @@ void RobotState::write() {
 
 		ofLogNotice() << "draw, count = " << count << ", sent = " << sent;
 
-		unsigned char bytes[500];
-		if (sent = readBytesInOneShot(bytes, 500)) {
-			bytes[sent-2] = (uint8_t)0;
-			ofLogNotice() << "result data " << bytes;
-		}
+		readPose(); // pose is sent all the time
+		readPose(); // how often are two sent?
+
+		//if (!readOnly) {
+		//	unsigned char bytes[500];
+		//	if (sent = readBytesInOneShot(bytes, 500)) {
+		//		bytes[sent - 2] = (uint8_t)0;
+		//		ofLogNotice() << "result data " << bytes;
+		//	}
+		//}
 
 		// once it draws set to clean
 		setSend(false);
@@ -484,8 +519,6 @@ void RobotState::setStateAndGoHome(const string& s, robotArmMode mode, uint8_t c
 	armMode = mode;
 	set(extValBytesOffset, cmd);//bugbug what should the data be?
 	sendNow();
-	// will also wait until things are ready
-	ArmIDResponsePacket(); 
 	
 }
 void RobotState::set(uint16_t high, uint16_t low, uint16_t val) {

@@ -11,9 +11,12 @@ enum robotArmJointType {
 	X, Y, Z, wristAngle, wristRotate, gripper, delta, JointNotDefined
 };
 enum robotCommand {
-	NoArmCommand, getArmInformation, EnableArmMovement, SignOnDance, HomeArm, DelayArm, CenterArm, setArm3DCylindricalStraightWristAndGoHome, setArm3DCartesian90DegreeWristAndGoHome, setArm3DCartesianStraightWristAndGoHome, setArm3DCylindrical90DegreeWristAndGoHome, setArmBackhoeJointAndGoHome
+	NoArmCommand, EnableArmMovement, SignOnDance, HomeArm, DelayArm, CenterArm, setArm3DCylindricalStraightWristAndGoHome, setArm3DCartesian90DegreeWristAndGoHome, setArm3DCartesianStraightWristAndGoHome, setArm3DCylindrical90DegreeWristAndGoHome, setArmBackhoeJointAndGoHome
 };
-
+enum RobotTypeID {
+	// only 1 supported
+	InterbotiXPhantomXReactorArm, unknownRobotType
+};
 typedef pair<robotArmMode, robotArmJointType> valueType;
 
 // stores only valid values for specific joints
@@ -73,10 +76,7 @@ protected:
 // talks to the robot and keeps its state
 class RobotState {
 public:
-	enum ID {
-		// only 1 supported
-		InterbotiXPhantomXReactorArm
-	};
+	
 	queue <RobotCommandsAndData> path; // bugug add access wraper, use shared_ptr
 
 	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
@@ -166,21 +166,22 @@ protected:
 	void set(uint16_t offset, uint8_t b) { data[offset] = b; }
 	void setSend(bool b = true) { sendData = b; }
 	bool sendData = false; // only send data once
-	ID id;
+	RobotTypeID id;
 	void write();
-	bool ArmIDResponsePacket();
+	bool ArmIDResponsePacket(uint8_t *bytes);
 	robotArmMode armMode;
 	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
 
 private:
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	int readBytes(unsigned char *bytes, int bytesRequired = 5);
-	int readBytesInOneShot(unsigned char *bytes, int bytesMax = 100);
+	int readBytes(uint8_t *bytes, int bytesRequired = 5);
+	int readBytesInOneShot(uint8_t *bytes, int bytesMax = 100);
 	uint8_t data[count]; // data to send
 	ofSerial serial;
 	void setStateAndGoHome(const string& s, robotArmMode mode, uint8_t cmd);
 	void send(const string &s, uint8_t cmd);
+	void readPose();
 };
 
 class ofApp : public ofBaseApp{
