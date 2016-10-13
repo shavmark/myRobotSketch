@@ -36,13 +36,13 @@ public:
 	uint16_t getValue();
 	uint16_t getMin() { return minValue[type]; }
 	uint16_t getMax() { return maxValue[type]; }
-
+	static uint16_t getDelta() { return deltaDefault; }
+	void	 setDelta(uint16_t value) { deltaDefault = value; }
 protected:
 	static map<valueType, uint16_t> minValue;
 	static map<valueType, uint16_t> maxValue;
 	static map<valueType, uint16_t> defaultValue;
-	static uint16_t deltaDefault;
-
+	static uint16_t deltaDefault; // manage speed by joint
 private:
 	int32_t value=0; // default to a non fatal value 
 	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);

@@ -9,7 +9,7 @@ void JointValue::set(valueType type, uint16_t min, uint16_t max, uint16_t defaul
 map<valueType, uint16_t> JointValue::minValue;
 map<valueType, uint16_t> JointValue::maxValue;
 map<valueType, uint16_t> JointValue::defaultValue;
-uint16_t JointValue::deltaDefault;
+uint16_t JointValue::deltaDefault= 255;
 
 JointValue::JointValue(valueType type, uint16_t value) {
 	reset();
@@ -88,8 +88,6 @@ void JointValue::setup() {
 
 	set(valueType(IKM_NOT_DEFINED, JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
 	
-
-	deltaDefault = 255;
 }
 
 void JointValue::reset() {
@@ -285,11 +283,12 @@ void RobotState::update() {
 }
 
 void RobotState::dance() {
-	//setDefaults();
 	// spin nose
 	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMax());
+	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getMax());
 	sendNow();
 	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMin());
+	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getDefaultValue());
 	sendNow();
 	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax());  // go right
 	sendNow();
@@ -491,7 +490,7 @@ void RobotState::setDefaults() {
 	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getDefaultValue()); // 512
 	set(gripperHighByteOffset, gripperLowByteOffset, JointValue(valueType(armMode, gripper)).getDefaultValue()); //0
 	set(buttonByteOffset, 0);
-	set(deltaValBytesOffset, JointValue(valueType(armMode, delta)).getDefaultValue());
+	set(deltaValBytesOffset, JointValue::getDelta());
 	set(extValBytesOffset, 0);
 
 }
