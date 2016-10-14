@@ -42,34 +42,27 @@ protected:
 };
 
 
-// one instance for robot, low level data 
+// one instance for robot, low level data without range checking so only use derived classes
 class RobotJointsState {
 
 public:
-	void draw(shared_ptr<RobotSerial> serial) {
-		getChkSum();
-		echo();
-		serial->write(data, count);
-	}
-	void setData(shared_ptr<uint8_t> data) { this->data = data; set(0, 255); };
-	shared_ptr<uint8_t>getSharedData() { return data; }
-	uint8_t* getData() { return data.get(); }
+	RobotJointsState(shared_ptr<uint8_t> data) { this->data = data; }
+	void draw(shared_ptr<RobotSerial> serial);
 
-	void set(uint16_t high, uint16_t low, uint16_t val){
+	// only one data set per robot
+	static shared_ptr<uint8_t> allocateData() { return make_shared<uint8_t>(count); }
+	virtual void virtfunction() = 0;
+protected:
+	void echo();
+	void set(uint16_t high, uint16_t low, uint16_t val) {
 		set(high, highByte(val));
 		set(low, lowByte(val));
 	}
 	void set(uint16_t offset, uint8_t b);
 	void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
-	void setDelta(uint8_t value=128) { set(deltaValBytesOffset, value); }
-	void setButton(uint8_t value=0) { set(buttonByteOffset, value); }
+	void setDelta(uint8_t value = 128) { set(deltaValBytesOffset, value); }
+	void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 
-	// only one data set per robot
-	static shared_ptr<uint8_t> allocateData() { return make_shared<uint8_t>(count); }
-
-protected:
-	void echo();
-	uint8_t getChkSum();
 	void setLowLevelX(uint16_t x) { set(xHighByteOffset, xLowByteOffset, x + 512); } // no validation at this level use with care
 	void setLowLevelY(uint16_t y) { set(yHighByteOffset, yLowByteOffset, y); }
 	void setLowLevelZ(uint16_t z) { set(zHighByteOffset, zLowByteOffset, z); }
@@ -79,6 +72,7 @@ protected:
 
 	// offsets bugbug store with JointValue, set at init time via constructor but still const
 private:
+	uint8_t getChkSum();
 	static const uint16_t xHighByteOffset = 1;
 	static const uint16_t xLowByteOffset = 2;
 	static const uint16_t yHighByteOffset = 3;
@@ -99,7 +93,7 @@ private:
 
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	shared_ptr<uint8_t> data; // data to send
+	shared_ptr<uint8_t> data=nullptr; // data to send
 };
 
 // stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
@@ -107,7 +101,7 @@ class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
 	RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode);
-	RobotJoints(shared_ptr<uint8_t> data) { setData(data); } 
+	RobotJoints(shared_ptr<uint8_t> data) : RobotJointsState(data) {}
 
 	void setX(uint16_t x);
 	void setY(uint16_t y);
@@ -117,7 +111,7 @@ public:
 	void setGripper(uint16_t distance);
 	
 	void setup();
-	void oneTimeSetup();
+	shared_ptr<uint8_t> oneTimeSetup();
 
 	bool inRange(robotArmJointType type, uint16_t value);
 
@@ -146,6 +140,7 @@ private:
 	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);
 	robotArmMode armMode = IKM_IK3D_CARTESIAN;
 	RobotTypeID id;
+	void virtfunction() {};
 };
 
 class RobotMotion : protected RobotJoints {

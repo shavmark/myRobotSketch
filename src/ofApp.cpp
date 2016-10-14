@@ -13,9 +13,8 @@ void RobotJoints::set(valueType type, uint16_t min, uint16_t max, uint16_t defau
 	defaultValue[type] = defaultvalue;
 }
 
-RobotJoints::RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode) {
+RobotJoints::RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode) : RobotJointsState(data){
 	armMode = mode;
-	setData(data);
 }
 
 void RobotJoints::setX(uint16_t x) { 
@@ -49,6 +48,12 @@ void RobotJoints::setGripper(uint16_t distance) {
 	}
 }
 
+void RobotJointsState::draw(shared_ptr<RobotSerial> serial) {
+	set(0, 255); // make sure its set
+	getChkSum();
+	echo();
+	serial->write(data, count);
+}
 
 bool RobotJoints::inRange(robotArmJointType type, uint16_t value) {
 	if (value > maxValue[valueType(armMode, type)] || value < minValue[valueType(armMode, type)]) {
@@ -62,8 +67,7 @@ void RobotJoints::setup() {
 	setDefaults();
 }
 // needs to only be called one time -- uses static data to save time/space
-void RobotJoints::oneTimeSetup() {
-
+shared_ptr<uint8_t> RobotJoints::oneTimeSetup() {
 	set(valueType(IKM_IK3D_CARTESIAN, X), -300, 300, 0);
 	set(valueType(IKM_IK3D_CARTESIAN_90, X), -300, 300, 0);
 	set(valueType(IKM_CYLINDRICAL, X), 0, 1023, 512);
@@ -98,7 +102,9 @@ void RobotJoints::oneTimeSetup() {
 	set(valueType(IKM_CYLINDRICAL_90, Gripper), 0, 512, 512);
 
 	set(valueType(IKM_NOT_DEFINED, JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
-	
+
+	return allocateData();
+
 }
 
 // get pose data from serial port bugbug decode this
@@ -248,14 +254,12 @@ robotType RobotSerial::waitForRobot() {
 }
 void Robot::setup() {
 	
-	data = RobotJointsState::allocateData();
-	serial = make_shared<RobotSerial>();
-	if (!data || !serial) {
+	if (!(serial = make_shared<RobotSerial>())) {
 		ofLogFatalError() << "memory";
 		return;
 	}
 	RobotJoints jv(data);
-	jv.oneTimeSetup(); // do one time setup of static data
+	data = jv.oneTimeSetup(); // do one time setup of static data
 	
 	serial->listDevices();
 	serial->setup(1, 38400);//bugbug get from xml 
@@ -380,76 +384,6 @@ void RobotSerial::write(shared_ptr<uint8_t> data, int count) {
 
 }
 
-#ifdef DEBUG2
-void RobotState::moveXleft(JointValue& x, bool send) {
-	if (x.isSet()) {
-		//The parameters X and WristAngle both can have negative values.However all of the values transmitted via the 
-		///ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
-		//To compensate for this fact, X and WristAngle are transmitted as offset values.
-		//Add 512 to X to obtain the value to transmit over Arm Link.
-		ofLogNotice() << "moveXLeft " << x.getValue() + 512;
-		set(xHighByteOffset, xLowByteOffset, x.getValue() + 512);
-		if (send) {
-			sendNow();
-		}
-
-	}
-
-	//backhoe not supported for X
-}
-void RobotState::moveYout(JointValue& y, bool send) {
-	if (y.isSet()) {
-		ofLogNotice() << "moveYout " << y.getValue();
-		set(yHighByteOffset, yLowByteOffset, y.getValue());
-		if (send) {
-			sendNow();
-		}
-	}
-}
-void RobotState::moveZup(JointValue& z, bool send) {
-	if (z.isSet()) {
-		ofLogNotice() << "moveZup " << z.getValue();
-		set(zHighByteOffset, zLowByteOffset, z.getValue());
-		if (send) {
-			sendNow();
-		}
-	}
-}
-
-void RobotState::setWristAngledown(JointValue& a, bool send) {
-	if (a.isSet()) {
-		ofLogNotice() << "setWristAngledown " << a.getValue() + 90;
-		//The parameters X and WristAngle both can have negative values.However all of the values 
-		//transmitted via the ArmControl serial packet are unsigned bytes that are converted into unsigned integers - that is, they can only have positive values.
-		//To compensate for this fact, X and WristAngle are transmitted as offset values.
-		//Add 90 to Wrist Angle to obtain the value to transmit over Arm Link. 
-		set(wristAngleHighByteOffset, wristAngleLowByteOffset, a.getValue() + 90);
-		if (send) {
-			sendNow();
-		}
-	}
-}
-void RobotState::setWristRotate(JointValue& a, bool send) {
-	if (a.isSet()) {
-		ofLogNotice() << "setWristRotate " << a.getValue();
-		set(wristRotateHighByteOffset, wristRotateLowByteOffset, a.getValue());
-		if (send) {
-			sendNow();
-		}
-	}
-}
-// 0 close, 512 fully open
-void RobotState::openGripper(JointValue& distance, bool send) {
-	if (distance.isSet()) {
-		ofLogNotice() << "openGripper " << distance.getValue();
-		set(gripperHighByteOffset, gripperLowByteOffset, distance.getValue());
-		if (send) {
-			sendNow();
-		}
-	}
-}
-
-#endif // DEBUG2
 void RobotMotion::center() {
 	ofLogNotice() << "center"; //bugbug left off here
 
