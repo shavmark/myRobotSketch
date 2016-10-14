@@ -19,7 +19,7 @@ enum robotLowLevelCommand : uint8_t {
 };
 // high level commands
 enum robotCommand {
-	SignOnDance, DelayArm, CenterArm
+	NoRobotHighLevelCommand, SignOnDance, DelayArm, CenterArm
 };
 enum RobotTypeID {
 	// only 1 supported
@@ -125,10 +125,6 @@ public:
 	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
 	//Set 3D Cartesian mode / straight wrist and go to home
 	void setStartState(robotArmMode mode= IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd= setArm3DCartesianStraightWristAndGoHome);
-	void sanityTest(shared_ptr<RobotSerial> serial);
-	void centerAllServos(shared_ptr<RobotSerial> serial);
-	void center();
-	void dance();
 	void setDefaults();
 
 protected:
@@ -136,6 +132,7 @@ protected:
 	static map<valueType, uint16_t> maxValue;
 	static map<valueType, uint16_t> defaultValue;
 	static uint16_t deltaDefault; // manage speed
+
 private:
 	int32_t value=0; // default to a non fatal value 
 	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);
@@ -145,6 +142,23 @@ private:
 
 };
 
+class RobotMotion : protected RobotJoints {
+public:
+	RobotMotion(shared_ptr<RobotSerial> serial, shared_ptr<uint8_t> data, robotArmMode mode) :RobotJoints(data, mode) { this->serial = serial; };
+	RobotMotion(shared_ptr<RobotSerial> serial, shared_ptr<uint8_t> data) :RobotJoints(data) { this->serial = serial; }
+
+	void draw();
+	void setup() { RobotJoints::setup(); }
+	void setup(robotCommand cmd, int64_t value = 0) { RobotJoints::setup(); RobotJoints::setCommand(cmd, value);	}
+
+	// commands
+	void center();
+	void dance();
+	void sanityTest();
+	void centerAllServos();
+private:
+	shared_ptr<RobotSerial> serial;
+};
 // smallest unit of movement, move from a to b
 class Segment {
 public:
@@ -181,7 +195,8 @@ public:
 	void setup();
 	void update();
 	void reset();
-	queue <shared_ptr<RobotJoints>> path; // move to robot, move all other stuff out of here, up or down
+private:
+	queue <shared_ptr<RobotMotion>> path; // move to robot, move all other stuff out of here, up or down
 	shared_ptr<RobotSerial> serial;
 	shared_ptr<uint8_t> data = nullptr;// one data instance per robot
 	robotType type;

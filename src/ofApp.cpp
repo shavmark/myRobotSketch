@@ -251,9 +251,8 @@ void Robot::setup() {
 	
 }
 void Robot::update() {
-	shared_ptr<RobotJoints> joints = make_shared<RobotJoints>(data);
-	joints->setup();
-	joints->setCommand(SignOnDance);
+	shared_ptr<RobotMotion> joints = make_shared<RobotMotion>(serial, data);
+	joints->setup(SignOnDance);
 	path.push(joints);
 	/*
 	return;
@@ -296,52 +295,35 @@ void segment(int a, int b) {
 void line(int a, int b) {
 
 }
-void RobotJoints::dance() {
-	// spin nose
-	/*
-	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMax());
-	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getMax());
-	sendNow();
-	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMin());
-	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getDefaultValue());
-	sendNow();
-	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax());  // go right
-	sendNow();
-	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMin());  // go go left
-	sendNow();
-	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax()/2);  // center X
-	sendNow();
-	*/
+void RobotMotion::draw() {
+	if (getCommand(nullptr) == NoRobotHighLevelCommand) {
+		RobotJointsState::draw(serial);
+	}
+	else {	// process commands
+		int64_t value;
+		robotCommand cmd = getCommand(&value);
+		switch (cmd) {
+		case SignOnDance:
+			dance();
+			break;
+		case CenterArm:
+			center();
+			break;
+		case DelayArm:
+			ofSleepMillis(value);
+			break;
+		}
+	}
+
 }
 void Robot::draw() {
 	
 	while (!path.empty()) {
-		shared_ptr<RobotJoints> joints;
+		shared_ptr<RobotMotion> joints;
 		
-		joints = path.front();
+		path.front()->draw();
 		path.pop();
 
-		if (joints->getCommand(nullptr) == NoArmCommand) {
-			joints->draw(serial);
-		}
-		else {	// process commands
-			int64_t value;
-			robotCommand cmd = joints->getCommand(&value);
-			switch (cmd) {
-			case HomeArm:
-				joints->setLowLevelCommand(HomeArm);
-				break; 
-			case SignOnDance:
-				joints->dance();
-				break;
-			case CenterArm:
-				joints->center();
-				break;
-			case DelayArm:
-				ofSleepMillis(value);
-				break;
-			}
-		}
 	}
 }
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
@@ -349,12 +331,6 @@ void RobotJointsState::set(uint16_t offset, uint8_t b) {
 	data.get()[offset] = b; 
 }
 
-void RobotJoints::center() {
-	ofLogNotice() << "center"; //bugbug left off here
-
-	//moveXleft(JointValue(valueType(armMode, X)).getMax() / 2);
-	//moveYout(JointValue(valueType(armMode, Y)).getMax() / 2);
-}
 
 void RobotJointsState::echo() {
 	for (int i = 0; i < count; ++i) {
@@ -459,7 +435,49 @@ void RobotState::openGripper(JointValue& distance, bool send) {
 }
 
 #endif // DEBUG2
-void RobotJoints::centerAllServos(shared_ptr<RobotSerial> serial) {
+void RobotMotion::center() {
+	ofLogNotice() << "center"; //bugbug left off here
+
+							   //moveXleft(JointValue(valueType(armMode, X)).getMax() / 2);
+							   //moveYout(JointValue(valueType(armMode, Y)).getMax() / 2);
+}
+
+void RobotMotion::dance() {
+	// spin nose
+	/*
+	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMax());
+	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getMax());
+	sendNow();
+	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMin());
+	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getDefaultValue());
+	sendNow();
+	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax());  // go right
+	sendNow();
+	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMin());  // go go left
+	sendNow();
+	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax()/2);  // center X
+	sendNow();
+	*/
+}
+
+// set basic data that moves a little bit after starting up
+void RobotMotion::sanityTest() {
+	ofLogNotice() << "sanityTest";
+	setStartState();
+	draw();
+	setX(512);
+	setY(150);
+	setZ(150);
+	setWristAngle(90);
+	setWristRotate(512);
+	setGripper(0);
+	setLowLevelCommand(NoArmCommand);
+	setDelta(128);
+	setButton();
+	draw();
+}
+
+void RobotMotion::centerAllServos() {
 	ofLogNotice() << "centerAllServos";
 	setStartState(IKM_BACKHOE, setArmBackhoeJointAndGoHome);
 	setX(512);
@@ -469,7 +487,7 @@ void RobotJoints::centerAllServos(shared_ptr<RobotSerial> serial) {
 	setWristRotate(512);
 	setGripper(512);
 	setDelta(128);
-	draw(serial);
+	draw();
 }
 // "home" and set data matching state
 void RobotJoints::setDefaults() {
@@ -483,22 +501,6 @@ void RobotJoints::setDefaults() {
 	setLowLevelCommand(NoArmCommand);
 	setDelta(getDeltaDefault());
 	setButton();
-}
-// set basic data that moves a little bit after starting up
-void RobotJoints::sanityTest(shared_ptr<RobotSerial> serial) {
-	ofLogNotice() << "sanityTest";
-	setStartState();
-	draw(serial);
-	setX(512);
-	setY(150);
-	setZ(150);
-	setWristAngle(90);
-	setWristRotate(512);
-	setGripper(0);
-	setLowLevelCommand(NoArmCommand);
-	setDelta(128);
-	setButton();
-	draw(serial);
 }
 void Robot::reset() { 
 	while (!path.empty()) { 
