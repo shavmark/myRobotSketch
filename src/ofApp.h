@@ -2,6 +2,8 @@
 
 #include "ofMain.h"
 
+//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
+
 // from firmware
 enum robotArmMode {
 	//IKM_BACKHOE not 100% supported
@@ -18,21 +20,30 @@ enum RobotTypeID {
 	InterbotiXPhantomXReactorArm, unknownRobotType
 };
 typedef pair<robotArmMode, robotArmJointType> valueType;
+typedef pair<robotArmMode, RobotTypeID> robotType;
 
 class RobotSerial : public ofSerial {
 public:
 	void waitForSerial() { while (1) if (available() > 0) { return; } }
 	void clearSerial() { flush(); }
+	int readBytes(uint8_t *bytes, int bytesRequired = 5);
+	int readBytesInOneShot(uint8_t *bytes, int bytesMax = 100);
+	void readPose();
+	void write();
+	robotType ArmIDResponsePacket(uint8_t *bytes);
+
 };
 
 
-// one instance for robot
+// one instance for robot, low level data 
 class RobotJointsState {
 
 public:
+	void draw(shared_ptr<RobotSerial> serial) {
+		serial->write();
+	}
 
 	void setData(shared_ptr<uint8_t> data) { this->data = data; set(0, 255); };
-	void setSerial(shared_ptr<RobotSerial> serial) { this->serial = serial; }
 	shared_ptr<uint8_t>getSharedData() { return data; }
 	uint8_t* getData() { return data.get(); }
 
@@ -50,13 +61,7 @@ public:
 protected:
 
 	void echo();
-	void sendNow();
-	void send(const string &s, uint8_t cmd);
-	void setSend(bool b = true) { sendData = b; }
-	bool sendData = false; // only send data once
-	int readBytes(uint8_t *bytes, int bytesRequired = 5);
-	int readBytesInOneShot(uint8_t *bytes, int bytesMax = 100);
-	void readPose();
+	void setCommand(const string &s, uint8_t cmd);
 
 	// offsets bugbug store with JointValue, set at init time via constructor but still const
 	static const uint16_t xHighByteOffset = 1;
@@ -77,14 +82,12 @@ protected:
 	static const uint16_t checksum = 16;
 	static const uint16_t count = 17;
 
-	shared_ptr<uint8_t> data; // data to send
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	void write();
-	shared_ptr<RobotSerial> serial = nullptr;
+	shared_ptr<uint8_t> data; // data to send
 };
 
-// stores only valid values for specific joints
+// stores only valid values for specific joints, does validation, defaults and other things
 class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
@@ -100,9 +103,6 @@ public:
 	void home() { send("home", is90() ? 88 : 80); }
 	void sleepArm() { send("sleepArm", 96); }
 	void emergencyStop() { send("emergencyStop", 17); }
-	void draw() {
-		sendNow();
-	}
 	void reset();
 	void setup();
 	bool inRange(robotArmJointType type, uint16_t value);
@@ -118,7 +118,6 @@ public:
 	void setCommand(robotCommand command, int64_t value = 0) { cmd = pair<robotCommand, int64_t>(command, value); }
 	robotCommand getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
 	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
-	bool ArmIDResponsePacket(uint8_t *bytes);
 
 protected:
 	static map<valueType, uint16_t> minValue;
@@ -165,14 +164,11 @@ public:
 class RobotState {
 public:
 	
-	queue <shared_ptr<RobotJoints>> path;
 
-	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	void setup();
 	void update();
 	void draw();
 	void reset();
-	void waitForRobot();
 	void center();
 	void dance();
 	void setDefaults();
@@ -202,17 +198,20 @@ protected:
 private:
 	void setStateAndGoHome(const string& s, robotArmMode mode, uint8_t cmd);
 	
-	shared_ptr<RobotSerial> serial=nullptr; // how we talk to each other
-	shared_ptr<uint8_t> data=nullptr;// one data instance per robot
 };
 
 // the robot itself
 class Robot : RobotState {
 public:
 	Robot() {
-		
+		serial = make_shared<RobotSerial>();
 	}
+	void waitForRobot();
 
+	queue <shared_ptr<RobotJoints>> path; // move to robot, move all other stuff out of here, up or down
+	shared_ptr<RobotSerial> serial;
+	shared_ptr<uint8_t> data = nullptr;// one data instance per robot
+	robotType type;
 };
 
 

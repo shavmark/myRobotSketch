@@ -89,11 +89,11 @@ void RobotJoints::reset() {
 	valueSet = false;
 }
 // get pose data from serial port bugbug decode this
-void RobotJointsState::readPose() {
-	if (serial->available() == 0) {
+void RobotSerial::readPose() {
+	if (available() == 0) {
 		return;
 	}
-	int size = serial->available();
+	int size = available();
 	uint8_t *bytes = new uint8_t[size+1];
 	int i = 0;
 	for (; true; ++i) {
@@ -119,10 +119,10 @@ void RobotJointsState::readPose() {
 	delete bytes;
 
 }
-int RobotJointsState::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
+int RobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	int result = 0;
-	if (serial->available() > 0) {
-		if ((result = serial->readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
+	if (available() > 0) {
+		if ((result = readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
 			ofLogError() << "serial failed";
 			return 0;
 		}
@@ -139,7 +139,7 @@ int RobotJointsState::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	}
 	return result;
 }
-int RobotJointsState::readBytes(uint8_t *bytes, int bytesRequired) {
+int RobotSerial::readBytes(uint8_t *bytes, int bytesRequired) {
 	int readIn = 0;
 	if (bytes) {
 		*bytes = 0;// null out to show data read
@@ -147,11 +147,11 @@ int RobotJointsState::readBytes(uint8_t *bytes, int bytesRequired) {
 		// loop until we've read everything
 		while (bytesRemaining > 0) {
 			// check for data
-			if (serial->available() > 0) {
+			if (available() > 0) {
 				// try to read - note offset into the bytes[] array, this is so
 				// that we don't overwrite the bytes we already have
 				int bytesArrayOffset = bytesRequired - bytesRemaining;
-				int result = serial.readBytes(&bytes[bytesArrayOffset],	bytesRemaining);
+				int result = readBytes(&bytes[bytesArrayOffset],	bytesRemaining);
 
 				// check for error code
 				if (result == OF_SERIAL_ERROR) {
@@ -175,9 +175,9 @@ int RobotJointsState::readBytes(uint8_t *bytes, int bytesRequired) {
 }
 
 // bool readOnly -- just read serial do not send request
-bool RobotJoints::ArmIDResponsePacket(uint8_t *bytes) {
+robotType RobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
 	if (bytes != nullptr) {
-		armMode = (robotArmMode)bytes[2];
+		robotArmMode armMode = (robotArmMode)bytes[2];
 		switch (armMode) {
 		case IKM_IK3D_CARTESIAN:
 			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN";
@@ -195,34 +195,42 @@ bool RobotJoints::ArmIDResponsePacket(uint8_t *bytes) {
 			ofLogNotice() << "arm mode IKM_BACKHOE mode?";
 			break;
 		}
+		RobotTypeID id= unknownRobotType;
 		switch (bytes[1]) {
 		case 2:
 			id = InterbotiXPhantomXReactorArm;
 			ofLogNotice() << "InterbotiXPhantomXReactorArm";
 			break;
 		}
-		return true;
+		return robotType(armMode, id);
 	}
-	return false;
+	return robotType(IKM_NOT_DEFINED, unknownRobotType);
 }
 void RobotJoints::reset() {
 	setCommand(NoArmCommand);
 }
-void RobotJoints::waitForRobot() {
+void Robot::waitForRobot() {
 	ofLogNotice() << "wait for robot...";
+	if (serial) {
+		serial->waitForSerial();
 
-	serial->waitForSerial();
+		unsigned char bytes[31];
+		int readin = serial->readBytesInOneShot(bytes, 5);
+		if (readin == 5) {
+			type = serial->ArmIDResponsePacket(bytes);
+			if (type.first == IKM_NOT_DEFINED) {
+				ofLogError() << "invalid robot type";
+			}
+		}
+		else {
+			ofLogError() << "invalid robot sign on";
+		}
 
-	unsigned char bytes[31];
-	int readin = readBytesInOneShot(bytes, 5);
-	if (readin == 5) {
-		ArmIDResponsePacket(bytes);
+		// get sign on echo from device
+		readin = serial->readBytesInOneShot(bytes, 30);
+		bytes[readin] = 0;
+		ofLogNotice() << bytes;
 	}
-
-	// get sign on echo from device
-	readin = readBytesInOneShot(bytes, 30);
-	bytes[readin] = 0;
-	ofLogNotice() << bytes;
 
 }
 void RobotState::setup() {
@@ -349,15 +357,9 @@ void RobotState::draw() {
 		}
 	}
 }
-void RobotJointsState::sendNow() {
-	setSend();
-	write();
-
-}
-void RobotJointsState::send(const string &s, uint8_t cmd) {
+void RobotJointsState::setCommand(const string &s, uint8_t cmd) {
 	ofLogNotice() << s;
 	set(extValBytesOffset, cmd);
-	sendNow(); 
 }
 void RobotState::center() {
 	ofLogNotice() << "center"; //bugbug left off here
