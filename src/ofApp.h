@@ -8,7 +8,7 @@ enum robotArmMode {
 	IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED
 };
 enum robotArmJointType {
-	X, Y, Z, wristAngle, wristRotate, gripper, delta, JointNotDefined
+	X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined
 };
 enum robotCommand {
 	NoArmCommand, EnableArmMovement, SignOnDance, HomeArm, DelayArm, CenterArm, setArm3DCylindricalStraightWristAndGoHome, setArm3DCartesian90DegreeWristAndGoHome, setArm3DCartesianStraightWristAndGoHome, setArm3DCylindrical90DegreeWristAndGoHome, setArmBackhoeJointAndGoHome
@@ -19,132 +19,46 @@ enum RobotTypeID {
 };
 typedef pair<robotArmMode, robotArmJointType> valueType;
 
-// stores only valid values for specific joints
-class JointValue {
+class RobotSerial : public ofSerial {
 public:
-
-	JointValue(valueType type, uint16_t value);
-	JointValue(valueType type);
-	JointValue();
-	void reset();
-	void setup();
-	bool inRange(uint16_t value);
-	int32_t operator=(uint16_t value) {set(value);return value;}
-	void set(uint16_t value);
-	bool isSet() { return valueSet; }
-	uint16_t getDefaultValue() {	return defaultValue[type];}
-	uint16_t getValue();
-	uint16_t getMin() { return minValue[type]; }
-	uint16_t getMax() { return maxValue[type]; }
-	static uint16_t getDelta() { return deltaDefault; }
-	void	 setDelta(uint16_t value) { deltaDefault = value; }
-protected:
-	static map<valueType, uint16_t> minValue;
-	static map<valueType, uint16_t> maxValue;
-	static map<valueType, uint16_t> defaultValue;
-	static uint16_t deltaDefault; // manage speed by joint
-private:
-	int32_t value=0; // default to a non fatal value 
-	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);
-	bool valueSet; // value not yet set
-	valueType type;
+	void waitForSerial() { while (1) if (available() > 0) { return; } }
+	void clearSerial() { flush(); }
 };
 
-// drives the robot, data can come from any source 
-class RobotCommandsAndData {
+
+// one instance for robot
+class RobotJointsState {
+
 public:
 
-	RobotCommandsAndData();
+	void setData(shared_ptr<uint8_t> data) { this->data = data; set(0, 255); };
+	void setSerial(shared_ptr<RobotSerial> serial) { this->serial = serial; }
+	shared_ptr<uint8_t>getSharedData() { return data; }
+	uint8_t* getData() { return data.get(); }
 
-	void setXleft(int32_t x) { locations[X] = x; }
-	void setYout(int32_t y) { locations[Y] = y; }
-	void setZup(int32_t z) { locations[Z] = z; }
-	void setWristAngledown(int a) { locations[wristAngle] = a; }
-	void setWristRotate(int32_t a) { locations[wristRotate] = a; }
-	void openGripper(uint16_t distance = 512) { locations[gripper] = distance; }
-	void reset();
-
-	void setCommand(robotCommand command, int64_t value=0) { cmd = pair<robotCommand, int64_t>(command, value); }
-	robotCommand getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
-	JointValue& get(robotArmJointType jointType) { return locations[jointType]; }
-protected:
-	pair<robotCommand, int64_t> cmd;
-	map<robotArmJointType, JointValue> locations;
-
-};
-
-// talks to the robot and keeps its state
-class RobotState {
-public:
-	
-	queue <RobotCommandsAndData> path; // bugug add access wraper, use shared_ptr
-
-	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
-	void setup();
-	void update();
-	void draw();
-	void reset();
-	void home() {	send("home", is90() ? 88 : 80);}
-	void sleepArm() {	send("sleepArm", 96);}
-	void emergencyStop() {	send("emergencyStop", 17);	}
-	void enableMoveArm() {		set(extValBytesOffset, 0);	}
-	// 10 super fast, 255 slow
-	void setSpeed(uint8_t speed = 128) {	set(deltaValBytesOffset, speed);	}
-	void setDefaults();
-
-	void center();
-	void dance();
-
-	// home 0xff 0x2 0x0 0x0 0x96 0x0 0x96 0x0 0x5a 0x2 0x0 0x1 0x0 0x80 0x0 0x0 0xf4
-	//Set 3D Cartesian mode / straight wrist and go to home
-	void RobotState::set3DCylindricalStraightWristAndGoHome() {
-		setStateAndGoHome("set3DCylindricalStraightWristAndGoHome", IKM_CYLINDRICAL, 48);
+	void set(uint16_t high, uint16_t low, uint16_t val){
+		set(high, highByte(val));
+		set(low, lowByte(val));
 	}
-	void RobotState::set3DCartesian90DegreeWristAndGoHome() {
-		setStateAndGoHome("set3DCartesian90DegreeWristAndGoHome", IKM_IK3D_CARTESIAN_90, 40);
-	}
-	//Set 3D Cartesian mode / straight wrist and go to home
-	void RobotState::set3DCartesianStraightWristAndGoHome() {
-		setStateAndGoHome("set3DCartesianStraightWristAndGoHome", IKM_IK3D_CARTESIAN, 32);
-	}
-	void RobotState::set3DCylindrical90DegreeWristAndGoHome() {
-		setStateAndGoHome("set3DCylindrical90DegreeWristAndGoHome", IKM_CYLINDRICAL_90, 56);
-	}
-	//backhoe not fully supported
-	void RobotState::setBackhoeJointAndGoHome() {
-		setStateAndGoHome("setBackhoeJointAndGoHome", IKM_BACKHOE, 64);
-	}
-	void sanityTest();
-	void centerAllServos();
+	void set(uint16_t offset, uint8_t b) { data.get()[offset] = b; }
+	void setEnableMoveArm() { set(extValBytesOffset, 0); }
+	void setSpeed(uint8_t speed = 128) { set(deltaValBytesOffset, speed); }
+
+	// only one data set per robot
+	static shared_ptr<uint8_t> allocateData() { return make_shared<uint8_t>(count); }
 
 protected:
-	// push a copy of data then reset existing data so it can be used again
-	void pushAndClearCommand(RobotCommandsAndData &data) { path.push(data); data.reset();}
-	void waitForSerial() {	while(1) if (serial.available() > 0) { return; }	}
-	void clearSerial() { serial.flush(); }
+
 	void echo();
 	void sendNow();
-	void moveXleft(JointValue& x, bool send = false);
-	void moveXleft(int32_t x, bool send = false) { moveXleft(JointValue(valueType(armMode, X), x), send); };
+	void send(const string &s, uint8_t cmd);
+	void setSend(bool b = true) { sendData = b; }
+	bool sendData = false; // only send data once
+	int readBytes(uint8_t *bytes, int bytesRequired = 5);
+	int readBytesInOneShot(uint8_t *bytes, int bytesMax = 100);
+	void readPose();
 
-	void moveYout(JointValue& y, bool send = false);
-	void moveYout(int32_t y, bool send = false) { moveYout(JointValue(valueType(armMode, Y), y), send); };
-
-	void moveZup(JointValue& z, bool send = false);
-	void moveZup(int32_t z, bool send = false) { moveZup(JointValue(valueType(armMode, Z), z), send); };
-
-
-	void setWristAngledown(JointValue& a, bool send = false);
-	void setWristAngledown(int32_t a, bool send = false) { setWristAngledown(JointValue(valueType(armMode, wristAngle), a), send); };
-
-	void setWristRotate(JointValue& a, bool send = false);
-	void setWristRotate(int32_t a, bool send = false) { setWristRotate(JointValue(valueType(armMode, wristRotate), a), send); };
-
-	void openGripper(JointValue& distance, bool send = false);
-	void openGripper(int32_t distance, bool send = false) { openGripper(JointValue(valueType(armMode, gripper), distance), send); };
-
-
-	// offsets
+	// offsets bugbug store with JointValue, set at init time via constructor but still const
 	static const uint16_t xHighByteOffset = 1;
 	static const uint16_t xLowByteOffset = 2;
 	static const uint16_t yHighByteOffset = 3;
@@ -162,27 +76,145 @@ protected:
 	static const uint16_t extValBytesOffset = 15;
 	static const uint16_t checksum = 16;
 	static const uint16_t count = 17;
-	void set(uint16_t high, uint16_t low, uint16_t val);
-	void set(uint16_t offset, uint8_t b) { data[offset] = b; }
-	void setSend(bool b = true) { sendData = b; }
-	bool sendData = false; // only send data once
-	RobotTypeID id;
-	void write();
-	bool ArmIDResponsePacket(uint8_t *bytes);
-	robotArmMode armMode;
-	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
 
-private:
+	shared_ptr<uint8_t> data; // data to send
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	int readBytes(uint8_t *bytes, int bytesRequired = 5);
-	int readBytesInOneShot(uint8_t *bytes, int bytesMax = 100);
-	uint8_t data[count]; // data to send
-	ofSerial serial;
-	void setStateAndGoHome(const string& s, robotArmMode mode, uint8_t cmd);
-	void send(const string &s, uint8_t cmd);
-	void readPose();
+	void write();
+	shared_ptr<RobotSerial> serial = nullptr;
 };
+
+// stores only valid values for specific joints
+class RobotJoints : public RobotJointsState {
+public:
+	// constructor required
+	RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode);
+	RobotJoints(shared_ptr<uint8_t> data) { setData(data); } 
+
+	void setX(uint16_t x) { set(X, x); };
+	void setY(uint16_t y) { set(Y, y); };
+	void setZ(uint16_t z) { set(Z, z); };
+	void setWristAngle(uint16_t a) { set(wristAngle, a); };
+	void setWristRotate(uint16_t a) { set(wristRotate, a); };
+	void setGripper(uint16_t distance) { set(wristRotate, Gripper); };
+	void home() { send("home", is90() ? 88 : 80); }
+	void sleepArm() { send("sleepArm", 96); }
+	void emergencyStop() { send("emergencyStop", 17); }
+	void draw() {
+		sendNow();
+	}
+	void reset();
+	void setup();
+	bool inRange(robotArmJointType type, uint16_t value);
+	void set(robotArmJointType type, uint16_t value);
+	bool isSet() { return valueSet; }
+	uint16_t getDefaultValue(robotArmJointType type) {	return defaultValue[valueType(armMode, type)];}
+	uint16_t getValue(robotArmJointType type);
+	uint16_t getMin(robotArmJointType type) { return minValue[valueType(armMode, type)]; }
+	uint16_t getMax(robotArmJointType type) { return maxValue[valueType(armMode, type)]; }
+	static uint16_t getDelta() { return deltaDefault; }
+	void	 setDelta(uint16_t value) { deltaDefault = value; }
+	pair<robotCommand, int64_t> cmd;
+	void setCommand(robotCommand command, int64_t value = 0) { cmd = pair<robotCommand, int64_t>(command, value); }
+	robotCommand getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
+	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
+	bool ArmIDResponsePacket(uint8_t *bytes);
+
+protected:
+	static map<valueType, uint16_t> minValue;
+	static map<valueType, uint16_t> maxValue;
+	static map<valueType, uint16_t> defaultValue;
+	static uint16_t deltaDefault; // manage speed
+private:
+	int32_t value=0; // default to a non fatal value 
+	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);
+	bool valueSet=false; // value not yet set
+	robotArmMode armMode = IKM_IK3D_CARTESIAN;
+	RobotTypeID id;
+
+};
+
+// smallest unit of movement, move from a to b
+class Segment {
+public:
+	void setup() {};
+	void draw() {
+		// go to a, if a is not set just go to b
+		// draw b
+	};
+
+private:
+	RobotJoints a;
+	RobotJoints b;
+};
+
+// can take any shape, much like a line a human would draw, just connects the dots so to speak
+class Line {
+public:
+	void setup() {};
+	void draw() {
+		for (auto& segment : line) {
+			segment.draw();
+		}
+	};
+
+	vector <Segment> line; 
+};
+
+// talks to the robot and keeps its state
+class RobotState {
+public:
+	
+	queue <shared_ptr<RobotJoints>> path;
+
+	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
+	void setup();
+	void update();
+	void draw();
+	void reset();
+	void waitForRobot();
+	void center();
+	void dance();
+	void setDefaults();
+
+	//Set 3D Cartesian mode / straight wrist and go to home
+	void set3DCylindricalStraightWristAndGoHome() {
+		setStateAndGoHome("set3DCylindricalStraightWristAndGoHome", IKM_CYLINDRICAL, 48);
+	}
+	void set3DCartesian90DegreeWristAndGoHome() {
+		setStateAndGoHome("set3DCartesian90DegreeWristAndGoHome", IKM_IK3D_CARTESIAN_90, 40);
+	}
+	void set3DCartesianStraightWristAndGoHome() {
+		setStateAndGoHome("set3DCartesianStraightWristAndGoHome", IKM_IK3D_CARTESIAN, 32);
+	}
+	void set3DCylindrical90DegreeWristAndGoHome() {
+		setStateAndGoHome("set3DCylindrical90DegreeWristAndGoHome", IKM_CYLINDRICAL_90, 56);
+	}
+	//backhoe not fully supported
+	void setBackhoeJointAndGoHome() {
+		setStateAndGoHome("setBackhoeJointAndGoHome", IKM_BACKHOE, 64);
+	}
+	void sanityTest();
+	void centerAllServos();
+
+protected:
+
+private:
+	void setStateAndGoHome(const string& s, robotArmMode mode, uint8_t cmd);
+	
+	shared_ptr<RobotSerial> serial=nullptr; // how we talk to each other
+	shared_ptr<uint8_t> data=nullptr;// one data instance per robot
+};
+
+// the robot itself
+class Robot : RobotState {
+public:
+	Robot() {
+		
+	}
+
+};
+
 
 class ofApp : public ofBaseApp{
 

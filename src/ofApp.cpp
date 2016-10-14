@@ -1,56 +1,51 @@
 #include "ofApp.h"
 #include <algorithm> 
 
-void JointValue::set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue) {
+// shared across all robots and joints
+map<valueType, uint16_t> RobotJoints::minValue;
+map<valueType, uint16_t> RobotJoints::maxValue;
+map<valueType, uint16_t> RobotJoints::defaultValue;
+uint16_t RobotJoints::deltaDefault = 255;
+
+void RobotJoints::set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue) {
 	minValue[type] = min;
 	maxValue[type] = max;
 	defaultValue[type] = defaultvalue;
 }
-map<valueType, uint16_t> JointValue::minValue;
-map<valueType, uint16_t> JointValue::maxValue;
-map<valueType, uint16_t> JointValue::defaultValue;
-uint16_t JointValue::deltaDefault= 255;
 
-JointValue::JointValue(valueType type, uint16_t value) {
+RobotJoints::RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode) {
 	reset();
-	set(value);
-	this->type = type;
+	armMode = mode;
+	setData(data);
 }
-JointValue::JointValue(valueType type) {
-	reset();
-	this->type = type;
-}
-JointValue::JointValue() {
-	this->type = valueType(IKM_NOT_DEFINED, JointNotDefined);
-}
-void JointValue::set(uint16_t value) {
-	if (inRange(value)) {
+void RobotJoints::set(robotArmJointType type, uint16_t value) {
+	if (inRange(type, value)) {
 		this->value = value;
 		valueSet = true;
 	}
 }
-uint16_t JointValue::getValue() {
+uint16_t RobotJoints::getValue(robotArmJointType type) {
 	if (isSet()) {
 		return value;
 	}
 	// else return value, do a fail safe check here too
-	if (defaultValue[type] < -300) {
+	if (defaultValue[valueType(armMode, type)] < -300) {
 		ofLogError() << "invalid data";
 		return 0;// fail safe
 	}
-	return defaultValue[type];
+	return defaultValue[valueType(armMode, type)];
 }
 
-bool JointValue::inRange(uint16_t value) {
-	if (value > maxValue[type] || value < minValue[type]) {
-		ofLogError() << "out of range " << value << " (" << minValue[type] << ", " << maxValue[type] << ")";
+bool RobotJoints::inRange(robotArmJointType type, uint16_t value) {
+	if (value > maxValue[valueType(armMode, type)] || value < minValue[valueType(armMode, type)]) {
+		ofLogError() << "out of range " << value << " (" << minValue[valueType(armMode, type)] << ", " << maxValue[valueType(armMode, type)] << ")";
 		return false;
 	}
 	return true;
 }
 
 // needs to only be called one time -- uses static data to save time/space
-void JointValue::setup() { 
+void RobotJoints::setup() {
 	reset();
 
 	set(valueType(IKM_IK3D_CARTESIAN, X), -300, 300, 0);
@@ -81,24 +76,24 @@ void JointValue::setup() {
 	set(valueType(IKM_CYLINDRICAL, wristRotate), 0, 1023, 512);
 	set(valueType(IKM_CYLINDRICAL_90, wristRotate), 0, 1023, 512);
 
-	set(valueType(IKM_IK3D_CARTESIAN, gripper), 0, 512, 512);
-	set(valueType(IKM_IK3D_CARTESIAN_90, gripper), 0, 512, 512);
-	set(valueType(IKM_CYLINDRICAL, gripper), 0, 512, 512);
-	set(valueType(IKM_CYLINDRICAL_90, gripper), 0, 512, 512);
+	set(valueType(IKM_IK3D_CARTESIAN, Gripper), 0, 512, 512);
+	set(valueType(IKM_IK3D_CARTESIAN_90, Gripper), 0, 512, 512);
+	set(valueType(IKM_CYLINDRICAL, Gripper), 0, 512, 512);
+	set(valueType(IKM_CYLINDRICAL_90, Gripper), 0, 512, 512);
 
 	set(valueType(IKM_NOT_DEFINED, JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
 	
 }
 
-void JointValue::reset() {
+void RobotJoints::reset() {
 	valueSet = false;
 }
 // get pose data from serial port bugbug decode this
-void RobotState::readPose() {
-	if (serial.available() == 0) {
+void RobotJointsState::readPose() {
+	if (serial->available() == 0) {
 		return;
 	}
-	int size = serial.available();
+	int size = serial->available();
 	uint8_t *bytes = new uint8_t[size+1];
 	int i = 0;
 	for (; true; ++i) {
@@ -124,10 +119,10 @@ void RobotState::readPose() {
 	delete bytes;
 
 }
-int RobotState::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
+int RobotJointsState::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	int result = 0;
-	if (serial.available() > 0) {
-		if ((result = serial.readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
+	if (serial->available() > 0) {
+		if ((result = serial->readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
 			ofLogError() << "serial failed";
 			return 0;
 		}
@@ -144,7 +139,7 @@ int RobotState::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	}
 	return result;
 }
-int RobotState::readBytes(uint8_t *bytes, int bytesRequired) {
+int RobotJointsState::readBytes(uint8_t *bytes, int bytesRequired) {
 	int readIn = 0;
 	if (bytes) {
 		*bytes = 0;// null out to show data read
@@ -152,7 +147,7 @@ int RobotState::readBytes(uint8_t *bytes, int bytesRequired) {
 		// loop until we've read everything
 		while (bytesRemaining > 0) {
 			// check for data
-			if (serial.available() > 0) {
+			if (serial->available() > 0) {
 				// try to read - note offset into the bytes[] array, this is so
 				// that we don't overwrite the bytes we already have
 				int bytesArrayOffset = bytesRequired - bytesRemaining;
@@ -178,12 +173,9 @@ int RobotState::readBytes(uint8_t *bytes, int bytesRequired) {
 	}
 	return readIn;
 }
-RobotCommandsAndData::RobotCommandsAndData() {
-	reset();
-}
 
 // bool readOnly -- just read serial do not send request
-bool RobotState::ArmIDResponsePacket(uint8_t *bytes) {
+bool RobotJoints::ArmIDResponsePacket(uint8_t *bytes) {
 	if (bytes != nullptr) {
 		armMode = (robotArmMode)bytes[2];
 		switch (armMode) {
@@ -213,24 +205,14 @@ bool RobotState::ArmIDResponsePacket(uint8_t *bytes) {
 	}
 	return false;
 }
-void RobotCommandsAndData::reset() {
+void RobotJoints::reset() {
 	setCommand(NoArmCommand);
-	for (auto &location : locations) {
-		location.second.reset();
-	}
 }
-void RobotState::setup() {
-	
-	JointValue jv;
-	jv.setup(); // do one time setup
-	data[0] = 255;
-	serial.listDevices();
-	serial.setup(1, 38400);//bugbug get from xml 
-
+void RobotJoints::waitForRobot() {
 	ofLogNotice() << "wait for robot...";
 
-	waitForSerial();
-	
+	serial->waitForSerial();
+
 	unsigned char bytes[31];
 	int readin = readBytesInOneShot(bytes, 5);
 	if (readin == 5) {
@@ -241,33 +223,50 @@ void RobotState::setup() {
 	readin = readBytesInOneShot(bytes, 30);
 	bytes[readin] = 0;
 	ofLogNotice() << bytes;
+
+}
+void RobotState::setup() {
+	
+	data = RobotJointsState::allocateData();
+	if (!data) {
+		ofLogFatalError() << "memory";
+		return;
+	}
+	RobotJoints jv(data);
+	jv.setup(); // do one time setup of static data
+	
+	serial->listDevices();
+	serial->setup(1, 38400);//bugbug get from xml 
+	waitForRobot();
+
 	set3DCartesianStraightWristAndGoHome(); // go  to a known state
 	setDefaults();
 }
 void RobotState::update() {
-	RobotCommandsAndData data;
-	data.setCommand(SignOnDance);
-	pushAndClearCommand(data);
+	shared_ptr<RobotJoints> joints = make_shared<RobotJoints>(data);
+	joints->setCommand(SignOnDance);
+	path.push(joints);
+	/*
 	return;
 	data.setCommand(EnableArmMovement);
-	data.setYout(50);
+	data.setY(50);
 	path.push(data);
 	data.reset();
-	data.setYout(350);
+	data.setY(350);
 	path.push(data);
 	return;
 	data.reset();
-	data.setXleft(10); // 300 max 60 units covers about 3", 20 units is .75" so given the arch its not just inches
-	data.setYout(350);
+	data.setX(10); // 300 max 60 units covers about 3", 20 units is .75" so given the arch its not just inches
+	data.setY(350);
 	path.push(data);
 	data.reset();
-	data.setZup(250);
-	data.setXleft(-10); // -300 max
+	data.setZ(250);
+	data.setX(-10); // -300 max
 	path.push(data);
 	data.reset();
 	data.setCommand(DelayArm, 1000);
 	path.push(data);
-	/*
+	
 	loc.reset();
 	loc.moveYout(260);
 	loc.moveZup(250);
@@ -282,6 +281,12 @@ void RobotState::update() {
 	*/
 }
 
+void segment(int a, int b) {
+
+}
+void line(int a, int b) {
+
+}
 void RobotState::dance() {
 	// spin nose
 	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMax());
@@ -301,23 +306,20 @@ void RobotState::dance() {
 void RobotState::draw() {
 	
 	while (!path.empty()) {
-		RobotCommandsAndData data;
+		shared_ptr<RobotJoints> joints;
 		
-		data = path.front();
+		joints = path.front();
 		path.pop();
 
-		if (data.getCommand(nullptr) == NoArmCommand) {
-			moveXleft(data.get(robotArmJointType::X));
-			moveYout(data.get(robotArmJointType::Y));
-			moveZup(data.get(robotArmJointType::Z));
-			sendNow();
+		if (joints->getCommand(nullptr) == NoArmCommand) {
+			joints->draw();
 		}
 		else {	// process commands
 			int64_t value;
-			robotCommand cmd = data.getCommand(&value);
+			robotCommand cmd = joints->getCommand(&value);
 			switch (cmd) {
 			case HomeArm:
-				home();
+				joints->home();
 				break; 
 			case SignOnDance:
 				dance();
@@ -343,20 +345,16 @@ void RobotState::draw() {
 			case setArmBackhoeJointAndGoHome:
 				setBackhoeJointAndGoHome();
 				break;
-			case EnableArmMovement:
-				enableMoveArm(); 
-				break;
-				
 			}
 		}
 	}
 }
-void RobotState::sendNow() {
+void RobotJointsState::sendNow() {
 	setSend();
 	write();
 
 }
-void RobotState::send(const string &s, uint8_t cmd) {
+void RobotJointsState::send(const string &s, uint8_t cmd) {
 	ofLogNotice() << s;
 	set(extValBytesOffset, cmd);
 	sendNow(); 
@@ -364,17 +362,17 @@ void RobotState::send(const string &s, uint8_t cmd) {
 void RobotState::center() {
 	ofLogNotice() << "center"; //bugbug left off here
 
-	moveXleft(JointValue(valueType(armMode, X)).getMax() / 2);
-	moveYout(JointValue(valueType(armMode, Y)).getMax() / 2);
+	//moveXleft(JointValue(valueType(armMode, X)).getMax() / 2);
+	//moveYout(JointValue(valueType(armMode, Y)).getMax() / 2);
 }
 
-void RobotState::echo() {
+void RobotJointsState::echo() {
 	for (int i = 0; i < count; ++i) {
 		ofLogNotice() << "echo[" << i << "] = " << std::hex << "0x" << (unsigned int)data[i];
 	}
 }
 
-void RobotState::write() {
+void RobotJointsState::write() {
 	if (sendData) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 		uint16_t sum = 0;
@@ -389,7 +387,7 @@ void RobotState::write() {
 		
 		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 		 // no need to hurry packets so just want the minimum amount no matter what
-		int sent = serial.writeBytes(data, count);
+		int sent = serial->writeBytes(data, count);
 
 		ofLogNotice() << "draw, count = " << count << ", sent = " << sent;
 
@@ -401,6 +399,7 @@ void RobotState::write() {
 	}
 }
 
+#ifdef DEBUG2
 void RobotState::moveXleft(JointValue& x, bool send) {
 	if (x.isSet()) {
 		//The parameters X and WristAngle both can have negative values.However all of the values transmitted via the 
@@ -414,7 +413,7 @@ void RobotState::moveXleft(JointValue& x, bool send) {
 		}
 
 	}
-	
+
 	//backhoe not supported for X
 }
 void RobotState::moveYout(JointValue& y, bool send) {
@@ -468,6 +467,8 @@ void RobotState::openGripper(JointValue& distance, bool send) {
 		}
 	}
 }
+
+#endif // DEBUG2
 void RobotState::centerAllServos() {
 	ofLogNotice() << "centerAllServos";
 	setBackhoeJointAndGoHome();
@@ -497,6 +498,8 @@ void RobotState::setDefaults() {
 // set basic data that moves a little bit after starting up
 void RobotState::sanityTest() {
 	ofLogNotice() << "sanityTest";
+	set3DCartesianStraightWristAndGoHome();
+	sendNow();
 	set(xHighByteOffset, xLowByteOffset, 512);
 	set(yHighByteOffset, yLowByteOffset, 150);
 	set(zHighByteOffset, zLowByteOffset, 150);
@@ -521,12 +524,6 @@ void RobotState::setStateAndGoHome(const string& s, robotArmMode mode, uint8_t c
 	sendNow();
 	
 }
-void RobotState::set(uint16_t high, uint16_t low, uint16_t val) {
-	ofLogNotice() << "RobotState::set (" << high << "," << low << ")" << val;
-	set(high, highByte(val));
-	set(low, lowByte(val));
-}
-
 
 //--------------------------------------------------------------
 void ofApp::setup(){
