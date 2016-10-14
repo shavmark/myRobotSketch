@@ -37,13 +37,12 @@ protected:
 	robotType ArmIDResponsePacket(uint8_t *bytes);
 };
 
-
 // one instance for robot, low level data without range checking so only use derived classes
 class RobotJointsState {
 
 public:
 	RobotJointsState(shared_ptr<uint8_t> data) { this->data = data; }
-	void draw(shared_ptr<RobotSerial> serial);
+	void send(shared_ptr<RobotSerial> serial);
 
 	// only one data set per robot
 	static shared_ptr<uint8_t> allocateData() { return make_shared<uint8_t>(count); }
@@ -161,14 +160,16 @@ class moveCommand : public Command {
 public:
 	moveCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial) {
-		if (points.size() > 0) {
-			setPoint(points[0]);
-			RobotJointsState::draw(serial);
+		//bugbug move arm up from paper 
+		for (const auto& point : points) {
+			setPoint(point);
+			send(serial);
 		}
 	}
 };
 class drawCommand : public Command {
 public:
+	// move with arm on paper, maybe this can be done with a variable in moveCommand,would be nice
 	void draw(shared_ptr<RobotSerial> serial) {
 	}
 };

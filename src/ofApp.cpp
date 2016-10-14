@@ -48,7 +48,7 @@ void RobotJoints::setGripper(uint16_t distance) {
 	}
 }
 
-void RobotJointsState::draw(shared_ptr<RobotSerial> serial) {
+void RobotJointsState::send(shared_ptr<RobotSerial> serial) {
 	set(0, 255); // make sure its set
 	getChkSum();
 	echo();
@@ -269,7 +269,7 @@ void Robot::setup() {
 	serial->waitForRobot();
 
 	mode = jv.setStartState(IKM_IK3D_CARTESIAN); // go to a known state
-	jv.draw(serial);
+	jv.send(serial);
 	
 }
 void Robot::update() {
