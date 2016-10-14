@@ -70,6 +70,12 @@ public:
 protected:
 	void echo();
 	uint8_t getChkSum();
+	void setLowLevelX(uint16_t x) { set(xHighByteOffset, xLowByteOffset, x + 512); } // no validation at this level use with care
+	void setLowLevelY(uint16_t y) { set(yHighByteOffset, yLowByteOffset, y); }
+	void setLowLevelZ(uint16_t z) { set(zHighByteOffset, zLowByteOffset, z); }
+	void setLowLevelWristAngle(uint16_t a) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a+90); };
+	void setLowLevelWristRotate(uint16_t a) { set(wristRotateHighByteOffset, wristRotateLowByteOffset, a); };
+	void setLowLevelGripper(uint16_t distance) { set(gripperHighByteOffset, gripperLowByteOffset, distance); };
 
 	// offsets bugbug store with JointValue, set at init time via constructor but still const
 private:
@@ -96,50 +102,50 @@ private:
 	shared_ptr<uint8_t> data; // data to send
 };
 
-// stores only valid values for specific joints, does validation, defaults and other things
+// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
 class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
 	RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode);
 	RobotJoints(shared_ptr<uint8_t> data) { setData(data); } 
 
-	void setX(uint16_t x) { set(X, x); };
-	void setY(uint16_t y) { set(Y, y); };
-	void setZ(uint16_t z) { set(Z, z); };
-	void setWristAngle(uint16_t a) { set(wristAngle, a); };
-	void setWristRotate(uint16_t a) { set(wristRotate, a); };
-	void setGripper(uint16_t distance) { set(wristRotate, Gripper); };
+	void setX(uint16_t x);
+	void setY(uint16_t y);
+	void setZ(uint16_t z);
+	void setWristAngle(uint16_t a);
+	void setWristRotate(uint16_t a);
+	void setGripper(uint16_t distance);
+	
 	void setup();
 	void oneTimeSetup();
+
 	bool inRange(robotArmJointType type, uint16_t value);
-	void set(robotArmJointType type, uint16_t value);
-	bool isSet() { return valueSet; }
+
 	uint16_t getDefaultValue(robotArmJointType type) {	return defaultValue[valueType(armMode, type)];}
-	uint16_t getValue(robotArmJointType type);
 	uint16_t getMin(robotArmJointType type) { return minValue[valueType(armMode, type)]; }
 	uint16_t getMax(robotArmJointType type) { return maxValue[valueType(armMode, type)]; }
+	
 	static uint8_t getDeltaDefault() { return deltaDefault; }
-	pair<robotCommand, int64_t> cmd;
+
 	void setCommand(robotCommand command, int64_t value = 0) { cmd = pair<robotCommand, int64_t>(command, value); }
 	robotCommand getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
 	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
-	//Set 3D Cartesian mode / straight wrist and go to home
+
+	//Set 3D Cartesian mode / straight wrist and go to home etc
 	void setStartState(robotArmMode mode= IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd= setArm3DCartesianStraightWristAndGoHome);
 	void setDefaults();
 
 protected:
+	pair<robotCommand, int64_t> cmd;
 	static map<valueType, uint16_t> minValue;
 	static map<valueType, uint16_t> maxValue;
 	static map<valueType, uint16_t> defaultValue;
 	static uint16_t deltaDefault; // manage speed
 
 private:
-	int32_t value=0; // default to a non fatal value 
 	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);
-	bool valueSet=false; // value not yet set
 	robotArmMode armMode = IKM_IK3D_CARTESIAN;
 	RobotTypeID id;
-
 };
 
 class RobotMotion : protected RobotJoints {
@@ -189,15 +195,13 @@ public:
 // the robot itself
 class Robot  {
 public:
-	Robot() {
-	}
 	void draw();
 	void setup();
 	void update();
 	void reset();
 private:
 	queue <shared_ptr<RobotMotion>> path; // move to robot, move all other stuff out of here, up or down
-	shared_ptr<RobotSerial> serial;
+	shared_ptr<RobotSerial> serial; // talking to the robot
 	shared_ptr<uint8_t> data = nullptr;// one data instance per robot
 	robotType type;
 };

@@ -17,23 +17,38 @@ RobotJoints::RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode) {
 	armMode = mode;
 	setData(data);
 }
-void RobotJoints::set(robotArmJointType type, uint16_t value) {
-	if (inRange(type, value)) {
-		this->value = value;
-		valueSet = true;
+
+void RobotJoints::setX(uint16_t x) { 
+	if (inRange(X, x)) {
+		setLowLevelX(x);
 	}
 }
-uint16_t RobotJoints::getValue(robotArmJointType type) {
-	if (isSet()) {
-		return value;
+void RobotJoints::setY(uint16_t y) { 
+	if (inRange(Y, y)) {
+		setLowLevelY(y);
 	}
-	// else return value, do a fail safe check here too
-	if (defaultValue[valueType(armMode, type)] < -300) {
-		ofLogError() << "invalid data";
-		return 0;// fail safe
-	}
-	return defaultValue[valueType(armMode, type)];
 }
+void RobotJoints::setZ(uint16_t z) { 
+	if (inRange(Z, z)) {
+		setLowLevelZ(z);
+	}
+}
+void RobotJoints::setWristAngle(uint16_t a) { 
+	if (inRange(wristAngle, a)) {
+		setLowLevelWristAngle(a);
+	}
+}
+void RobotJoints::setWristRotate(uint16_t a) { 
+	if (inRange(wristRotate, a)) {
+		setLowLevelWristRotate(a);
+	}
+}
+void RobotJoints::setGripper(uint16_t distance) { 
+	if (inRange(Gripper, distance)) {
+		setLowLevelGripper(distance);
+	}
+}
+
 
 bool RobotJoints::inRange(robotArmJointType type, uint16_t value) {
 	if (value > maxValue[valueType(armMode, type)] || value < minValue[valueType(armMode, type)]) {
