@@ -17,10 +17,6 @@ enum robotLowLevelCommand : uint8_t {
 	NoArmCommand=0, EmergencyStop= 17, SleepArm= 96, HomeArm=80, HomeArm90=88, setArm3DCylindricalStraightWristAndGoHome= 48, 
 	setArm3DCartesian90DegreeWristAndGoHome= 40, setArm3DCartesianStraightWristAndGoHome=32, setArm3DCylindrical90DegreeWristAndGoHome=56, setArmBackhoeJointAndGoHome=64
 };
-// high level commands
-enum robotCommand {
-	NoRobotHighLevelCommand, SignOnDance, DelayArm, CenterArm
-};
 enum RobotTypeID {
 	// only 1 supported
 	InterbotiXPhantomXReactorArm, unknownRobotType
@@ -32,7 +28,7 @@ class RobotSerial : public ofSerial {
 public:
 	void waitForSerial() { while (1) if (available() > 0) { return; } }
 	void clearSerial() { flush(); }
-	int readBytes(uint8_t *bytes, int bytesRequired = 5);
+	int readAllBytes(uint8_t *bytes, int bytesRequired = 5);
 	int readBytesInOneShot(uint8_t *bytes, int bytesMax = 100);
 	void readPose();
 	void write(shared_ptr<uint8_t> data, int count);
@@ -53,6 +49,7 @@ public:
 	static shared_ptr<uint8_t> allocateData() { return make_shared<uint8_t>(count); }
 	virtual void virtfunction() = 0;
 protected:
+	void setData(shared_ptr<uint8_t> data) { this->data = data; }
 	void echo();
 	void set(uint16_t high, uint16_t low, uint16_t val) {
 		set(high, highByte(val));
@@ -91,6 +88,7 @@ private:
 	static const uint16_t checksum = 16;
 	static const uint16_t count = 17;
 
+
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 	shared_ptr<uint8_t> data=nullptr; // data to send
@@ -102,6 +100,7 @@ public:
 	// constructor required
 	RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode);
 	RobotJoints(shared_ptr<uint8_t> data) : RobotJointsState(data) {}
+	RobotJoints() : RobotJointsState(nullptr) {}
 
 	void setX(uint16_t x);
 	void setY(uint16_t y);
@@ -109,9 +108,8 @@ public:
 	void setWristAngle(uint16_t a);
 	void setWristRotate(uint16_t a);
 	void setGripper(uint16_t distance);
-	
-	void setup();
-	shared_ptr<uint8_t> oneTimeSetup();
+
+	void oneTimeSetup(shared_ptr<uint8_t>data);
 
 	bool inRange(robotArmJointType type, uint16_t value);
 
@@ -121,16 +119,13 @@ public:
 	
 	static uint8_t getDeltaDefault() { return deltaDefault; }
 
-	void setCommand(robotCommand command, int64_t value = 0) { cmd = pair<robotCommand, int64_t>(command, value); }
-	robotCommand getCommand(int64_t* value) { if (value) *value = cmd.second; return cmd.first; }
 	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
 
 	//Set 3D Cartesian mode / straight wrist and go to home etc
-	void setStartState(robotArmMode mode= IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd= setArm3DCartesianStraightWristAndGoHome);
-	void setDefaults();
+	robotArmMode setStartState(robotArmMode mode= IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd= setArm3DCartesianStraightWristAndGoHome);
+	void setSharedMemoryToDefaultState();
 
 protected:
-	pair<robotCommand, int64_t> cmd;
 	static map<valueType, uint16_t> minValue;
 	static map<valueType, uint16_t> maxValue;
 	static map<valueType, uint16_t> defaultValue;
@@ -141,64 +136,76 @@ private:
 	robotArmMode armMode = IKM_IK3D_CARTESIAN;
 	RobotTypeID id;
 	void virtfunction() {};
+
 };
 
-class RobotMotion : protected RobotJoints {
-public:
-	RobotMotion(shared_ptr<RobotSerial> serial, shared_ptr<uint8_t> data, robotArmMode mode) :RobotJoints(data, mode) { this->serial = serial; };
-	RobotMotion(shared_ptr<RobotSerial> serial, shared_ptr<uint8_t> data) :RobotJoints(data) { this->serial = serial; }
-
-	void draw();
-	void setup() { RobotJoints::setup(); }
-	void setup(robotCommand cmd, int64_t value = 0) { RobotJoints::setup(); RobotJoints::setCommand(cmd, value);	}
-
-	// commands
-	void center();
-	void dance();
-	void sanityTest();
-	void centerAllServos();
-private:
-	shared_ptr<RobotSerial> serial;
+// high level commands
+enum robotCommand {
+	NoRobotHighLevelCommand, Test, SignOnDance, DelayArm, CenterArm
 };
-// smallest unit of movement, move from a to b
-class Segment {
+
+class Command : protected RobotJoints {
 public:
-	void setup() {};
-	void draw() {
-		// go to a, if a is not set just go to b
-		// draw b
-	};
+	Command(shared_ptr<uint8_t> data, robotArmMode mode):RobotJoints(data, mode){ }
+	virtual void draw(shared_ptr<RobotSerial> serial) {}; //  execute the command
+
+	void addPoint(const ofPoint& addPt) { points.push_back(addPt); }
+
+protected:
+	void setPoint(ofPoint pt);
+	vector<ofPoint> points; // one more more points
 
 private:
-	RobotJoints a;
-	RobotJoints b;
 };
-
-// can take any shape, much like a line a human would draw, just connects the dots so to speak
-class Line {
+class moveCommand : public Command {
 public:
-	void setup() {};
-	void draw() {
-		for (auto& segment : line) {
-			segment.draw();
+	moveCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
+	void draw(shared_ptr<RobotSerial> serial) {
+		if (points.size() > 0) {
+			setPoint(points[0]);
+			RobotJointsState::draw(serial);
 		}
-	};
-
-	vector <Segment> line; 
+	}
+};
+class drawCommand : public Command {
+public:
+	void draw(shared_ptr<RobotSerial> serial) {
+	}
+};
+class servosCenterCommand : public Command {
+public:
+	void draw(shared_ptr<RobotSerial> serial);
+};
+class sanityTestCommand : public Command {
+public:
+	void draw(shared_ptr<RobotSerial> serial);
+};
+class danceCommand : public Command {
+public:
+	void draw(shared_ptr<RobotSerial> serial);
+};
+class circleCommand : public Command {
+public:
+	void draw(shared_ptr<RobotSerial> serial) {};
+};
+class centerCommand : public Command {
+public:
+	void draw(shared_ptr<RobotSerial> serial) {};
 };
 
 // the robot itself
 class Robot  {
 public:
-	void draw();
 	void setup();
 	void update();
-	void reset();
+	void draw();
+
 private:
-	queue <shared_ptr<RobotMotion>> path; // move to robot, move all other stuff out of here, up or down
+	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
 	shared_ptr<RobotSerial> serial; // talking to the robot
 	shared_ptr<uint8_t> data = nullptr;// one data instance per robot
 	robotType type;
+	robotArmMode mode;
 };
 
 

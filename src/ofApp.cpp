@@ -62,12 +62,9 @@ bool RobotJoints::inRange(robotArmJointType type, uint16_t value) {
 	}
 	return true;
 }
-// instance setup
-void RobotJoints::setup() {
-	setDefaults();
-}
 // needs to only be called one time -- uses static data to save time/space
-shared_ptr<uint8_t> RobotJoints::oneTimeSetup() {
+void RobotJoints::oneTimeSetup(shared_ptr<uint8_t>data) {
+	setData(data);
 	set(valueType(IKM_IK3D_CARTESIAN, X), -300, 300, 0);
 	set(valueType(IKM_IK3D_CARTESIAN_90, X), -300, 300, 0);
 	set(valueType(IKM_CYLINDRICAL, X), 0, 1023, 512);
@@ -103,7 +100,9 @@ shared_ptr<uint8_t> RobotJoints::oneTimeSetup() {
 
 	set(valueType(IKM_NOT_DEFINED, JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
 
-	return allocateData();
+	setSharedMemoryToDefaultState();// sets shared memory
+
+	return;
 
 }
 
@@ -158,7 +157,7 @@ int RobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	}
 	return result;
 }
-int RobotSerial::readBytes(uint8_t *bytes, int bytesRequired) {
+int RobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
 	int readIn = 0;
 	if (bytes) {
 		*bytes = 0;// null out to show data read
@@ -253,26 +252,35 @@ robotType RobotSerial::waitForRobot() {
 	return type;
 }
 void Robot::setup() {
-	
+	while (!path.empty()) {
+		path.pop(); // clean any old stuff out
+	}
+
 	if (!(serial = make_shared<RobotSerial>())) {
 		ofLogFatalError() << "memory";
 		return;
 	}
-	RobotJoints jv(data);
-	data = jv.oneTimeSetup(); // do one time setup of static data
-	
+	RobotJoints jv;
+	data = jv.allocateData(); // save master data in Robot
+	jv.oneTimeSetup(data); // do one time setup of static data
+
 	serial->listDevices();
 	serial->setup(1, 38400);//bugbug get from xml 
 	serial->waitForRobot();
 
-	jv.setStartState(); // go  to a known state
+	mode = jv.setStartState(IKM_IK3D_CARTESIAN); // go to a known state
 	jv.draw(serial);
 	
 }
 void Robot::update() {
-	shared_ptr<RobotMotion> joints = make_shared<RobotMotion>(serial, data);
-	joints->setup(SignOnDance);
-	path.push(joints);
+	shared_ptr<moveCommand> cmd = make_shared<moveCommand>(data, mode);
+	cmd->addPoint(ofPoint(200, 0, 0));
+	path.push(cmd);
+	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time
+	//path.push(motion);
+	//shared_ptr<RobotMotion> joints = make_shared<RobotMotion>(serial, data);
+	//joints->setup(SignOnDance);
+	//path.push(joints);
 	/*
 	return;
 	data.setCommand(EnableArmMovement);
@@ -308,41 +316,11 @@ void Robot::update() {
 	*/
 }
 
-void segment(int a, int b) {
-
-}
-void line(int a, int b) {
-
-}
-void RobotMotion::draw() {
-	if (getCommand(nullptr) == NoRobotHighLevelCommand) {
-		RobotJointsState::draw(serial);
-	}
-	else {	// process commands
-		int64_t value;
-		robotCommand cmd = getCommand(&value);
-		switch (cmd) {
-		case SignOnDance:
-			dance();
-			break;
-		case CenterArm:
-			center();
-			break;
-		case DelayArm:
-			ofSleepMillis(value);
-			break;
-		}
-	}
-
-}
 void Robot::draw() {
 	
 	while (!path.empty()) {
-		shared_ptr<RobotMotion> joints;
-		
-		path.front()->draw();
+		path.front()->draw(serial);
 		path.pop();
-
 	}
 }
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
@@ -383,15 +361,18 @@ void RobotSerial::write(shared_ptr<uint8_t> data, int count) {
 	readPose(); // how often are two sent?
 
 }
-
-void RobotMotion::center() {
-	ofLogNotice() << "center"; //bugbug left off here
-
-							   //moveXleft(JointValue(valueType(armMode, X)).getMax() / 2);
-							   //moveYout(JointValue(valueType(armMode, Y)).getMax() / 2);
+void Command::setPoint(ofPoint pt) {
+	if (pt.x) {
+		setX(pt.x);
+	}
+	if (pt.y) {
+		setX(pt.y);
+	}
+	if (pt.z) {
+		setX(pt.z);
+	}
 }
-
-void RobotMotion::dance() {
+void danceCommand::draw(shared_ptr<RobotSerial> serial) {
 	// spin nose
 	/*
 	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMax());
@@ -410,10 +391,11 @@ void RobotMotion::dance() {
 }
 
 // set basic data that moves a little bit after starting up
-void RobotMotion::sanityTest() {
+
+void sanityTestCommand::draw(shared_ptr<RobotSerial> serial) {
 	ofLogNotice() << "sanityTest";
 	setStartState();
-	draw();
+	draw(serial);
 	setX(512);
 	setY(150);
 	setZ(150);
@@ -423,12 +405,13 @@ void RobotMotion::sanityTest() {
 	setLowLevelCommand(NoArmCommand);
 	setDelta(128);
 	setButton();
-	draw();
+	draw(serial);
 }
 
-void RobotMotion::centerAllServos() {
+void servosCenterCommand::draw(shared_ptr<RobotSerial> serial) {
 	ofLogNotice() << "centerAllServos";
 	setStartState(IKM_BACKHOE, setArmBackhoeJointAndGoHome);
+	draw(serial);
 	setX(512);
 	setY(512);
 	setZ(512);
@@ -436,12 +419,12 @@ void RobotMotion::centerAllServos() {
 	setWristRotate(512);
 	setGripper(512);
 	setDelta(128);
-	draw();
+	draw(serial);
 }
 // "home" and set data matching state
-void RobotJoints::setDefaults() {
+void RobotJoints::setSharedMemoryToDefaultState() {
 	ofLogNotice() << "setDefaults";
-	setX(getDefaultValue(X)+512);
+	setX(getDefaultValue(X));
 	setY(getDefaultValue(Y));
 	setZ(getDefaultValue(Z));
 	setWristAngle(getDefaultValue(wristAngle));
@@ -451,16 +434,12 @@ void RobotJoints::setDefaults() {
 	setDelta(getDeltaDefault());
 	setButton();
 }
-void Robot::reset() { 
-	while (!path.empty()) { 
-		path.pop(); 
-	} 
-};
 // will block until arm is ready
-void RobotJoints::setStartState(robotArmMode mode, robotLowLevelCommand cmd) {
+robotArmMode RobotJoints::setStartState(robotArmMode mode, robotLowLevelCommand cmd) {
 	ofLogNotice() << "setStartState " << mode << " " << cmd;
 	armMode = mode;
 	setLowLevelCommand(cmd);
+	return mode;
 }
 
 //--------------------------------------------------------------
