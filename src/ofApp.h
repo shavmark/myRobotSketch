@@ -150,6 +150,9 @@ public:
 
 	void addPoint(const ofPoint& addPt) { points.push_back(addPt); }
 
+	void sleep() { if (millisSleep > -1) ofSleepMillis(500); }
+	int millisSleep = -1;// no sleep by default
+
 protected:
 	void setPoint(ofPoint pt);
 	vector<ofPoint> points; // one more more points
