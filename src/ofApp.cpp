@@ -301,7 +301,7 @@ uint8_t RobotJointsState::getChkSum() {
 	for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
 		sum += data.get()[i];
 	}
-	uint8_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
+	uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
 
 	data.get()[checksum] = 255 - invertedChecksum; //invert value to get file checksum
 
@@ -413,8 +413,9 @@ void ofApp::update(){
 	
 	robot.update();
 	shared_ptr<Command> cmd = robot.createCommand<Command>();// make_shared<Command>(data, mode);
-	cmd->addPoint(ofPoint(200, 0, 0));
-	robot.add(cmd); 
+	cmd->addPoint(ofPoint(300, 0, 0));
+	cmd->addPoint(ofPoint(-300, 100, 0));
+	robot.add(cmd);
 
 	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time
 	//path.push(motion);

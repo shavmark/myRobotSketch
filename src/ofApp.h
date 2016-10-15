@@ -50,7 +50,7 @@ public:
 protected:
 	void setData(shared_ptr<uint8_t> data) { this->data = data; }
 	void echo();
-	void set(uint16_t high, uint16_t low, uint16_t val) {
+	void set(uint16_t high, int low, int val) {
 		set(high, highByte(val));
 		set(low, lowByte(val));
 	}
