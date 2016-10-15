@@ -2,12 +2,12 @@
 #include <algorithm> 
 
 // shared across all robots and joints
-map<valueType, uint16_t> RobotJoints::minValue;
-map<valueType, uint16_t> RobotJoints::maxValue;
-map<valueType, uint16_t> RobotJoints::defaultValue;
+map<valueType, int> RobotJoints::minValue;
+map<valueType, int> RobotJoints::maxValue;
+map<valueType, int> RobotJoints::defaultValue;
 uint16_t RobotJoints::deltaDefault = 255;
 
-void RobotJoints::set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue) {
+void RobotJoints::set(valueType type, int min, int max, int defaultvalue) {
 	minValue[type] = min;
 	maxValue[type] = max;
 	defaultValue[type] = defaultvalue;
@@ -17,32 +17,32 @@ RobotJoints::RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode) : RobotJoi
 	armMode = mode;
 }
 
-void RobotJoints::setX(uint16_t x) { 
+void RobotJoints::setX(int x) {
 	if (inRange(X, x)) {
 		setLowLevelX(x);
 	}
 }
-void RobotJoints::setY(uint16_t y) { 
+void RobotJoints::setY(int y) {
 	if (inRange(Y, y)) {
 		setLowLevelY(y);
 	}
 }
-void RobotJoints::setZ(uint16_t z) { 
+void RobotJoints::setZ(int z) {
 	if (inRange(Z, z)) {
 		setLowLevelZ(z);
 	}
 }
-void RobotJoints::setWristAngle(uint16_t a) { 
+void RobotJoints::setWristAngle(int a) {
 	if (inRange(wristAngle, a)) {
 		setLowLevelWristAngle(a);
 	}
 }
-void RobotJoints::setWristRotate(uint16_t a) { 
+void RobotJoints::setWristRotate(int a) {
 	if (inRange(wristRotate, a)) {
 		setLowLevelWristRotate(a);
 	}
 }
-void RobotJoints::setGripper(uint16_t distance) { 
+void RobotJoints::setGripper(int distance) {
 	if (inRange(Gripper, distance)) {
 		setLowLevelGripper(distance);
 	}
@@ -55,7 +55,7 @@ void RobotJointsState::send(shared_ptr<RobotSerial> serial) {
 	serial->write(data, count);
 }
 
-bool RobotJoints::inRange(robotArmJointType type, uint16_t value) {
+bool RobotJoints::inRange(robotArmJointType type, int value) {
 	if (value > maxValue[valueType(armMode, type)] || value < minValue[valueType(armMode, type)]) {
 		ofLogError() << "out of range " << value << " (" << minValue[valueType(armMode, type)] << ", " << maxValue[valueType(armMode, type)] << ")";
 		return false;
@@ -273,59 +273,20 @@ void Robot::setup() {
 	
 }
 void Robot::update() {
-	shared_ptr<Command> cmd = make_shared<Command>(data, mode);
-	cmd->addPoint(ofPoint(200, 0, 0));
-	path.push(cmd);
-	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time
-	//path.push(motion);
-	//shared_ptr<RobotMotion> joints = make_shared<RobotMotion>(serial, data);
-	//joints->setup(SignOnDance);
-	//path.push(joints);
-	/*
-	return;
-	data.setCommand(EnableArmMovement);
-	data.setY(50);
-	path.push(data);
-	data.reset();
-	data.setY(350);
-	path.push(data);
-	return;
-	data.reset();
-	data.setX(10); // 300 max 60 units covers about 3", 20 units is .75" so given the arch its not just inches
-	data.setY(350);
-	path.push(data);
-	data.reset();
-	data.setZ(250);
-	data.setX(-10); // -300 max
-	path.push(data);
-	data.reset();
-	data.setCommand(DelayArm, 1000);
-	path.push(data);
-	
-	loc.reset();
-	loc.moveYout(260);
-	loc.moveZup(250);
-	path.push(loc);
-	loc.reset();
-	loc.moveXleft(-212);
-	path.push(loc);
-	loc.reset();
-	loc.moveXleft(200);
-	loc.moveYout(200);
-	path.push(loc);
-	*/
 }
 
 void Robot::draw() {
 	
 	while (!path.empty()) {
 		path.front()->draw(serial);
-		path.pop();
+		if (path.front()->deleteWhenDone) {
+			path.pop();
+		}
 	}
 }
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
-	ofLogNotice() << "data.get()[" << offset << "] = " << b; 
-	data.get()[offset] = b; 
+	ofLogNotice() << "data.get()[" << offset << "] = " << (uint16_t)b;
+	data.get()[offset] = (uint16_t)b;
 }
 
 
@@ -449,7 +410,51 @@ void ofApp::setup(){
 
 //--------------------------------------------------------------
 void ofApp::update(){
+	
 	robot.update();
+	shared_ptr<Command> cmd = robot.createCommand<Command>();// make_shared<Command>(data, mode);
+	cmd->addPoint(ofPoint(200, 0, 0));
+	robot.add(cmd); 
+
+	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time
+	//path.push(motion);
+	//shared_ptr<RobotMotion> joints = make_shared<RobotMotion>(serial, data);
+	//joints->setup(SignOnDance);
+	//path.push(joints);
+	/*
+	return;
+	data.setCommand(EnableArmMovement);
+	data.setY(50);
+	path.push(data);
+	data.reset();
+	data.setY(350);
+	path.push(data);
+	return;
+	data.reset();
+	data.setX(10); // 300 max 60 units covers about 3", 20 units is .75" so given the arch its not just inches
+	data.setY(350);
+	path.push(data);
+	data.reset();
+	data.setZ(250);
+	data.setX(-10); // -300 max
+	path.push(data);
+	data.reset();
+	data.setCommand(DelayArm, 1000);
+	path.push(data);
+
+	loc.reset();
+	loc.moveYout(260);
+	loc.moveZup(250);
+	path.push(loc);
+	loc.reset();
+	loc.moveXleft(-212);
+	path.push(loc);
+	loc.reset();
+	loc.moveXleft(200);
+	loc.moveYout(200);
+	path.push(loc);
+	*/
+
 }
 
 //--------------------------------------------------------------

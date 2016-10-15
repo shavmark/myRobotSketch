@@ -59,12 +59,12 @@ protected:
 	void setDelta(uint8_t value = 128) { set(deltaValBytesOffset, value); }
 	void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 
-	void setLowLevelX(uint16_t x) { set(xHighByteOffset, xLowByteOffset, x + 512); } // no validation at this level use with care
-	void setLowLevelY(uint16_t y) { set(yHighByteOffset, yLowByteOffset, y); }
-	void setLowLevelZ(uint16_t z) { set(zHighByteOffset, zLowByteOffset, z); }
-	void setLowLevelWristAngle(uint16_t a) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a+90); };
-	void setLowLevelWristRotate(uint16_t a) { set(wristRotateHighByteOffset, wristRotateLowByteOffset, a); };
-	void setLowLevelGripper(uint16_t distance) { set(gripperHighByteOffset, gripperLowByteOffset, distance); };
+	void setLowLevelX(int x) { set(xHighByteOffset, xLowByteOffset, x + 512); } // no validation at this level use with care
+	void setLowLevelY(int y) { set(yHighByteOffset, yLowByteOffset, y); }
+	void setLowLevelZ(int z) { set(zHighByteOffset, zLowByteOffset, z); }
+	void setLowLevelWristAngle(int a) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a+90); };
+	void setLowLevelWristRotate(int a) { set(wristRotateHighByteOffset, wristRotateLowByteOffset, a); };
+	void setLowLevelGripper(int distance) { set(gripperHighByteOffset, gripperLowByteOffset, distance); };
 
 	// offsets bugbug store with JointValue, set at init time via constructor but still const
 private:
@@ -87,7 +87,6 @@ private:
 	static const uint16_t checksum = 16;
 	static const uint16_t count = 17;
 
-
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 	shared_ptr<uint8_t> data=nullptr; // data to send
@@ -101,20 +100,20 @@ public:
 	RobotJoints(shared_ptr<uint8_t> data) : RobotJointsState(data) {}
 	RobotJoints() : RobotJointsState(nullptr) {}
 
-	void setX(uint16_t x);
-	void setY(uint16_t y);
-	void setZ(uint16_t z);
-	void setWristAngle(uint16_t a);
-	void setWristRotate(uint16_t a);
-	void setGripper(uint16_t distance);
+	void setX(int x);
+	void setY(int y);
+	void setZ(int z);
+	void setWristAngle(int a);
+	void setWristRotate(int a);
+	void setGripper(int distance);
 
 	void oneTimeSetup(shared_ptr<uint8_t>data);
 
-	bool inRange(robotArmJointType type, uint16_t value);
+	bool inRange(robotArmJointType type, int value);
 
-	uint16_t getDefaultValue(robotArmJointType type) {	return defaultValue[valueType(armMode, type)];}
-	uint16_t getMin(robotArmJointType type) { return minValue[valueType(armMode, type)]; }
-	uint16_t getMax(robotArmJointType type) { return maxValue[valueType(armMode, type)]; }
+	int getDefaultValue(robotArmJointType type) {	return defaultValue[valueType(armMode, type)];}
+	int getMin(robotArmJointType type) { return minValue[valueType(armMode, type)]; }
+	int getMax(robotArmJointType type) { return maxValue[valueType(armMode, type)]; }
 	
 	static uint8_t getDeltaDefault() { return deltaDefault; }
 
@@ -125,30 +124,27 @@ public:
 	void setSharedMemoryToDefaultState();
 
 protected:
-	static map<valueType, uint16_t> minValue;
-	static map<valueType, uint16_t> maxValue;
-	static map<valueType, uint16_t> defaultValue;
+	static map<valueType, int> minValue;
+	static map<valueType, int> maxValue;
+	static map<valueType, int> defaultValue;
 	static uint16_t deltaDefault; // manage speed
 
 private:
-	void set(valueType type, uint16_t min, uint16_t max, uint16_t defaultvalue);
+	void set(valueType type, int min, int max, int defaultvalue);
 	robotArmMode armMode = IKM_IK3D_CARTESIAN;
 	RobotTypeID id;
 	void virtfunction() {};
 
 };
 
-// high level commands
-enum robotCommand {
-	NoRobotHighLevelCommand, Test, SignOnDance, DelayArm, CenterArm
-};
-
 class Command : protected RobotJoints {
 public:
 	Command(shared_ptr<uint8_t> data, robotArmMode mode):RobotJoints(data, mode){ }
 
+	// move or draw based on the value in moveOrDraw
 	virtual void draw(shared_ptr<RobotSerial> serial) {
-		//bugbug move arm up from paper 
+		sleep(); // sleep if requested
+		//bugbug move arm up from paper if !moveOrDraw
 		for (const auto& point : points) {
 			setPoint(point);
 			send(serial);// move
@@ -158,32 +154,17 @@ public:
 	void addPoint(const ofPoint& addPt) { points.push_back(addPt); }
 
 	void sleep() { if (millisSleep > -1) ofSleepMillis(500); }
-	int millisSleep = -1;// no sleep by default
 
+	int millisSleep = -1;// no sleep by default
+	bool moveOrDraw = true; // false means draw
+	bool deleteWhenDone = true; // false to repeat command per every draw occurance
 protected:
 	void setPoint(ofPoint pt);
 	vector<ofPoint> points; // one more more points
 
 private:
 };
-class moveCommand : public Command {
-public:
-	moveCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
-	void draw(shared_ptr<RobotSerial> serial) {
-		//bugbug move arm up from paper 
-		for (const auto& point : points) {
-			setPoint(point);
-			send(serial);
-		}
-	}
-};
-class drawCommand : public Command {
-public:
-	drawCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
-	// move with arm on paper, maybe this can be done with a variable in moveCommand,would be nice
-	void draw(shared_ptr<RobotSerial> serial) {
-	}
-};
+// example
 class servosCenterCommand : public Command {
 public:
 	servosCenterCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
@@ -194,28 +175,22 @@ public:
 	sanityTestCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
+// just for fun
 class danceCommand : public Command {
 public:
 	danceCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
-class circleCommand : public Command {
-public:
-	circleCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
-	void draw(shared_ptr<RobotSerial> serial) {};
-};
-class centerCommand : public Command {
-public:
-	centerCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
-	void draw(shared_ptr<RobotSerial> serial) {};
-};
 
 // the robot itself
-class Robot  {
+class Robot {
 public:
 	void setup();
 	void update();
 	void draw();
+
+	template<typename T> shared_ptr<T> createCommand() {return make_shared<T>(data, mode);};
+	void add(shared_ptr<Command>cmd) { path.push(cmd); }
 
 private:
 	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
