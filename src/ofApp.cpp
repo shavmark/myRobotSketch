@@ -2,119 +2,141 @@
 #include <algorithm> 
 
 // shared across all robots and joints
-map<valueType, int> RobotJoints::minValue;
-map<valueType, int> RobotJoints::maxValue;
-map<valueType, int> RobotJoints::defaultValue;
-uint16_t RobotJoints::deltaDefault = 255;
+map<SpecificJoint, int> RobotJoints::minValue;
+map<SpecificJoint, int> RobotJoints::maxValue;
+map<SpecificJoint, int> RobotJoints::defaultValue;
+int RobotJoints::deltaDefault = 255;
 
-void RobotJoints::set(valueType type, int min, int max, int defaultvalue) {
-	minValue[type] = min;
-	maxValue[type] = max;
-	defaultValue[type] = defaultvalue;
+// tracing helper
+string echoJointType(SpecificJoint joint) {
+	std::stringstream buffer;
+	buffer << "SpecificJoint<robotArmMode, robotArmJointType> = " << joint.first << ", " << joint.second;
+	return buffer.str();
 }
 
-RobotJoints::RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode) : RobotJointsState(data){
+void RobotJoints::set(SpecificJoint type, int minVal, int maxVal, int defaultVal) {
+	ofLogNotice() << "RobotJoints::set" << echoJointType(type) << " - min = " << minVal << " max = " << maxVal << " default = " << defaultVal;
+
+	minValue[type] = minVal;
+	maxValue[type] = maxVal;
+	defaultValue[type] = defaultVal;
+}
+
+RobotJoints::RobotJoints(dataType data, robotArmMode mode) : RobotJointsState(data){
 	armMode = mode;
 }
 
 void RobotJoints::setX(int x) {
+	ofLogNotice() << "try to set x=" << x;
 	if (inRange(X, x)) {
 		setLowLevelX(x);
 	}
 }
 void RobotJoints::setY(int y) {
+	ofLogNotice() << "try to set y=" << y;
 	if (inRange(Y, y)) {
 		setLowLevelY(y);
 	}
 }
 void RobotJoints::setZ(int z) {
+	ofLogNotice() << "try to set z=" << z;
 	if (inRange(Z, z)) {
 		setLowLevelZ(z);
 	}
 }
 void RobotJoints::setWristAngle(int a) {
+	ofLogNotice() << "try to set setWristAngle=" << a;
 	if (inRange(wristAngle, a)) {
 		setLowLevelWristAngle(a);
 	}
 }
 void RobotJoints::setWristRotate(int a) {
+	ofLogNotice() << "try to set setWristRotate=" << a;
 	if (inRange(wristRotate, a)) {
 		setLowLevelWristRotate(a);
 	}
 }
 void RobotJoints::setGripper(int distance) {
+	ofLogNotice() << "try to set setGripper=" << distance;
 	if (inRange(Gripper, distance)) {
 		setLowLevelGripper(distance);
 	}
 }
 
 void RobotJointsState::send(shared_ptr<RobotSerial> serial) {
-	set(0, 255); // make sure its set
+	set(headerByteOffset, 255); // make sure its set
 	getChkSum();
 	echo();
 	serial->write(data, count);
 }
 
 bool RobotJoints::inRange(robotArmJointType type, int value) {
-	if (value > maxValue[valueType(armMode, type)] || value < minValue[valueType(armMode, type)]) {
-		ofLogError() << "out of range " << value << " (" << minValue[valueType(armMode, type)] << ", " << maxValue[valueType(armMode, type)] << ")";
+	if (value > maxValue[SpecificJoint(armMode, type)] || value < minValue[SpecificJoint(armMode, type)]) {
+		ofLogError() << "out of range " << value << " (" << minValue[SpecificJoint(armMode, type)] << ", " << maxValue[SpecificJoint(armMode, type)] << ")";
 		return false;
 	}
 	return true;
 }
 // needs to only be called one time -- uses static data to save time/space
-void RobotJoints::oneTimeSetup(shared_ptr<uint8_t>data) {
-	setData(data);
-	set(valueType(IKM_IK3D_CARTESIAN, X), -300, 300, 0);
-	set(valueType(IKM_IK3D_CARTESIAN_90, X), -300, 300, 0);
-	set(valueType(IKM_CYLINDRICAL, X), 0, 1023, 512);
-	set(valueType(IKM_CYLINDRICAL_90, X), 0, 1023, 512);
-	set(valueType(IKM_BACKHOE, X), 0, 0, 512);
+void RobotJoints::oneTimeSetup() {
+	set(SpecificJoint(IKM_IK3D_CARTESIAN, X), -300, 300, 0);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, X), -300, 300, 0);
+	set(SpecificJoint(IKM_CYLINDRICAL, X), 0, 1023, 512);
+	set(SpecificJoint(IKM_CYLINDRICAL_90, X), 0, 1023, 512);
+	set(SpecificJoint(IKM_BACKHOE, X), 0, 0, 512);
 
-	set(valueType(IKM_IK3D_CARTESIAN, Y), 50, 350, 235);
-	set(valueType(IKM_IK3D_CARTESIAN_90, Y), 20, 150, 140);
-	set(valueType(IKM_CYLINDRICAL, Y), 50, 350, 235);
-	set(valueType(IKM_CYLINDRICAL_90, Y), 20, 150, 140);
-	set(valueType(IKM_BACKHOE, Y), 0, 0, 512);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN, Y), 50, 350, 235);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, Y), 20, 150, 140);
+	set(SpecificJoint(IKM_CYLINDRICAL, Y), 50, 350, 235);
+	set(SpecificJoint(IKM_CYLINDRICAL_90, Y), 20, 150, 140);
+	set(SpecificJoint(IKM_BACKHOE, Y), 0, 0, 512);
 
-	set(valueType(IKM_IK3D_CARTESIAN, Z), 20, 250, 210);
-	set(valueType(IKM_IK3D_CARTESIAN_90, Z), 10, 150, 30);
-	set(valueType(IKM_CYLINDRICAL, Z), 20, 250, 210);
-	set(valueType(IKM_CYLINDRICAL_90, Z), 10, 150, 30);
-	set(valueType(IKM_BACKHOE, Z), 0, 0, 512);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN, Z), 20, 250, 210);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, Z), 10, 150, 30);
+	set(SpecificJoint(IKM_CYLINDRICAL, Z), 20, 250, 210);
+	set(SpecificJoint(IKM_CYLINDRICAL_90, Z), 10, 150, 30);
+	set(SpecificJoint(IKM_BACKHOE, Z), 0, 0, 512);
 
-	set(valueType(IKM_IK3D_CARTESIAN, wristAngle), -30, 30, 0);
-	set(valueType(IKM_IK3D_CARTESIAN_90, wristAngle), -90, -45, -90);
-	set(valueType(IKM_CYLINDRICAL, wristAngle), 30, 30, 0);
-	set(valueType(IKM_CYLINDRICAL_90, wristAngle), -90, -45, -90);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN, wristAngle), -30, 30, 0);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, wristAngle), -90, -45, -90);
+	set(SpecificJoint(IKM_CYLINDRICAL, wristAngle), 30, 30, 0);
+	set(SpecificJoint(IKM_CYLINDRICAL_90, wristAngle), -90, -45, -90);
 
-	set(valueType(IKM_IK3D_CARTESIAN, wristRotate), 0, 1023, 512);
-	set(valueType(IKM_IK3D_CARTESIAN_90, wristRotate), 0, 1023, 512);
-	set(valueType(IKM_CYLINDRICAL, wristRotate), 0, 1023, 512);
-	set(valueType(IKM_CYLINDRICAL_90, wristRotate), 0, 1023, 512);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN, wristRotate), 0, 1023, 512);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, wristRotate), 0, 1023, 512);
+	set(SpecificJoint(IKM_CYLINDRICAL, wristRotate), 0, 1023, 512);
+	set(SpecificJoint(IKM_CYLINDRICAL_90, wristRotate), 0, 1023, 512);
 
-	set(valueType(IKM_IK3D_CARTESIAN, Gripper), 0, 512, 512);
-	set(valueType(IKM_IK3D_CARTESIAN_90, Gripper), 0, 512, 512);
-	set(valueType(IKM_CYLINDRICAL, Gripper), 0, 512, 512);
-	set(valueType(IKM_CYLINDRICAL_90, Gripper), 0, 512, 512);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN, Gripper), 0, 512, 512);
+	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, Gripper), 0, 512, 512);
+	set(SpecificJoint(IKM_CYLINDRICAL, Gripper), 0, 512, 512);
+	set(SpecificJoint(IKM_CYLINDRICAL_90, Gripper), 0, 512, 512);
 
-	set(valueType(IKM_NOT_DEFINED, JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
-
-	setSharedMemoryToDefaultState();// sets shared memory
+	set(SpecificJoint(IKM_NOT_DEFINED, JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
 
 	return;
 
 }
 
+// echo, ignoring null bytes
+void echoRawBytes(uint8_t *bytes, int count) {
+	std::stringstream buffer;
+	for (int i = 0; i < count; ++i) {
+		buffer << " bytes[" << i << "] = " << (int)bytes[i]; // echo in one line
+	}
+	ofLogNotice() << buffer.str();
+}
 // get pose data from serial port bugbug decode this
 void RobotSerial::readPose() {
 	if (available() == 0) {
 		return;
 	}
-	int size = available();
-	uint8_t *bytes = new uint8_t[size+1];
+
+	ofLogNotice() << "RobotSerial::readPose";
+
+	uint8_t *bytes = new uint8_t[1000];//bugbug clean this up
 	int i = 0;
-	for (; true; ++i) {
+	for (; i < 1000; ++i) {
 		if (readBytesInOneShot(&bytes[i], 1) == 1) {
 			if (bytes[i] == '\r') {
 				i++;
@@ -130,6 +152,12 @@ void RobotSerial::readPose() {
 	bytes[i] = 0;
 	if (i == 5) { // input data is fixed size format etc, just trace stuff
 		ArmIDResponsePacket(bytes);
+	}
+	else if (i == 10){
+		echoRawBytes(bytes, 10);
+		ArmIDResponsePacket(bytes); // first 2 bytes are sign on type
+		// next bytes are?
+		ofLogNotice() << bytes;
 	}
 	else {
 		ofLogNotice() << bytes;
@@ -227,12 +255,12 @@ robotType RobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
 
 
 robotType RobotSerial::waitForRobot() {
-	ofLogNotice() << "wait for robot...";
+	ofLogNotice() << "wait for mr robot...";
 	
 	waitForSerial();
 
 	robotType type = robotType(IKM_NOT_DEFINED, unknownRobotType);
-	unsigned char bytes[31];
+	uint8_t bytes[31];
 
 	int readin = readBytesInOneShot(bytes, 5);
 	if (readin == 5) {
@@ -255,21 +283,25 @@ void Robot::setup() {
 	while (!path.empty()) {
 		path.pop(); // clean any old stuff out
 	}
+	data = new uint8_t[RobotJointsState::getCount() + 1];
+	RobotJoints jv(data);
 
-	if (!(serial = make_shared<RobotSerial>())) {
+	if (!(serial = make_shared<RobotSerial>()) || !data) {
 		ofLogFatalError() << "memory";
 		return;
 	}
-	RobotJoints jv;
-	data = jv.allocateData(); // save master data in Robot
-	jv.oneTimeSetup(data); // do one time setup of static data
+
+	jv.oneTimeSetup(); // do one time setup of static data
+	jv.setDefaultState();// sets shared memory
 
 	serial->listDevices();
+
 	serial->setup(1, 38400);//bugbug get from xml 
+
 	serial->waitForRobot();
 
-	mode = jv.setStartState(IKM_IK3D_CARTESIAN); // go to a known state
-	jv.send(serial);
+	//mode = jv.setStartState(IKM_IK3D_CARTESIAN); // go to a known state
+	//jv.send(serial);
 	
 }
 void Robot::update() {
@@ -285,36 +317,37 @@ void Robot::draw() {
 	}
 }
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
-	ofLogNotice() << "data.get()[" << offset << "] = " << (uint16_t)b;
-	data.get()[offset] = (uint16_t)b;
+	ofLogNotice() << "set data[" << offset << "] = " << (uint16_t)b;
+
+	data[offset] = b;
 }
 
 
 void RobotJointsState::echo() {
 	for (int i = 0; i < count; ++i) {
-		ofLogNotice() << "echo[" << i << "] = " << std::hex << "0x" << (unsigned int)data.get()[i];
+		ofLogNotice() << "echo[" << i << "] = " << std::hex << "0x" << (unsigned int)data[i];
 	}
 }
 
 uint8_t RobotJointsState::getChkSum() {
 	uint16_t sum = 0;
 	for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
-		sum += data.get()[i];
+		sum += data[i];
 	}
 	uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
 
-	data.get()[checksum] = 255 - invertedChecksum; //invert value to get file checksum
+	data[checksum] = 255 - invertedChecksum; //invert value to get file checksum
 
-	return data.get()[checksum];
+	return data[checksum];
 }
 
-void RobotSerial::write(shared_ptr<uint8_t> data, int count) {
+void RobotSerial::write(dataType data, int count) {
 	// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 		
 	//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 	// no need to hurry packets so just want the minimum amount no matter what
 	ofSleepMillis(500);
-	int sent = writeBytes(data.get(), count);
+	int sent = writeBytes(data, count);
 
 	ofLogNotice() << "write sent = " << sent;
 
@@ -327,10 +360,10 @@ void Command::setPoint(ofPoint pt) {
 		setX(pt.x);
 	}
 	if (pt.y) {
-		setX(pt.y);
+		setY(pt.y);
 	}
 	if (pt.z) {
-		setX(pt.z);
+		setZ(pt.z);
 	}
 }
 void danceCommand::draw(shared_ptr<RobotSerial> serial) {
@@ -356,23 +389,23 @@ void danceCommand::draw(shared_ptr<RobotSerial> serial) {
 void sanityTestCommand::draw(shared_ptr<RobotSerial> serial) {
 	ofLogNotice() << "sanityTest";
 	setStartState();
-	draw(serial);
-	setX(512);
+	send(serial);
+	setX(300);
 	setY(150);
 	setZ(150);
-	setWristAngle(90);
-	setWristRotate(512);
+	setWristAngle(30);
+	setWristRotate(120);
 	setGripper(0);
 	setLowLevelCommand(NoArmCommand);
-	setDelta(128);
+	setDelta(255);
 	setButton();
-	draw(serial);
+	send(serial);
 }
 
 void servosCenterCommand::draw(shared_ptr<RobotSerial> serial) {
 	ofLogNotice() << "centerAllServos";
 	setStartState(IKM_BACKHOE, setArmBackhoeJointAndGoHome);
-	draw(serial);
+	send(serial);
 	setX(512);
 	setY(512);
 	setZ(512);
@@ -380,10 +413,10 @@ void servosCenterCommand::draw(shared_ptr<RobotSerial> serial) {
 	setWristRotate(512);
 	setGripper(512);
 	setDelta(128);
-	draw(serial);
+	send(serial);
 }
 // "home" and set data matching state
-void RobotJoints::setSharedMemoryToDefaultState() {
+void RobotJoints::setDefaultState() {
 	ofLogNotice() << "setDefaults";
 	setX(getDefaultValue(X));
 	setY(getDefaultValue(Y));
@@ -391,8 +424,12 @@ void RobotJoints::setSharedMemoryToDefaultState() {
 	setWristAngle(getDefaultValue(wristAngle));
 	setWristRotate(getDefaultValue(wristRotate));
 	setGripper(getDefaultValue(Gripper));
-	setLowLevelCommand(NoArmCommand);
+	// ok to here
+	//return;
 	setDelta(getDeltaDefault());
+
+	setLowLevelCommand(NoArmCommand);
+	
 	setButton();
 }
 // will block until arm is ready
@@ -413,8 +450,8 @@ void ofApp::update(){
 	
 	robot.update();
 	shared_ptr<Command> cmd = robot.createCommand<Command>();// make_shared<Command>(data, mode);
-	cmd->addPoint(ofPoint(300, 0, 0));
-	cmd->addPoint(ofPoint(-300, 100, 0));
+	//cmd->addPoint(ofPoint(300, 0, 0));
+	cmd->addPoint(ofPoint(0, 100, 0));
 	robot.add(cmd);
 
 	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time

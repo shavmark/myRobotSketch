@@ -4,56 +4,50 @@
 
 //http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 
-// from firmware
-enum robotArmMode {
-	//IKM_BACKHOE not 100% supported
-	IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED
-};
-enum robotArmJointType {
-	X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined
-};
-// low level commands
-enum robotLowLevelCommand : uint8_t {
-	NoArmCommand=0, EmergencyStop= 17, SleepArm= 96, HomeArm=80, HomeArm90=88, setArm3DCylindricalStraightWristAndGoHome= 48, 
-	setArm3DCartesian90DegreeWristAndGoHome= 40, setArm3DCartesianStraightWristAndGoHome=32, setArm3DCylindrical90DegreeWristAndGoHome=56, setArmBackhoeJointAndGoHome=64
-};
-enum RobotTypeID {
-	// only 1 supported
-	InterbotiXPhantomXReactorArm, unknownRobotType
-};
-typedef pair<robotArmMode, robotArmJointType> valueType;
+// from firmware IKM_BACKHOE not 100% supported
+enum robotArmMode {	IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED};
+enum robotArmJointType {X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined};
+// only 1 supported
+enum RobotTypeID {InterbotiXPhantomXReactorArm, unknownRobotType};
+
+typedef pair<robotArmMode, robotArmJointType> SpecificJoint;
 typedef pair<robotArmMode, RobotTypeID> robotType;
+typedef uint8_t* dataType;
 
 class RobotSerial : public ofSerial {
 public:
 	void waitForSerial() { while (1) if (available() > 0) { return; } }
 	void clearSerial() { flush(); }
-	int readAllBytes(uint8_t *bytes, int bytesRequired = 5);
-	int readBytesInOneShot(uint8_t *bytes, int bytesMax = 100);
+	int readAllBytes(dataType bytes, int bytesRequired = 5);
+	int readBytesInOneShot(dataType bytes, int bytesMax = 100);
 	void readPose();
-	void write(shared_ptr<uint8_t> data, int count);
+	void write(dataType data, int count);
 	robotType waitForRobot();
+
 protected:
 	robotType ArmIDResponsePacket(uint8_t *bytes);
 };
 
-// one instance for robot, low level data without range checking so only use derived classes
+// pure virtual base class, low level data without range checking so only use derived classes
 class RobotJointsState {
 
 public:
-	RobotJointsState(shared_ptr<uint8_t> data) { this->data = data; }
+	// low level commands
+	enum robotLowLevelCommand : uint8_t {
+		NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
+		setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
+	};
+
+	static int getCount() { return count; } // data byte count
 	void send(shared_ptr<RobotSerial> serial);
 
-	// only one data set per robot
-	static shared_ptr<uint8_t> allocateData() { return make_shared<uint8_t>(count); }
-	virtual void virtfunction() = 0;
 protected:
-	void setData(shared_ptr<uint8_t> data) { this->data = data; }
+
+	RobotJointsState(dataType data) { setData(data); }
+	
+	virtual void virtfunction() = 0;
+	void setData(dataType data) { this->data = data; }
 	void echo();
-	void set(uint16_t high, int low, int val) {
-		set(high, highByte(val));
-		set(low, lowByte(val));
-	}
 	void set(uint16_t offset, uint8_t b);
 	void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
 	void setDelta(uint8_t value = 128) { set(deltaValBytesOffset, value); }
@@ -68,7 +62,13 @@ protected:
 
 	// offsets bugbug store with JointValue, set at init time via constructor but still const
 private:
+	void set(uint16_t high, uint16_t low, int val) {
+		ofLogNotice() << "set " << val;
+		set(high, highByte(val));
+		set(low, lowByte(val));
+	}
 	uint8_t getChkSum();
+	static const uint16_t headerByteOffset = 0;
 	static const uint16_t xHighByteOffset = 1;
 	static const uint16_t xLowByteOffset = 2;
 	static const uint16_t yHighByteOffset = 3;
@@ -89,16 +89,15 @@ private:
 
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	shared_ptr<uint8_t> data=nullptr; // data to send
+	dataType data=nullptr; // data to send
 };
 
 // stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
 class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
-	RobotJoints(shared_ptr<uint8_t> data, robotArmMode mode);
-	RobotJoints(shared_ptr<uint8_t> data) : RobotJointsState(data) {}
-	RobotJoints() : RobotJointsState(nullptr) {}
+	RobotJoints(dataType data, robotArmMode mode);
+	RobotJoints(dataType data) : RobotJointsState(data) {}
 
 	void setX(int x);
 	void setY(int y);
@@ -107,30 +106,30 @@ public:
 	void setWristRotate(int a);
 	void setGripper(int distance);
 
-	void oneTimeSetup(shared_ptr<uint8_t>data);
+	void oneTimeSetup();
 
 	bool inRange(robotArmJointType type, int value);
 
-	int getDefaultValue(robotArmJointType type) {	return defaultValue[valueType(armMode, type)];}
-	int getMin(robotArmJointType type) { return minValue[valueType(armMode, type)]; }
-	int getMax(robotArmJointType type) { return maxValue[valueType(armMode, type)]; }
+	int getDefaultValue(robotArmJointType type) { return  defaultValue[SpecificJoint(armMode, type)]; }
+	int getMin(robotArmJointType type) { return minValue[SpecificJoint(armMode, type)]; }
+	int getMax(robotArmJointType type) { return maxValue[SpecificJoint(armMode, type)]; }
 	
-	static uint8_t getDeltaDefault() { return deltaDefault; }
+	static int getDeltaDefault() { return deltaDefault; }
 
 	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
 
 	//Set 3D Cartesian mode / straight wrist and go to home etc
 	robotArmMode setStartState(robotArmMode mode= IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd= setArm3DCartesianStraightWristAndGoHome);
-	void setSharedMemoryToDefaultState();
+	void setDefaultState();
 
 protected:
-	static map<valueType, int> minValue;
-	static map<valueType, int> maxValue;
-	static map<valueType, int> defaultValue;
-	static uint16_t deltaDefault; // manage speed
+	static map<SpecificJoint, int> minValue;
+	static map<SpecificJoint, int> maxValue;
+	static map<SpecificJoint, int> defaultValue;
+	static int deltaDefault; // manage speed
 
 private:
-	void set(valueType type, int min, int max, int defaultvalue);
+	void set(SpecificJoint type, int min, int max, int defaultvalue);
 	robotArmMode armMode = IKM_IK3D_CARTESIAN;
 	RobotTypeID id;
 	void virtfunction() {};
@@ -139,7 +138,7 @@ private:
 
 class Command : protected RobotJoints {
 public:
-	Command(shared_ptr<uint8_t> data, robotArmMode mode):RobotJoints(data, mode){ }
+	Command(dataType data, robotArmMode mode):RobotJoints(data, mode){ }
 
 	// move or draw based on the value in moveOrDraw
 	virtual void draw(shared_ptr<RobotSerial> serial) {
@@ -167,24 +166,25 @@ private:
 // example
 class servosCenterCommand : public Command {
 public:
-	servosCenterCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
+	servosCenterCommand(dataType data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
 class sanityTestCommand : public Command {
 public:
-	sanityTestCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
+	sanityTestCommand(dataType data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
 // just for fun
 class danceCommand : public Command {
-public:
-	danceCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
+public://
+	danceCommand(dataType data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
 
 // the robot itself
 class Robot {
 public:
+	~Robot() { if (data) delete[] data; }
 	void setup();
 	void update();
 	void draw();
@@ -193,9 +193,10 @@ public:
 	void add(shared_ptr<Command>cmd) { path.push(cmd); }
 
 private:
+
 	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
 	shared_ptr<RobotSerial> serial; // talking to the robot
-	shared_ptr<uint8_t> data = nullptr;// one data instance per robot
+	dataType data = nullptr;// one data instance per robot
 	robotType type;
 	robotArmMode mode;
 };
