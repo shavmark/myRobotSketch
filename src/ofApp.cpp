@@ -273,7 +273,7 @@ void Robot::setup() {
 	
 }
 void Robot::update() {
-	shared_ptr<moveCommand> cmd = make_shared<moveCommand>(data, mode);
+	shared_ptr<Command> cmd = make_shared<Command>(data, mode);
 	cmd->addPoint(ofPoint(200, 0, 0));
 	path.push(cmd);
 	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time

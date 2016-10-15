@@ -146,7 +146,14 @@ enum robotCommand {
 class Command : protected RobotJoints {
 public:
 	Command(shared_ptr<uint8_t> data, robotArmMode mode):RobotJoints(data, mode){ }
-	virtual void draw(shared_ptr<RobotSerial> serial) {}; //  execute the command
+
+	virtual void draw(shared_ptr<RobotSerial> serial) {
+		//bugbug move arm up from paper 
+		for (const auto& point : points) {
+			setPoint(point);
+			send(serial);// move
+		}
+	}
 
 	void addPoint(const ofPoint& addPt) { points.push_back(addPt); }
 
@@ -172,28 +179,34 @@ public:
 };
 class drawCommand : public Command {
 public:
+	drawCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	// move with arm on paper, maybe this can be done with a variable in moveCommand,would be nice
 	void draw(shared_ptr<RobotSerial> serial) {
 	}
 };
 class servosCenterCommand : public Command {
 public:
+	servosCenterCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
 class sanityTestCommand : public Command {
 public:
+	sanityTestCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
 class danceCommand : public Command {
 public:
+	danceCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial);
 };
 class circleCommand : public Command {
 public:
+	circleCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial) {};
 };
 class centerCommand : public Command {
 public:
+	centerCommand(shared_ptr<uint8_t> data, robotArmMode mode) :Command(data, mode) { }
 	void draw(shared_ptr<RobotSerial> serial) {};
 };
 
