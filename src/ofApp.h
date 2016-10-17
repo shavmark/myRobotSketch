@@ -10,18 +10,27 @@ enum robotArmJointType {X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefin
 // only 1 supported
 enum RobotTypeID {InterbotiXPhantomXReactorArm, unknownRobotType};
 
-typedef pair<robotArmMode, robotArmJointType> SpecificJoint;
 typedef pair<robotArmMode, RobotTypeID> robotType;
-typedef uint8_t* dataType;
+typedef pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets different handling, see is spec. Its not fully supported here
+
+inline robotType createRobotType(robotArmMode mode, RobotTypeID id) {
+	return robotType(mode, id);
+}
+inline robotType createUndefinedRobotType() {
+	return createRobotType(IKM_NOT_DEFINED, unknownRobotType);
+}
+inline bool robotTypeIsError(robotType type) {
+	return type == createUndefinedRobotType();
+}
 
 class RobotSerial : public ofSerial {
 public:
 	void waitForSerial() { while (1) if (available() > 0) { return; } }
 	void clearSerial() { flush(); }
-	int readAllBytes(dataType bytes, int bytesRequired = 5);
-	int readBytesInOneShot(dataType bytes, int bytesMax = 100);
+	int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
+	int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
 	void readPose();
-	void write(dataType data, int count);
+	void write(uint8_t* data, int count);
 	robotType waitForRobot();
 
 protected:
@@ -34,19 +43,25 @@ class RobotJointsState {
 public:
 	// low level commands
 	enum robotLowLevelCommand : uint8_t {
-		NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
+		unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
 		setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
 	};
 
-	static int getCount() { return count; } // data byte count
-	void send(shared_ptr<RobotSerial> serial);
+	static const uint16_t count = 17;
+	void send(RobotSerial* serial);
+	robotLowLevelCommand getStartCommand(robotType type) {
+		if (type.first == IKM_IK3D_CARTESIAN) {
+			return setArm3DCartesianStraightWristAndGoHome; // bugbug support all types once the basics are working
+		}
+		return unKnownCommand;//bugbug support all types once the basics are working
+	}
 
 protected:
 
-	RobotJointsState(dataType data) { setData(data); }
+	RobotJointsState(uint8_t *data) { setData(data); }
 	
 	virtual void virtfunction() = 0;
-	void setData(dataType data) { this->data = data; }
+	void setData(uint8_t *data) { this->data = data; }
 	void echo();
 	void set(uint16_t offset, uint8_t b);
 	void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
@@ -62,11 +77,7 @@ protected:
 
 	// offsets bugbug store with JointValue, set at init time via constructor but still const
 private:
-	void set(uint16_t high, uint16_t low, int val) {
-		ofLogNotice() << "set " << val;
-		set(high, highByte(val));
-		set(low, lowByte(val));
-	}
+	void set(uint16_t high, uint16_t low, int val);
 	uint8_t getChkSum();
 	static const uint16_t headerByteOffset = 0;
 	static const uint16_t xHighByteOffset = 1;
@@ -85,19 +96,18 @@ private:
 	static const uint16_t buttonByteOffset = 14;//bugbug not supported
 	static const uint16_t extValBytesOffset = 15;
 	static const uint16_t checksum = 16;
-	static const uint16_t count = 17;
 
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-	dataType data=nullptr; // data to send
+	uint8_t *data=nullptr; // data to send
 };
 
 // stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
 class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
-	RobotJoints(dataType data, robotArmMode mode);
-	RobotJoints(dataType data) : RobotJointsState(data) {}
+	RobotJoints(uint8_t* data, const robotType& typeOfRobot);
+	RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }
 
 	void setX(int x);
 	void setY(int y);
@@ -110,16 +120,18 @@ public:
 
 	bool inRange(robotArmJointType type, int value);
 
-	int getDefaultValue(robotArmJointType type) { return  defaultValue[SpecificJoint(armMode, type)]; }
-	int getMin(robotArmJointType type) { return minValue[SpecificJoint(armMode, type)]; }
-	int getMax(robotArmJointType type) { return maxValue[SpecificJoint(armMode, type)]; }
+	int getDefaultValue(robotArmJointType type) { return  defaultValue[SpecificJoint(typeOfRobot, type)]; }
+	int getMin(robotArmJointType type) { return minValue[SpecificJoint(typeOfRobot, type)]; }
+	int getMax(robotArmJointType type) { return maxValue[SpecificJoint(typeOfRobot, type)]; }
 	
 	static int getDeltaDefault() { return deltaDefault; }
 
-	bool is90() { return armMode == IKM_IK3D_CARTESIAN_90 || armMode == IKM_CYLINDRICAL_90; }
+	bool is90() { return typeOfRobot.first == IKM_IK3D_CARTESIAN_90 || typeOfRobot.first == IKM_CYLINDRICAL_90; }
 
 	//Set 3D Cartesian mode / straight wrist and go to home etc
-	robotArmMode setStartState(robotArmMode mode= IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd= setArm3DCartesianStraightWristAndGoHome);
+	robotType setStartState();
+	//robotType setStartState(robotType mode = IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd = setArm3DCartesianStraightWristAndGoHome);
+	robotType getRobotType() { return typeOfRobot; }
 	void setDefaultState();
 
 protected:
@@ -130,23 +142,50 @@ protected:
 
 private:
 	void set(SpecificJoint type, int min, int max, int defaultvalue);
-	robotArmMode armMode = IKM_IK3D_CARTESIAN;
+	robotType typeOfRobot;// required
 	RobotTypeID id;
 	void virtfunction() {};
 
 };
+class Command;//forward reference
+// the robot itself
+class Robot {
+public:
+	friend class Command;
+	void setup();
+	void update();
+	void draw();
+
+	template<typename T> shared_ptr<T> createCommand() { return make_shared<T>(*this); };
+	void add(shared_ptr<Command>cmd) { path.push(cmd); }
+
+	RobotSerial serial; // talking to the robot
+
+private:
+
+	uint8_t data[RobotJointsState::count];// one data instance per robot
+	robotType type;
+	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
+};
 
 class Command : protected RobotJoints {
 public:
-	Command(dataType data, robotArmMode mode):RobotJoints(data, mode){ }
+	// passed robot cannot go away while this object exists bugbug should this be a shared pointer?
+	Command(Robot &robot) :RobotJoints(robot.data, robot.type) { this->robot = &robot; }
 
+	void setup() { // setup can be ignored for a reset is not required
+		setStartState();
+		send(&robot->serial); // send the mode, also resets the robot
+	}
 	// move or draw based on the value in moveOrDraw
-	virtual void draw(shared_ptr<RobotSerial> serial) {
+	virtual void draw() {
 		sleep(); // sleep if requested
-		//bugbug move arm up from paper if !moveOrDraw
-		for (const auto& point : points) {
-			setPoint(point);
-			send(serial);// move
+		if (robot) {
+			//bugbug move arm up from paper if !moveOrDraw
+			for (const auto& point : points) {
+				setPoint(point);
+				send(&robot->serial);// move
+			}
 		}
 	}
 
@@ -157,49 +196,26 @@ public:
 	int millisSleep = -1;// no sleep by default
 	bool moveOrDraw = true; // false means draw
 	bool deleteWhenDone = true; // false to repeat command per every draw occurance
+
 protected:
 	void setPoint(ofPoint pt);
 	vector<ofPoint> points; // one more more points
-
+	Robot *robot = nullptr;// owner
 private:
 };
-// example
-class servosCenterCommand : public Command {
-public:
-	servosCenterCommand(dataType data, robotArmMode mode) :Command(data, mode) { }
-	void draw(shared_ptr<RobotSerial> serial);
-};
+// examples
 class sanityTestCommand : public Command {
 public:
-	sanityTestCommand(dataType data, robotArmMode mode) :Command(data, mode) { }
-	void draw(shared_ptr<RobotSerial> serial);
+	sanityTestCommand(Robot &robot) :Command(robot) { }
+	void draw();
 };
 // just for fun
 class danceCommand : public Command {
 public://
-	danceCommand(dataType data, robotArmMode mode) :Command(data, mode) { }
-	void draw(shared_ptr<RobotSerial> serial);
-};
-
-// the robot itself
-class Robot {
-public:
-	~Robot() { if (data) delete[] data; }
-	void setup();
-	void update();
+	danceCommand(Robot &robot) :Command(robot) { }
 	void draw();
-
-	template<typename T> shared_ptr<T> createCommand() {return make_shared<T>(data, mode);};
-	void add(shared_ptr<Command>cmd) { path.push(cmd); }
-
-private:
-
-	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
-	shared_ptr<RobotSerial> serial; // talking to the robot
-	dataType data = nullptr;// one data instance per robot
-	robotType type;
-	robotArmMode mode;
 };
+
 
 
 class ofApp : public ofBaseApp{
