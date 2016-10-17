@@ -77,6 +77,21 @@ void RobotJointsState::send(RobotSerial* serial) {
 	}
 }
 
+robotLowLevelCommand RobotJointsState::getStartCommand(robotType type) {
+	if (type.first == IKM_IK3D_CARTESIAN) {
+		return setArm3DCartesianStraightWristAndGoHome; // bugbug support all types once the basics are working
+	}
+	if (type.first == IKM_IK3D_CARTESIAN_90) {
+		return setArm3DCartesian90DegreeWristAndGoHome; // bugbug support all types once the basics are working
+	}
+	if (type.first == IKM_CYLINDRICAL_90) {
+		return setArm3DCylindrical90DegreeWristAndGoHome; // bugbug support all types once the basics are working
+	}
+	if (type.first == IKM_CYLINDRICAL) {
+		return setArm3DCylindricalStraightWristAndGoHome; // bugbug support all types once the basics are working
+	}
+	return unKnownCommand;//bugbug support all types once the basics are working
+}
 bool RobotJoints::inRange(robotArmJointType type, int value) {
 	if (value > maxValue[SpecificJoint(typeOfRobot, type)] || value < minValue[SpecificJoint(typeOfRobot, type)]) {
 		ofLogError() << "out of range " << value << " (" << minValue[SpecificJoint(typeOfRobot, type)] << ", " << maxValue[SpecificJoint(typeOfRobot, type)] << ")";
@@ -89,38 +104,34 @@ void RobotJoints::oneTimeSetup() {
 	//createRobotType(robotArmMode mode, RobotTypeID id)
 	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), X), -300, 300, 0);
 	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXReactorArm), X), -300, 300, 0);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), Y), 50, 350, 235);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXReactorArm), Y), 20, 150, 140);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), Z), 20, 250, 210);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXReactorArm), Z), 10, 150, 30);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), wristAngle), -30, 30, 0);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXReactorArm), wristAngle), -90, -45, -90);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), wristRotate), 0, 1023, 512);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXReactorArm), wristRotate), 0, 1023, 512);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), Gripper), 0, 512, 512);
+	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXReactorArm), Gripper), 0, 512, 512);
+
+
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXReactorArm), X), 0, 1023, 512);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXReactorArm), X), 0, 1023, 512);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXReactorArm), Y), 50, 350, 235);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXReactorArm), Y), 20, 150, 140);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXReactorArm), Z), 20, 250, 210);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXReactorArm), Z), 10, 150, 30);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXReactorArm), wristAngle), -30, 30, 0);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXReactorArm), wristAngle), -90, -45, -90);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXReactorArm), wristRotate), 0, 1023, 512);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXReactorArm), wristRotate), 0, 1023, 512);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXReactorArm), Gripper), 0, 512, 512);
+	set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXReactorArm), Gripper), 0, 512, 512);
+
+	// mark end of list for debugging
 	set(SpecificJoint(createUndefinedRobotType(), JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
 
-	/* only CARTESIAN supported at this time
-	set(SpecificJoint(IKM_CYLINDRICAL, X), 0, 1023, 512);
-	set(SpecificJoint(IKM_CYLINDRICAL_90, X), 0, 1023, 512);
-
-	set(SpecificJoint(IKM_IK3D_CARTESIAN, Y), 50, 350, 235);
-	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, Y), 20, 150, 140);
-	set(SpecificJoint(IKM_CYLINDRICAL, Y), 50, 350, 235);
-	set(SpecificJoint(IKM_CYLINDRICAL_90, Y), 20, 150, 140);
-
-	set(SpecificJoint(IKM_IK3D_CARTESIAN, Z), 20, 250, 210);
-	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, Z), 10, 150, 30);
-	set(SpecificJoint(IKM_CYLINDRICAL, Z), 20, 250, 210);
-	set(SpecificJoint(IKM_CYLINDRICAL_90, Z), 10, 150, 30);
-
-	set(SpecificJoint(IKM_IK3D_CARTESIAN, wristAngle), -30, 30, 0);
-	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, wristAngle), -90, -45, -90);
-	set(SpecificJoint(IKM_CYLINDRICAL, wristAngle), 30, 30, 0);
-	set(SpecificJoint(IKM_CYLINDRICAL_90, wristAngle), -90, -45, -90);
-
-	set(SpecificJoint(IKM_IK3D_CARTESIAN, wristRotate), 0, 1023, 512);
-	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, wristRotate), 0, 1023, 512);
-	set(SpecificJoint(IKM_CYLINDRICAL, wristRotate), 0, 1023, 512);
-	set(SpecificJoint(IKM_CYLINDRICAL_90, wristRotate), 0, 1023, 512);
-
-	set(SpecificJoint(IKM_IK3D_CARTESIAN, Gripper), 0, 512, 512);
-	set(SpecificJoint(IKM_IK3D_CARTESIAN_90, Gripper), 0, 512, 512);
-	set(SpecificJoint(IKM_CYLINDRICAL, Gripper), 0, 512, 512);
-	set(SpecificJoint(IKM_CYLINDRICAL_90, Gripper), 0, 512, 512);
-
-	*/
 	return;
 
 }
@@ -420,7 +431,6 @@ void RobotJoints::setDefaultState() {
 robotType RobotJoints::setStartState() {
 	ofLogNotice() << "setStartState " << typeOfRobot.first << " " << typeOfRobot.second;
 	setLowLevelCommand(getStartCommand(typeOfRobot));
-	setDefaultState();
 	return typeOfRobot;
 }
 
@@ -434,7 +444,7 @@ void ofApp::update(){
 	
 	robot.update();
 	shared_ptr<sanityTestCommand> cmd = robot.createCommand<sanityTestCommand>();// make_shared<Command>(data, mode);
-	cmd->setup();
+	cmd->reset();
 	//cmd->addPoint(ofPoint(300, 0, 0));
 	//cmd->addPoint(ofPoint(0, 100, 0));
 	robot.add(cmd);

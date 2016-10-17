@@ -22,6 +22,11 @@ inline robotType createUndefinedRobotType() {
 inline bool robotTypeIsError(robotType type) {
 	return type == createUndefinedRobotType();
 }
+// low level commands
+enum robotLowLevelCommand : uint8_t {
+	unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
+	setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
+};
 
 class RobotSerial : public ofSerial {
 public:
@@ -41,20 +46,10 @@ protected:
 class RobotJointsState {
 
 public:
-	// low level commands
-	enum robotLowLevelCommand : uint8_t {
-		unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
-		setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
-	};
 
 	static const uint16_t count = 17;
 	void send(RobotSerial* serial);
-	robotLowLevelCommand getStartCommand(robotType type) {
-		if (type.first == IKM_IK3D_CARTESIAN) {
-			return setArm3DCartesianStraightWristAndGoHome; // bugbug support all types once the basics are working
-		}
-		return unKnownCommand;//bugbug support all types once the basics are working
-	}
+	robotLowLevelCommand getStartCommand(robotType type);
 
 protected:
 
@@ -130,7 +125,6 @@ public:
 
 	//Set 3D Cartesian mode / straight wrist and go to home etc
 	robotType setStartState();
-	//robotType setStartState(robotType mode = IKM_IK3D_CARTESIAN, robotLowLevelCommand cmd = setArm3DCartesianStraightWristAndGoHome);
 	robotType getRobotType() { return typeOfRobot; }
 	void setDefaultState();
 
@@ -173,9 +167,11 @@ public:
 	// passed robot cannot go away while this object exists bugbug should this be a shared pointer?
 	Command(Robot &robot) :RobotJoints(robot.data, robot.type) { this->robot = &robot; }
 
-	void setup() { // setup can be ignored for a reset is not required
+	// put command in a known state
+	void reset() { // setup can be ignored for a reset is not required
 		setStartState();
 		send(&robot->serial); // send the mode, also resets the robot
+		setDefaultState();
 	}
 	// move or draw based on the value in moveOrDraw
 	virtual void draw() {
@@ -200,7 +196,7 @@ public:
 protected:
 	void setPoint(ofPoint pt);
 	vector<ofPoint> points; // one more more points
-	Robot *robot = nullptr;// owner
+	Robot *robot = nullptr; // owner
 private:
 };
 // examples
