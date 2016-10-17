@@ -1,6 +1,7 @@
 #include "ofApp.h"
 #include <algorithm> 
-
+// https://msdn.microsoft.com/en-us/library/windows/desktop/aa387285(v=vs.85).aspx
+//https://github.com/sparkle-project/Sparkle
 // shared across all robots and joints
 map<SpecificJoint, int> RobotJoints::minValue;
 map<SpecificJoint, int> RobotJoints::maxValue;
@@ -173,9 +174,8 @@ void RobotSerial::readPose() {
 	}
 	else if (i == 10){
 		echoRawBytes(bytes, 10);
+		ArmIDResponsePacket(bytes); // 2 signs ons come back some times, likely a timing issue?
 		ArmIDResponsePacket(bytes); // first 2 bytes are sign on type
-		// next bytes are?
-		ofLogNotice() << bytes;
 	}
 	else {
 		ofLogNotice() << bytes;
@@ -338,9 +338,23 @@ void RobotJointsState::set(uint16_t offset, uint8_t b) {
 
 
 void RobotJointsState::echo() {
-	for (int i = 0; i < count; ++i) {
-		ofLogNotice() << "echo[" << i << "] = " << std::hex << "0x" << (unsigned int)data[i];
-	}
+#define ECHO(a)ofLogNotice() << "echo[" << a << "] = "  << std::hex << (unsigned int)data[a] << "h "  << (unsigned int)data[a] << "d "<< #a;
+	ECHO(headerByteOffset)
+	ECHO(xLowByteOffset)
+	ECHO(yHighByteOffset)
+	ECHO(yLowByteOffset)
+	ECHO(zHighByteOffset)
+	ECHO(zLowByteOffset)
+	ECHO(wristAngleHighByteOffset)
+	ECHO(wristAngleLowByteOffset)
+	ECHO(wristRotateHighByteOffset)
+	ECHO(wristRotateLowByteOffset)
+	ECHO(gripperHighByteOffset)
+	ECHO(gripperLowByteOffset)
+	ECHO(deltaValBytesOffset)
+	ECHO(buttonByteOffset)
+	ECHO(extValBytesOffset)
+	ECHO(checksum)
 }
 
 uint8_t RobotJointsState::getChkSum() {
@@ -443,10 +457,11 @@ void ofApp::setup(){
 void ofApp::update(){
 	
 	robot.update();
-	shared_ptr<sanityTestCommand> cmd = robot.createCommand<sanityTestCommand>();// make_shared<Command>(data, mode);
+	shared_ptr<Command> cmd = robot.createCommand<Command>();
 	cmd->reset();
 	//cmd->addPoint(ofPoint(300, 0, 0));
-	//cmd->addPoint(ofPoint(0, 100, 0));
+	cmd->addPoint(ofPoint(0, 100, 0));
+	cmd->addPoint(ofPoint(100, 150, 0));
 	robot.add(cmd);
 
 	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time
