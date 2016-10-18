@@ -30,7 +30,7 @@ RobotJoints::RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJoi
 void RobotJoints::setX(int x) {
 	ofLogNotice() << "try to set x=" << x;
 	if (inRange(X, x)) {
-		setLowLevelX(x);
+		setLowLevelX(x, addMagicNumber());
 	}
 }
 void RobotJoints::setY(int y) {
@@ -102,7 +102,7 @@ bool RobotJoints::inRange(robotArmJointType type, int value) {
 }
 // needs to only be called one time -- uses static data to save time/space. backhoe not supported
 void RobotJoints::oneTimeSetup() {
-	//createRobotType(robotArmMode mode, RobotTypeID id)
+	
 	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), X), -300, 300, 0);
 	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXReactorArm), X), -300, 300, 0);
 	set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXReactorArm), Y), 50, 350, 235);
@@ -313,10 +313,13 @@ void Robot::setup() {
 
 	serial.setup(1, 38400);//bugbug get from xml
 
-	if (!robotTypeIsError(serial.waitForRobot())) {
+	// start with default mode
+	robotType defaultType;
+	if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
 		ofLogNotice() << "robot setup complete";
 	}
-
+	ofLogNotice() << "use IKM_CYLINDRICAL";
+	type = robotType(IKM_CYLINDRICAL, defaultType.second);
 }
 void Robot::update() {
 }
@@ -338,7 +341,7 @@ void RobotJointsState::set(uint16_t offset, uint8_t b) {
 
 
 void RobotJointsState::echo() {
-#define ECHO(a)ofLogNotice() << "echo[" << a << "] = "  << std::hex << (unsigned int)data[a] << "h "  << (unsigned int)data[a] << "d "<< #a;
+#define ECHO(a)ofLogNotice() << "echo[" << a << "] = "  << std::hex << (unsigned int)data[a] << "h "  <<  std::dec <<(unsigned int)data[a] << "d "<< #a;
 	ECHO(headerByteOffset)
 	ECHO(xLowByteOffset)
 	ECHO(yHighByteOffset)
@@ -374,7 +377,7 @@ void RobotSerial::write(uint8_t* data, int count) {
 		
 	//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 	// no need to hurry packets so just want the minimum amount no matter what
-	ofSleepMillis(500);
+	ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true? 
 	int sent = writeBytes(data, count);
 
 	ofLogNotice() << "write sent = " << sent;
@@ -383,16 +386,40 @@ void RobotSerial::write(uint8_t* data, int count) {
 	readPose(); // how often are two sent?
 
 }
+// x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
+void Command::setState(ofVec3f vec) {
+	if (isCylindrical()) {
+		if (vec.x) {
+			setWristAngle(getMin(wristAngle) + (vec.x * (getMax(wristAngle) - getMin(wristAngle))));
+		}
+		if (vec.y) {
+			setWristRotate(getMin(wristRotate) + (vec.y * (getMax(wristRotate) - getMin(wristRotate))));
+		}
+		if (vec.z) {
+			setGripper(getMin(Gripper) + (vec.z * (getMax(Gripper) - getMin(Gripper))));
+		}
+	}
+}
+// 0 to 100%
 void Command::setPoint(ofPoint pt) {
-	if (pt.x) {
-		setX(pt.x);
+	// only Cylindrical supported by this function, mainly the setx one
+	if (isCylindrical()) {
+		//ofMap
+		if (pt.x) {
+			setX(getMin(X) + (pt.x * (getMax(X) - getMin(X))));
+		}
+		if (pt.y) {
+			setY(getMin(Y) + (pt.y * (getMax(Y) - getMin(Y))));
+		}
+		if (pt.z) {
+			setZ(getMin(Z) + (pt.z * (getMax(Z) - getMin(Z))));
+		}
 	}
-	if (pt.y) {
-		setY(pt.y);
+	else {
+		ofLogError("Command::setPoint") << "setPoint not supported";
 	}
-	if (pt.z) {
-		setZ(pt.z);
-	}
+}
+void rectangleCommand::draw() {
 }
 void danceCommand::draw() {
 	// spin nose
@@ -459,9 +486,11 @@ void ofApp::update(){
 	robot.update();
 	shared_ptr<Command> cmd = robot.createCommand<Command>();
 	cmd->reset();
-	//cmd->addPoint(ofPoint(300, 0, 0));
-	cmd->addPoint(ofPoint(0, 100, 0));
-	cmd->addPoint(ofPoint(100, 150, 0));
+	//cmd->addPointAndState(ofPoint(0.5, 0.0, 0)); // middle back
+	//cmd->addPointAndState(ofPoint(1.0, 0, 0)); 
+	//cmd->addPointAndState(ofPoint(1.0, 0, 0), ofPoint(0.5, 0.5, 0.5));
+	cmd->addPointAndState(ofPoint(1.0, 0, 0), ofPoint(1.0, 1.0, 1.0));
+	cmd->addPointAndState(ofPoint(0.001, 0, 0), ofPoint(0.001, 0.001, 0.001));
 	robot.add(cmd);
 
 	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time

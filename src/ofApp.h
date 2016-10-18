@@ -16,6 +16,9 @@ typedef pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets differ
 inline robotType createRobotType(robotArmMode mode, RobotTypeID id) {
 	return robotType(mode, id);
 }
+inline robotType createDefaultRobotType(RobotTypeID id) {
+	return robotType(IKM_CYLINDRICAL, id);
+}
 inline robotType createUndefinedRobotType() {
 	return createRobotType(IKM_NOT_DEFINED, unknownRobotType);
 }
@@ -63,7 +66,7 @@ protected:
 	void setDelta(uint8_t value = 128) { set(deltaValBytesOffset, value); }
 	void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 
-	void setLowLevelX(int x) { set(xHighByteOffset, xLowByteOffset, x + 512); } // no validation at this level use with care
+	void setLowLevelX(int x, int magicNumer) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
 	void setLowLevelY(int y) { set(yHighByteOffset, yLowByteOffset, y); }
 	void setLowLevelZ(int z) { set(zHighByteOffset, zLowByteOffset, z); }
 	void setLowLevelWristAngle(int a) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a+90); };
@@ -103,7 +106,7 @@ public:
 	// constructor required
 	RobotJoints(uint8_t* data, const robotType& typeOfRobot);
 	RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }
-
+	
 	void setX(int x);
 	void setY(int y);
 	void setZ(int z);
@@ -118,9 +121,12 @@ public:
 	int getDefaultValue(robotArmJointType type) { return  defaultValue[SpecificJoint(typeOfRobot, type)]; }
 	int getMin(robotArmJointType type) { return minValue[SpecificJoint(typeOfRobot, type)]; }
 	int getMax(robotArmJointType type) { return maxValue[SpecificJoint(typeOfRobot, type)]; }
-	
-	static int getDeltaDefault() { return deltaDefault; }
+	//26.5" x max
 
+	static int getDeltaDefault() { return deltaDefault; }
+	bool isCartesion() { return (typeOfRobot.first == IKM_IK3D_CARTESIAN || typeOfRobot.first == IKM_IK3D_CARTESIAN_90); }
+	bool isCylindrical() { return (typeOfRobot.first == IKM_CYLINDRICAL || typeOfRobot.first == IKM_CYLINDRICAL_90); }
+	int addMagicNumber() { return isCylindrical() ? 0 : 512; }
 	bool is90() { return typeOfRobot.first == IKM_IK3D_CARTESIAN_90 || typeOfRobot.first == IKM_CYLINDRICAL_90; }
 
 	//Set 3D Cartesian mode / straight wrist and go to home etc
@@ -137,7 +143,6 @@ protected:
 private:
 	void set(SpecificJoint type, int min, int max, int defaultvalue);
 	robotType typeOfRobot;// required
-	RobotTypeID id;
 	void virtfunction() {};
 
 };
@@ -165,8 +170,15 @@ private:
 class Command : protected RobotJoints {
 public:
 	// passed robot cannot go away while this object exists bugbug should this be a shared pointer?
-	Command(Robot &robot) :RobotJoints(robot.data, robot.type) { this->robot = &robot; }
+	Command(Robot &robot) :RobotJoints(robot.data, robot.type) { this->robot = &robot;  }
 
+	class CommandInfo {
+	public:
+		CommandInfo(const ofPoint& point, const ofPoint& settings) { this->point = point; this->settings = settings; }
+
+		ofPoint point;
+		ofPoint settings;
+	};
 	// put command in a known state
 	void reset() { // setup can be ignored for a reset is not required
 		setStartState();
@@ -178,24 +190,27 @@ public:
 		sleep(); // sleep if requested
 		if (robot) {
 			//bugbug move arm up from paper if !moveOrDraw
-			for (const auto& point : points) {
-				setPoint(point);
+			for (const auto& info : infoVector) {
+				setPoint(info.point);
+				setState(info.settings);
 				send(&robot->serial);// move
 			}
 		}
 	}
-
-	void addPoint(const ofPoint& addPt) { points.push_back(addPt); }
+	
+	void setFillMode(int mode) { fillmode = mode; }
+	void addPointAndState(const ofPoint& point, const ofPoint& state = ofPoint()) { infoVector.push_back(CommandInfo(point, state)); }
 
 	void sleep() { if (millisSleep > -1) ofSleepMillis(500); }
 
 	int millisSleep = -1;// no sleep by default
 	bool moveOrDraw = true; // false means draw
 	bool deleteWhenDone = true; // false to repeat command per every draw occurance
-
+	int fillmode = 0;
 protected:
 	void setPoint(ofPoint pt);
-	vector<ofPoint> points; // one more more points
+	void setState(ofVec3f pt);
+	vector<CommandInfo> infoVector; // one more more points
 	Robot *robot = nullptr; // owner
 private:
 };
@@ -209,6 +224,12 @@ public:
 class danceCommand : public Command {
 public://
 	danceCommand(Robot &robot) :Command(robot) { }
+	void draw();
+};
+
+class rectangleCommand : public Command {
+public://
+	rectangleCommand(Robot &robot) :Command(robot) { }
 	void draw();
 };
 
