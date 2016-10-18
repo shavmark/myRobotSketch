@@ -20,9 +20,6 @@ void RobotJoints::set(SpecificJoint type, int minVal, int maxVal, int defaultVal
 	hardwareRanges.defaultValue[type] = defaultVal;
 }
 
-RobotJoints::RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data){
-	this->typeOfRobot = typeOfRobot;
-}
 void RobotJoints::setX(int x) {
 	ofLogNotice() << "try to set x=" << x;
 	if (inRange(X, x)) {
@@ -336,10 +333,6 @@ void Robot::setup() {
 	RobotJoints jv(data, type);
 	jv.oneTimeSetup(); // do one time setup of static data
 					   
-	// set ranges so percents work against these. leave Y as is bugbug figure this all out
-	int test = jv.getMid(X);
-	userDefinedRanges.setMin(createJoint(X, type.first, type.second), jv.getMid(X) - 200);
-	userDefinedRanges.setMax(createJoint(X, type.first, type.second), jv.getMid(X) + 200); //bugbug figure how to table true values based on drawing area size
 }
 void Robot::update() {
 }
@@ -353,14 +346,28 @@ void Robot::draw() {
 		}
 	}
 }
+
+void DrawingRobot::setup() {
+	//bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
+	// set ranges so percents work against these. leave Y as is bugbug figure this all out
+	RobotJoints jv(getType());
+	userDefinedRanges.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 200);
+	userDefinedRanges.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 200); //bugbug figure how to table true values based on drawing area size
+
+}
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
 	ofLogNotice() << "set data[" << offset << "] = " << (uint16_t)b;
-
-	data[offset] = b;
+	if (data){
+		data[offset] = b;
+	}
 }
 
 
 void RobotJointsState::echo() {
+	if (data) {
+		ofLogNotice("RobotJointsState::echo") << "no data to echo";
+		return;
+	}
 #define ECHO(a)ofLogNotice() << "echo[" << a << "] = "  << std::hex << (unsigned int)data[a] << "h "  <<  std::dec <<(unsigned int)data[a] << "d "<< #a;
 	ECHO(headerByteOffset)
 	ECHO(xLowByteOffset)
@@ -381,15 +388,18 @@ void RobotJointsState::echo() {
 }
 
 uint8_t RobotJointsState::getChkSum() {
-	uint16_t sum = 0;
-	for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
-		sum += data[i];
+	if (data) {
+		uint16_t sum = 0;
+		for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
+			sum += data[i];
+		}
+		uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
+
+		data[checksum] = 255 - invertedChecksum; //invert value to get file checksum
+		return data[checksum];
+
 	}
-	uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
-
-	data[checksum] = 255 - invertedChecksum; //invert value to get file checksum
-
-	return data[checksum];
+	return 0;
 }
 
 void RobotSerial::write(uint8_t* data, int count) {
@@ -470,7 +480,7 @@ void sanityTestCommand::draw() {
 	setLowLevelCommand(NoArmCommand);
 	setDelta(255);
 	setButton();
-	send(&robot->serial);
+	send(&robot->getSerial());
 }
 
 // "home" and set data matching state

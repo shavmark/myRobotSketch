@@ -59,7 +59,7 @@ public:
 
 protected:
 
-	RobotJointsState(uint8_t *data) { setData(data); }
+	RobotJointsState(uint8_t *data=nullptr) { setData(data); }
 	
 	virtual void virtfunction() = 0;
 	void setData(uint8_t *data) { this->data = data; }
@@ -118,7 +118,8 @@ public:
 class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
-	RobotJoints(uint8_t* data, const robotType& typeOfRobot);
+	RobotJoints(const robotType& typeOfRobot) : RobotJointsState() { this->typeOfRobot = typeOfRobot; };
+	RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data) {	this->typeOfRobot = typeOfRobot;}
 	RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }
 	
 	void setX(int x);
@@ -178,11 +179,13 @@ public:
 
 	template<typename T> shared_ptr<T> createCommand() { return make_shared<T>(*this); };
 	void add(shared_ptr<Command>cmd) { path.push(cmd); }
-
-	RobotSerial serial; // talking to the robot
+	robotType& getType() { return type; }
+	RobotSerial& getSerial() { return serial; }
+protected:
+	RobotValueRanges userDefinedRanges;
 
 private:
-	RobotValueRanges userDefinedRanges;
+	RobotSerial serial; // talking to the robot
 	uint8_t data[RobotJointsState::count];// one data instance per robot
 	robotType type;
 	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
@@ -258,7 +261,10 @@ public://
 	}
 };
 
-
+class DrawingRobot : public Robot {
+public:
+	void setup();
+};
 
 class ofApp : public ofBaseApp{
 
