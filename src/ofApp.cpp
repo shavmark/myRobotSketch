@@ -377,7 +377,7 @@ void RobotSerial::write(uint8_t* data, int count) {
 		
 	//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 	// no need to hurry packets so just want the minimum amount no matter what
-	ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true? 
+	ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
 	int sent = writeBytes(data, count);
 
 	ofLogNotice() << "write sent = " << sent;
