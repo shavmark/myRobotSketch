@@ -25,6 +25,9 @@ inline robotType createUndefinedRobotType() {
 inline bool robotTypeIsError(robotType type) {
 	return type == createUndefinedRobotType();
 }
+inline SpecificJoint createJoint(robotArmJointType joint, robotArmMode mode, RobotTypeID id) {
+	return SpecificJoint(createRobotType(mode, id), joint);
+}
 // low level commands
 enum robotLowLevelCommand : uint8_t {
 	unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
@@ -100,6 +103,17 @@ private:
 	uint8_t *data=nullptr; // data to send
 };
 
+class RobotValueRanges {
+public:
+
+	void setDefault(SpecificJoint joint, int value) { defaultValue[joint] = value; }
+	void setMin(SpecificJoint joint, int value) { minValue[joint] = value; }
+	void setMax(SpecificJoint joint, int value) { maxValue[joint] = value; }
+
+	map<SpecificJoint, int> minValue;
+	map<SpecificJoint, int> maxValue;
+	map<SpecificJoint, int> defaultValue;
+};
 // stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
 class RobotJoints : public RobotJointsState {
 public:
@@ -118,12 +132,13 @@ public:
 
 	bool inRange(robotArmJointType type, int value);
 
-	int getDefaultValue(robotArmJointType type) { return  defaultValue[SpecificJoint(typeOfRobot, type)]; }
-	int getMin(robotArmJointType type) { return minValue[SpecificJoint(typeOfRobot, type)]; }
-	int getMax(robotArmJointType type) { return maxValue[SpecificJoint(typeOfRobot, type)]; }
-	//26.5" x max
+	int getDefaultValue(robotArmJointType type) { return  hardwareRanges.defaultValue[SpecificJoint(typeOfRobot, type)]; }
 
-	static int getDeltaDefault() { return deltaDefault; }
+	// ranges based on device
+	int getMin(robotArmJointType type);
+	int getMax(robotArmJointType type);
+	int getMid(robotArmJointType type);
+	int getDeltaDefault() { return deltaDefault; }
 	bool isCartesion() { return (typeOfRobot.first == IKM_IK3D_CARTESIAN || typeOfRobot.first == IKM_IK3D_CARTESIAN_90); }
 	bool isCylindrical() { return (typeOfRobot.first == IKM_CYLINDRICAL || typeOfRobot.first == IKM_CYLINDRICAL_90); }
 	int addMagicNumber() { return isCylindrical() ? 0 : 512; }
@@ -133,19 +148,25 @@ public:
 	robotType setStartState();
 	robotType getRobotType() { return typeOfRobot; }
 	void setDefaultState();
-
+	void setUserDefinedRanges(RobotValueRanges *userDefinedRanges) {this->userDefinedRanges = userDefinedRanges; }
 protected:
-	static map<SpecificJoint, int> minValue;
-	static map<SpecificJoint, int> maxValue;
-	static map<SpecificJoint, int> defaultValue;
-	static int deltaDefault; // manage speed
 
 private:
+	// user defined ranges
+	map<SpecificJoint, int> minUserDefinedValue;
+	map<SpecificJoint, int> maxUserDefinedValue;
+	map<SpecificJoint, int> defaultUserDefinedValue;
+	static RobotValueRanges hardwareRanges;
+	RobotValueRanges *userDefinedRanges=nullptr;
+	int deltaDefault = 255;
+
 	void set(SpecificJoint type, int min, int max, int defaultvalue);
 	robotType typeOfRobot;// required
 	void virtfunction() {};
 
 };
+
+
 class Command;//forward reference
 // the robot itself
 class Robot {
@@ -161,7 +182,7 @@ public:
 	RobotSerial serial; // talking to the robot
 
 private:
-
+	RobotValueRanges userDefinedRanges;
 	uint8_t data[RobotJointsState::count];// one data instance per robot
 	robotType type;
 	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
@@ -170,7 +191,7 @@ private:
 class Command : protected RobotJoints {
 public:
 	// passed robot cannot go away while this object exists bugbug should this be a shared pointer?
-	Command(Robot &robot) :RobotJoints(robot.data, robot.type) { this->robot = &robot;  }
+	Command(Robot &robot) :RobotJoints(robot.data, robot.type) { this->robot = &robot;  setUserDefinedRanges(&robot.userDefinedRanges); }
 
 	class CommandInfo {
 	public:
@@ -230,7 +251,11 @@ public://
 class rectangleCommand : public Command {
 public://
 	rectangleCommand(Robot &robot) :Command(robot) { }
-	void draw();
+	// z is height of arm, high means do not draw, low puts pressure on surface bugbug learn these ranges
+	void setup(float x, float y, float z, float w, float h) {
+		addPointAndState(ofPoint(x, y, z)); // move
+		addPointAndState(ofPoint(w, h, 0)); // move
+	}
 };
 
 

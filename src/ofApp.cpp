@@ -3,10 +3,7 @@
 // https://msdn.microsoft.com/en-us/library/windows/desktop/aa387285(v=vs.85).aspx
 //https://github.com/sparkle-project/Sparkle
 // shared across all robots and joints
-map<SpecificJoint, int> RobotJoints::minValue;
-map<SpecificJoint, int> RobotJoints::maxValue;
-map<SpecificJoint, int> RobotJoints::defaultValue;
-int RobotJoints::deltaDefault = 255;
+RobotValueRanges RobotJoints::hardwareRanges;
 
 // tracing helper
 string echoJointType(SpecificJoint joint) {
@@ -18,15 +15,14 @@ string echoJointType(SpecificJoint joint) {
 void RobotJoints::set(SpecificJoint type, int minVal, int maxVal, int defaultVal) {
 	ofLogNotice() << "RobotJoints::set" << echoJointType(type) << " - min = " << minVal << " max = " << maxVal << " default = " << defaultVal;
 
-	minValue[type] = minVal;
-	maxValue[type] = maxVal;
-	defaultValue[type] = defaultVal;
+	hardwareRanges.minValue[type] = minVal;
+	hardwareRanges.maxValue[type] = maxVal;
+	hardwareRanges.defaultValue[type] = defaultVal;
 }
 
 RobotJoints::RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data){
 	this->typeOfRobot = typeOfRobot;
 }
-
 void RobotJoints::setX(int x) {
 	ofLogNotice() << "try to set x=" << x;
 	if (inRange(X, x)) {
@@ -93,9 +89,27 @@ robotLowLevelCommand RobotJointsState::getStartCommand(robotType type) {
 	}
 	return unKnownCommand;//bugbug support all types once the basics are working
 }
+
+int RobotJoints::getMin(robotArmJointType type) { 
+	if (userDefinedRanges && userDefinedRanges->minValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->minValue.end()) {
+		return userDefinedRanges->minValue[SpecificJoint(typeOfRobot, type)];
+	}
+	return hardwareRanges.minValue[SpecificJoint(typeOfRobot, type)]; 
+}
+int RobotJoints::getMid(robotArmJointType type) { 
+	return (getMax(type) - getMin(type)) / 2; //bugbug works for robot types? 
+}
+
+int RobotJoints::getMax(robotArmJointType type) { 
+	if (userDefinedRanges && userDefinedRanges->maxValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->maxValue.end()) {
+		return userDefinedRanges->maxValue[SpecificJoint(typeOfRobot, type)];
+	}
+	return hardwareRanges.maxValue[SpecificJoint(typeOfRobot, type)];
+}
+
 bool RobotJoints::inRange(robotArmJointType type, int value) {
-	if (value > maxValue[SpecificJoint(typeOfRobot, type)] || value < minValue[SpecificJoint(typeOfRobot, type)]) {
-		ofLogError() << "out of range " << value << " (" << minValue[SpecificJoint(typeOfRobot, type)] << ", " << maxValue[SpecificJoint(typeOfRobot, type)] << ")";
+	if (value > getMax(type) || value < getMin(type)) {
+		ofLogError() << "out of range " << value << " (" << getMin(type) << ", " << getMax(type) << ")";
 		return false;
 	}
 	return true;
@@ -305,10 +319,6 @@ void Robot::setup() {
 		path.pop(); // clean any old stuff out
 	}
 
-	// do one time setup
-	RobotJoints jv(data);
-	jv.oneTimeSetup(); // do one time setup of static data
-
 	serial.listDevices(); // let viewer see thats out there
 
 	serial.setup(1, 38400);//bugbug get from xml
@@ -318,8 +328,18 @@ void Robot::setup() {
 	if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
 		ofLogNotice() << "robot setup complete";
 	}
+
 	ofLogNotice() << "use IKM_CYLINDRICAL";
 	type = robotType(IKM_CYLINDRICAL, defaultType.second);
+
+	// do one time setup
+	RobotJoints jv(data, type);
+	jv.oneTimeSetup(); // do one time setup of static data
+					   
+	// set ranges so percents work against these. leave Y as is bugbug figure this all out
+	int test = jv.getMid(X);
+	userDefinedRanges.setMin(createJoint(X, type.first, type.second), jv.getMid(X) - 200);
+	userDefinedRanges.setMax(createJoint(X, type.first, type.second), jv.getMid(X) + 200); //bugbug figure how to table true values based on drawing area size
 }
 void Robot::update() {
 }
@@ -419,8 +439,6 @@ void Command::setPoint(ofPoint pt) {
 		ofLogError("Command::setPoint") << "setPoint not supported";
 	}
 }
-void rectangleCommand::draw() {
-}
 void danceCommand::draw() {
 	// spin nose
 	/*
@@ -484,13 +502,9 @@ void ofApp::setup(){
 void ofApp::update(){
 	
 	robot.update();
-	shared_ptr<Command> cmd = robot.createCommand<Command>();
-	cmd->reset();
-	//cmd->addPointAndState(ofPoint(0.5, 0.0, 0)); // middle back
-	//cmd->addPointAndState(ofPoint(1.0, 0, 0)); 
-	//cmd->addPointAndState(ofPoint(1.0, 0, 0), ofPoint(0.5, 0.5, 0.5));
-	cmd->addPointAndState(ofPoint(1.0, 0, 0), ofPoint(1.0, 1.0, 1.0));
-	cmd->addPointAndState(ofPoint(0.001, 0, 0), ofPoint(0.001, 0.001, 0.001));
+	shared_ptr<rectangleCommand> cmd = robot.createCommand<rectangleCommand>();
+	cmd->reset(); // home the device
+	cmd->setup(0.5, 0.5, 0.0, 0.20, 0.40);
 	robot.add(cmd);
 
 	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time
