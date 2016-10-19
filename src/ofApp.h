@@ -115,14 +115,15 @@ private:
 class RobotValueRanges {
 public:
 
-	void setDefault(SpecificJoint joint, int value) { defaultValue[joint] = value; }
-	void setMin(SpecificJoint joint, int value) { minValue[joint] = value; }
-	void setMax(SpecificJoint joint, int value) { maxValue[joint] = value; }
+	void setDefault(SpecificJoint joint, int value, int min = MAXINT, int max = MININT);
+	void setMin(SpecificJoint joint, int value, int min = MAXINT, int max = MININT);
+	void setMax(SpecificJoint joint, int value, int min = MAXINT, int max = MININT);
 
 	map<SpecificJoint, int> minValue;
 	map<SpecificJoint, int> maxValue;
 	map<SpecificJoint, int> defaultValue;
 };
+
 // stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
 class RobotJoints : public RobotJointsState {
 public:
@@ -142,7 +143,7 @@ public:
 
 	bool inRange(robotArmJointType type, int value);
 
-	int getDefaultValue(robotArmJointType type) { return  hardwareRanges.defaultValue[SpecificJoint(typeOfRobot, type)]; }
+	int getDefaultValue(robotArmJointType type);
 
 	// ranges based on device
 	int getMin(robotArmJointType type);
@@ -158,14 +159,11 @@ public:
 	robotType setStartState();
 	robotType getRobotType() { return typeOfRobot; }
 	void setDefaultState();
-	void setUserDefinedRanges(RobotValueRanges *userDefinedRanges) {this->userDefinedRanges = userDefinedRanges; }
+	void setUserDefinedRanges(SpecificJoint joint, RobotValueRanges *userDefinedRanges);
 protected:
 
 private:
 	// user defined ranges
-	map<SpecificJoint, int> minUserDefinedValue;
-	map<SpecificJoint, int> maxUserDefinedValue;
-	map<SpecificJoint, int> defaultUserDefinedValue;
 	static RobotValueRanges hardwareRanges;
 	RobotValueRanges *userDefinedRanges=nullptr;
 	int deltaDefault = 255;
@@ -176,27 +174,61 @@ private:
 
 };
 
+// positions are defined as % change of all range of joint, from the current position
+// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
+class RobotPosition : protected ofPoint {
+public:
+	//=FLT_MAX means not set
+	#define NoRobotValue FLT_MAX
+	RobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
+	void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
+	virtual void echo() const;
+	float getX()const { return x; }
+	float getY() const { return y; }
+	float getZ() const { return z; } // want to make sure x is read only
+
+	bool set[3];
+
+protected:
+	bool validRange(float f);
+};
+
+class RobotState : public RobotPosition {
+public:
+	RobotState(float wristAngle = FLT_MAX, float wristRotate = FLT_MAX, float gripper = FLT_MAX) :RobotPosition(wristAngle, wristRotate, gripper) {  }
+
+	float getWristAngle()const { return getPtr()[0]; }
+	float getWristRotation() const { return getPtr()[1]; }
+	float getGripper() const { return getPtr()[2]; }
+
+	void echo() const;
+
+};
 
 class RobotCommand {
 public:
-
-	// 0 means ignore, all numbers of from .0001 to 1.000
-	RobotCommand(float x=0, float y = 0, float z = 0, float wristAngle= 0, float wristRotate = 0, float gripper = 0, int millisSleep = -1, bool deleteWhenDone = true) {
-		init(ofPoint(x, y, z), ofVec3f(wristAngle, wristRotate, gripper), millisSleep, deleteWhenDone);
+	// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
+	RobotCommand(float xPercent=0, float yPercent = 0, float zPercent = 0, float wristAnglePercent = 0, float wristRotatePercent = 0, float gripperPercent = 0, int millisSleep = -1, bool deleteWhenDone = true) {
+		init(RobotPosition(xPercent, yPercent, zPercent), RobotState(wristAnglePercent, wristRotatePercent, gripperPercent), millisSleep, deleteWhenDone);
 	}
-	RobotCommand(const ofPoint& point, const ofVec3f& settings = ofPoint(), int millisSleep = -1, bool deleteWhenDone = true) {
-		init(point, settings, millisSleep, deleteWhenDone);
+	// object based
+	RobotCommand(const RobotPosition& pointPercent, const RobotState& settingsPercent = RobotState(), int millisSleep = -1, bool deleteWhenDone = true) {
+		init(pointPercent, settingsPercent, millisSleep, deleteWhenDone);
+	}
+	// make a sleep only command
+	RobotCommand(int millisSleep = -1, bool deleteWhenDone = true) {
+		init(RobotPosition(), RobotState(), millisSleep, deleteWhenDone);
 	}
 
 	void sleep() const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 	bool OKToDelete() { return deleteWhenDone; }
 	void echo() const ;
 
-	ofPoint point;
-	ofVec3f settings;
+	RobotPosition pointPercent;
+	RobotState settingsPercent;
 
 private:
-	void init(const ofPoint& point = ofPoint(), const ofVec3f& settings = ofPoint(), int millisSleep = -1, bool deleteWhenDone = true);
+	void init(const RobotPosition& pointPercent = RobotPosition(), const RobotState& settingsPercent = RobotState(), int millisSleep = -1, bool deleteWhenDone = true);
 	bool deleteWhenDone; // false to repeat command per every draw occurance
 	int millisSleep;// no sleep by default
 
@@ -221,14 +253,14 @@ public:
 	// move or draw based on the value in moveOrDraw
 	virtual void draw();
 	void setFillMode(int mode) { fillmode = mode; }
-	void add(const RobotCommand& cmd, BuiltInCommandNames name = UserDefined) { cmdVector.push_back(cmd); this->name = name; }
+	void add(const RobotCommand& cmd, BuiltInCommandNames name = UserDefined);
 	bool moveOrDraw = true; // false means draw
 	int fillmode = 0;
 
 protected:
 	BuiltInCommandNames getName() { return name; };
-	void setPoint(ofPoint pt);
-	void setState(ofVec3f pt);
+	void setPoint(RobotPosition pt);
+	void setState(RobotState pt);
 	vector<RobotCommand> cmdVector; // one more more points
 	Robot *robot = nullptr; // owner
 

@@ -101,6 +101,37 @@ robotLowLevelCommand RobotJointsState::getStartCommand(robotType type) {
 	return unKnownCommand;//bugbug support all types once the basics are working
 }
 
+int RobotJoints::getDefaultValue(robotArmJointType type) { 
+	if (userDefinedRanges && userDefinedRanges->defaultValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->defaultValue.end()) {
+		return userDefinedRanges->defaultValue[SpecificJoint(typeOfRobot, type)];
+	}
+	return  hardwareRanges.defaultValue[SpecificJoint(typeOfRobot, type)];
+}
+void RobotValueRanges::setDefault(SpecificJoint joint, int value, int max, int min) { 
+	if (value < max && value > min) {
+		defaultValue[joint] = value;
+	}
+	else {
+		ofLogError() << "default value out of range " << value << " range is " << min << ", " << max;
+	}
+}
+void RobotValueRanges::setMin(SpecificJoint joint, int value, int min, int max) {
+	if (value < max && value > min) {
+		minValue[joint] = value;
+	}
+	else {
+		ofLogError() << "minValue out of range " << value << " range is " << min << ", " << max;
+	}
+}
+void RobotValueRanges::setMax(SpecificJoint joint, int value, int min, int max) {
+	if (value < max && value > min) {
+		maxValue[joint] = value;
+	}
+	else {
+		ofLogError() << "maxValue out of range " << value << " range is " << min << ", " << max;
+	}
+}
+
 int RobotJoints::getMin(robotArmJointType type) { 
 	if (userDefinedRanges && userDefinedRanges->minValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->minValue.end()) {
 		return userDefinedRanges->minValue[SpecificJoint(typeOfRobot, type)];
@@ -355,12 +386,8 @@ void RobotCommands::echo() const {
 	}
 }
 void RobotCommand::echo() const {
-	ofLogNotice() << "x=" << point.x;
-	ofLogNotice() << "y=" << point.y;
-	ofLogNotice() << "z=" << point.z;
-	ofLogNotice() << "WristAngle=" << settings.x;
-	ofLogNotice() << "WristRotate=" << settings.y;
-	ofLogNotice() << "Gripper=" << settings.z;
+	pointPercent.echo();
+	settingsPercent.echo();
 }
 void Robot::echo() {
 	for (auto& cmd : cmds) {
@@ -376,6 +403,15 @@ void Robot::draw() {
 		cmd->draw();
 	}
 }
+// user defined can never be greater than hardware min/max
+void RobotJoints::setUserDefinedRanges(SpecificJoint joint, RobotValueRanges *userDefinedRanges) {
+	
+	if (userDefinedRanges->minValue[joint] < hardwareRanges.minValue[joint] || userDefinedRanges->maxValue[joint] > hardwareRanges.maxValue[joint]) {
+		ofLogError("RobotJoints::setUserDefinedRanges") << "value out of range ignored ";
+		return;
+	}
+	this->userDefinedRanges = userDefinedRanges; 
+}
 
 void DrawingRobot::setup() {
 
@@ -384,8 +420,10 @@ void DrawingRobot::setup() {
 	//bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
 	// set ranges so percents work against these. leave Y as is bugbug figure this all out
 	RobotJoints jv(getType());
-	userDefinedRanges.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300);
-	userDefinedRanges.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300); //bugbug figure how to table true values based on drawing area size
+
+	// only set what we care about, let the rest stay at default. userDefinedRanges is a sparse array of sorts
+	userDefinedRanges.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300, jv.getMin(X), jv.getMax(X));
+	userDefinedRanges.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300, jv.getMin(X), jv.getMax(X));
 
 }
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
@@ -450,50 +488,104 @@ void RobotSerial::write(uint8_t* data, int count) {
 
 }
 // x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
-void RobotCommands::setState(ofVec3f vec) {
+void RobotCommands::setState(RobotState statePercent) {
 	if (isCylindrical()) {
-		if (vec.x) {
-			setWristAngle(getMin(wristAngle) + (vec.x * (getMax(wristAngle) - getMin(wristAngle))));
+		if (statePercent.set[0]) {
+			setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
 		}
-		if (vec.y) {
-			setWristRotate(getMin(wristRotate) + (vec.y * (getMax(wristRotate) - getMin(wristRotate))));
+		if (statePercent.set[1]) {
+			setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
 		}
-		if (vec.z) {
-			setGripper(getMin(Gripper) + (vec.z * (getMax(Gripper) - getMin(Gripper))));
+		if (statePercent.set[2]) {
+			setGripper(getMin(Gripper) + (statePercent.getGripper() * (getMax(Gripper) - getMin(Gripper))));
 		}
 	}
 }
+
+void RobotPosition::echo() const {
+	ofLogNotice() << "x=" << (set[0] ? ofToString(x) : "<not set>");
+	ofLogNotice() << "y=" << (set[1] ? ofToString(y) : "<not set>");
+	ofLogNotice() << "z=" << (set[2] ? ofToString(z) : "<not set>");
+}
+// can be +//
+bool RobotPosition::validRange(float f) {
+	if (abs(f) >= 0.0 && abs(f) <= 1.0) {
+		return true;
+	}
+	ofLogError() << "float out of range (0.0 to +/- 1.0) or 0 to 100% of range " << abs(f);
+	return false;
+}
+
+void RobotState::echo() const {
+	ofLogNotice() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>");
+	ofLogNotice() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>");
+	ofLogNotice() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>");
+}
+
+void RobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
+	if (xPercent != NoRobotValue && validRange(xPercent)) {
+		x = xPercent;
+		set[0] = true;
+	}
+	else {
+		set[0] = false;
+	}
+	if (yPercent != NoRobotValue && validRange(yPercent)) {
+		y = yPercent;
+		set[1] = true;
+	}
+	else {
+		set[1] = false;
+	}
+	if (zPercent != NoRobotValue && validRange(zPercent)) {
+		z = zPercent;
+		set[2] = true;
+	}
+	else {
+		set[2] = false;
+	}
+}
+
 //+/- .001 to 1.000, 0 means ignore 
-void RobotCommands::setPoint(ofPoint pt) {
+void RobotCommands::setPoint(RobotPosition ptPercent) {
 	// only Cylindrical supported by this function, mainly the setx one
 	if (isCylindrical()) {
 		//ofMap
-		if (pt.x) {
-			setX(getMin(X) + (pt.x * (getMax(X) - getMin(X))));
+		if (ptPercent.set[0]) {
+			setX(getMin(X) + (ptPercent.getX() * (getMax(X) - getMin(X))));
 		}
-		if (pt.y) {
-			setY(getMin(Y) + (pt.y * (getMax(Y) - getMin(Y))));
+		if (ptPercent.set[1]) {
+			setY(getMin(Y) + (ptPercent.getY() * (getMax(Y) - getMin(Y))));
 		}
-		if (pt.z) {
-			setZ(getMin(Z) + (pt.z * (getMax(Z) - getMin(Z))));
+		if (ptPercent.set[2]) {
+			setZ(getMin(Z) + (ptPercent.getZ() * (getMax(Z) - getMin(Z))));
 		}
 	}
 	else {
 		ofLogError("Command::setPoint") << "setPoint not supported";
 	}
 }
-
-void RobotCommand::init(const ofPoint& point, const ofVec3f& settings, int millisSleep, bool deleteWhenDone) {
-	this->point = point;
-	this->settings = settings;
+// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
+void RobotCommand::init(const RobotPosition& pointPercent, const RobotState& settingsPercent, int millisSleep, bool deleteWhenDone) {
+	this->pointPercent = pointPercent;
+	this->settingsPercent = settingsPercent;
 	this->deleteWhenDone = deleteWhenDone;
 	this->millisSleep = millisSleep;
+}
+
+// add ranges checking
+void RobotCommands::add(const RobotCommand& cmd, BuiltInCommandNames name) { 
+	cmdVector.push_back(cmd); 
+	this->name = name; 
 }
 
 void RobotCommands::sanityTestHighLevel() {
 	ofLogNotice() << " high level sanityTest";
 	reset();
-	add(RobotCommand(300, 150, 150, 30, 120, 0));
+	add(RobotCommand(0.3, 0.6, NoRobotValue, 1.0, -1.0, 0.5)); // need to be percents!!
+	add(RobotCommand(NoRobotValue, NoRobotValue, 0.3)); // too close could hit the bottom
+	add(RobotCommand(NoRobotValue, NoRobotValue, 1.0));
+	add(RobotCommand(NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, 1000)); // sleep
 	setLowLevelCommand(NoArmCommand);
 	setDelta(255);
 	setButton();
@@ -505,7 +597,7 @@ void RobotCommands::sanityTestHighLevel() {
 // set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 void RobotCommands::sanityTestLowLevel() {
 	ofLogNotice() << " low level sanityTest";
-	setX(300);
+	setX(300); // absolution position vs. percentages
 	setY(150);
 	setZ(150);
 	setWristAngle(30);
@@ -549,7 +641,10 @@ shared_ptr<RobotCommands> Robot::add(RobotCommands::BuiltInCommandNames name) {
 
 RobotCommands::RobotCommands(Robot *robot, BuiltInCommandNames name) :RobotJoints(robot->data, robot->type) {
 	this->robot = robot;  
-	setUserDefinedRanges(&robot->userDefinedRanges); 
+	if (robot) {
+		//typedef pair<robotType, robotArmJointType> SpecificJoint
+		setUserDefinedRanges(SpecificJoint(robot->getType(), X), &robot->userDefinedRanges);
+	}
 	this->name = name;
 }
 void RobotCommands::reset() { // setup can be ignored for a reset is not required
@@ -574,8 +669,8 @@ void RobotCommands::draw() {
 		while (it != cmdVector.end()) {
 			//{UserDefined, LowLevelTest, HighLevelTest, Sizing
 
-			setPoint(it->point);
-			setState(it->settings);
+			setPoint(it->pointPercent);
+			setState(it->settingsPercent);
 			it->sleep(); // sleep if requested
 			send(&robot->serial);// move
 			if (it->OKToDelete()) {
