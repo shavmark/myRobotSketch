@@ -177,20 +177,79 @@ private:
 };
 
 
-class Command;//forward reference
+class RobotCommand {
+public:
+
+	// 0 means ignore, all numbers of from .0001 to 1.000
+	RobotCommand(float x=0, float y = 0, float z = 0, float wristAngle= 0, float wristRotate = 0, float gripper = 0, int millisSleep = -1, bool deleteWhenDone = true) {
+		init(ofPoint(x, y, z), ofVec3f(wristAngle, wristRotate, gripper), millisSleep, deleteWhenDone);
+	}
+	RobotCommand(const ofPoint& point, const ofVec3f& settings = ofPoint(), int millisSleep = -1, bool deleteWhenDone = true) {
+		init(point, settings, millisSleep, deleteWhenDone);
+	}
+
+	void sleep() const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
+	bool OKToDelete() { return deleteWhenDone; }
+	void echo() const ;
+
+	ofPoint point;
+	ofVec3f settings;
+
+private:
+	void init(const ofPoint& point = ofPoint(), const ofVec3f& settings = ofPoint(), int millisSleep = -1, bool deleteWhenDone = true);
+	bool deleteWhenDone; // false to repeat command per every draw occurance
+	int millisSleep;// no sleep by default
+
+};
+
+class Robot;
+
+class RobotCommands : protected RobotJoints {
+public:
+	
+	enum BuiltInCommandNames {UserDefined, LowLevelTest, HighLevelTest, Sizing};// command and basic commands.  Derive object or create functions to create more commands
+
+	// passed robot cannot go away while this object exists
+	RobotCommands(Robot *robot, BuiltInCommandNames = UserDefined);
+	RobotCommands(BuiltInCommandNames name = UserDefined) :RobotJoints(nullptr) { this->name = name; }
+
+	void echo() const; // echos positions
+
+	// put command data in a known state
+	void reset();
+
+	// move or draw based on the value in moveOrDraw
+	virtual void draw();
+	void setFillMode(int mode) { fillmode = mode; }
+	void add(const RobotCommand& cmd, BuiltInCommandNames name = UserDefined) { cmdVector.push_back(cmd); this->name = name; }
+	bool moveOrDraw = true; // false means draw
+	int fillmode = 0;
+
+protected:
+	BuiltInCommandNames getName() { return name; };
+	void setPoint(ofPoint pt);
+	void setState(ofVec3f pt);
+	vector<RobotCommand> cmdVector; // one more more points
+	Robot *robot = nullptr; // owner
+
+private:
+	void sanityTestLowLevel(); // built in commands
+	void sanityTestHighLevel();
+	void sizeDrawing() {} // bugbug to do
+	BuiltInCommandNames name;
+};
+
 // the robot itself
 class Robot {
 public:
-	friend class Command;
+	friend class RobotCommands;
 	void setup();
 	void update();
 	void draw();
-	void echoAllJoints(); // echos positions
-	void setPause(bool pause = true) { this->pause = pause; }
-	template<typename T> shared_ptr<T> createCommand() { return make_shared<T>(*this); };
-	
-	void add(shared_ptr<Command>cmd) { path.push(cmd); }
-	template<T> shared_ptr<T> createAndAdd(const ofPoint& point, const ofPoint& state = ofPoint());
+	void echo(); // echos positions
+	void setPause(bool pause = true) { this->pause = pause; }//bugbug go to threads
+
+	shared_ptr<RobotCommands> add(RobotCommands::BuiltInCommandNames name = RobotCommands::UserDefined);
 
 	robotType& getType() { return type; }
 	RobotSerial& getSerial() { return serial; }
@@ -202,88 +261,13 @@ private:
 	RobotSerial serial; // talking to the robot
 	uint8_t data[RobotJointsState::count];// one data instance per robot
 	robotType type;
-	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
+	vector<shared_ptr<RobotCommands>> cmds;
 	bool pause = false;
-};
-
-class Command : protected RobotJoints {
-public:
-	// passed robot cannot go away while this object exists bugbug should this be a shared pointer?
-	Command(Robot &robot) :RobotJoints(robot.data, robot.type) { this->robot = &robot;  setUserDefinedRanges(&robot.userDefinedRanges); }
-
-	class CommandInfo {
-	public:
-		CommandInfo(const ofPoint& point, const ofPoint& settings) { this->point = point; this->settings = settings; }
-
-		ofPoint point;
-		ofPoint settings;
-	};
-
-	void echo(); // echos positions
-
-	// put command in a known state
-	void reset() { // setup can be ignored for a reset is not required
-		setStartState();
-		send(&robot->serial); // send the mode, also resets the robot
-		setDefaultState();
-	}
-	// move or draw based on the value in moveOrDraw
-	virtual void draw() {
-		sleep(); // sleep if requested
-		if (robot) {
-			//bugbug move arm up from paper if !moveOrDraw
-			for (const auto& info : infoVector) {
-				setPoint(info.point);
-				setState(info.settings);
-				send(&robot->serial);// move
-			}
-		}
-	}
-	
-	void setFillMode(int mode) { fillmode = mode; }
-	void addPointAndState(const ofPoint& point, const ofPoint& state = ofPoint()) { infoVector.push_back(CommandInfo(point, state)); }
-
-	void sleep() { if (millisSleep > -1) ofSleepMillis(millisSleep); }
-
-	int millisSleep = -1;// no sleep by default
-	bool moveOrDraw = true; // false means draw
-	bool deleteWhenDone = true; // false to repeat command per every draw occurance
-	int fillmode = 0;
-protected:
-	void setPoint(ofPoint pt);
-	void setState(ofVec3f pt);
-	vector<CommandInfo> infoVector; // one more more points
-	Robot *robot = nullptr; // owner
-private:
-};
-// examples
-class sanityTestCommand : public Command {
-public:
-	sanityTestCommand(Robot &robot) :Command(robot) { }
-	void draw();
-};
-// just for fun
-class danceCommand : public Command {
-public://
-	danceCommand(Robot &robot) :Command(robot) { }
-	void draw();
-};
-
-class rectangleCommand : public Command {
-public://
-	rectangleCommand(Robot &robot) :Command(robot) { }
-	// z is height of arm, high means do not draw, low puts pressure on surface bugbug learn these ranges
-	void setup(float x, float y, float z, float w, float h) {
-		addPointAndState(ofPoint(x, y, z)); // move
-		addPointAndState(ofPoint(w, h, 0)); // move
-	}
 };
 
 class DrawingRobot : public Robot {
 public:
 	void setup();
-
-
 };
 
 class ofApp : public ofBaseApp{

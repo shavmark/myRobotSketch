@@ -4,6 +4,12 @@
 //https://github.com/sparkle-project/Sparkle
 // shared across all robots and joints
 RobotValueRanges RobotJoints::hardwareRanges;
+template<typename T>void clear(vector< T > vect) {
+	vector< T >::iterator it = vect.begin();
+	while (it != vect.end()) {
+		it = vect.erase(it);
+	}
+}
 
 // tracing helper
 string echoJointType(SpecificJoint joint) {
@@ -320,9 +326,7 @@ robotType RobotSerial::waitForRobot() {
 }
 void Robot::setup() {
 
-	while (!path.empty()) {
-		path.pop(); // clean any old stuff out
-	}
+	clear(cmds);
 
 	serial.listDevices(); // let viewer see thats out there
 
@@ -344,18 +348,23 @@ void Robot::setup() {
 }
 void Robot::update() {
 }
-void Command::echo() {
-	ofLogNotice() <<"x="<< getX();
-	ofLogNotice() << "y=" << getY();
-	ofLogNotice() << "z=" << getZ();
-	ofLogNotice() << "WristAngle=" << getWristAngle();
-	ofLogNotice() << "WristRotate=" << getWristRotate();
-	ofLogNotice() << "Gripper=" << getGripper();
+
+void RobotCommands::echo() const {
+	for (const auto& cmd :cmdVector) {
+		cmd.echo();
+	}
 }
-void Robot::echoAllJoints() {
-	while (!path.empty()) {
-		ofLogNotice() << "**Echo:";
-		path.front()->echo();
+void RobotCommand::echo() const {
+	ofLogNotice() << "x=" << point.x;
+	ofLogNotice() << "y=" << point.y;
+	ofLogNotice() << "z=" << point.z;
+	ofLogNotice() << "WristAngle=" << settings.x;
+	ofLogNotice() << "WristRotate=" << settings.y;
+	ofLogNotice() << "Gripper=" << settings.z;
+}
+void Robot::echo() {
+	for (auto& cmd : cmds) {
+		cmd->echo();
 	}
 }
 
@@ -363,11 +372,8 @@ void Robot::draw() {
 	if (pause) {
 		return;
 	}
-	while (!path.empty()) {
-		path.front()->draw();
-		if (path.front()->deleteWhenDone) {
-			path.pop();
-		}
+	for (auto& cmd : cmds) {
+		cmd->draw();
 	}
 }
 
@@ -444,7 +450,7 @@ void RobotSerial::write(uint8_t* data, int count) {
 
 }
 // x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
-void Command::setState(ofVec3f vec) {
+void RobotCommands::setState(ofVec3f vec) {
 	if (isCylindrical()) {
 		if (vec.x) {
 			setWristAngle(getMin(wristAngle) + (vec.x * (getMax(wristAngle) - getMin(wristAngle))));
@@ -457,8 +463,8 @@ void Command::setState(ofVec3f vec) {
 		}
 	}
 }
-// 0 to 100%
-void Command::setPoint(ofPoint pt) {
+//+/- .001 to 1.000, 0 means ignore 
+void RobotCommands::setPoint(ofPoint pt) {
 	// only Cylindrical supported by this function, mainly the setx one
 	if (isCylindrical()) {
 		//ofMap
@@ -476,28 +482,29 @@ void Command::setPoint(ofPoint pt) {
 		ofLogError("Command::setPoint") << "setPoint not supported";
 	}
 }
-void danceCommand::draw() {
-	// spin nose
-	/*
-	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMax());
-	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getMax());
-	sendNow();
-	set(wristRotateHighByteOffset, wristRotateLowByteOffset, JointValue(valueType(armMode, wristRotate)).getMin());
-	set(zHighByteOffset, zLowByteOffset, JointValue(valueType(armMode, Z)).getDefaultValue());
-	sendNow();
-	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax());  // go right
-	sendNow();
-	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMin());  // go go left
-	sendNow();
-	set(xHighByteOffset, xLowByteOffset, JointValue(valueType(armMode, X)).getMax()/2);  // center X
-	sendNow();
-	*/
+
+void RobotCommand::init(const ofPoint& point, const ofVec3f& settings, int millisSleep, bool deleteWhenDone) {
+	this->point = point;
+	this->settings = settings;
+	this->deleteWhenDone = deleteWhenDone;
+	this->millisSleep = millisSleep;
 }
 
-// set basic data that moves a little bit after starting up
+void RobotCommands::sanityTestHighLevel() {
+	ofLogNotice() << " high level sanityTest";
+	reset();
+	add(RobotCommand(300, 150, 150, 30, 120, 0));
+	setLowLevelCommand(NoArmCommand);
+	setDelta(255);
+	setButton();
+	if (robot) {
+		send(&robot->getSerial());
+	}
+}
 
-void sanityTestCommand::draw() {
-	ofLogNotice() << "sanityTest";
+// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
+void RobotCommands::sanityTestLowLevel() {
+	ofLogNotice() << " low level sanityTest";
 	setX(300);
 	setY(150);
 	setZ(150);
@@ -507,7 +514,9 @@ void sanityTestCommand::draw() {
 	setLowLevelCommand(NoArmCommand);
 	setDelta(255);
 	setButton();
-	send(&robot->getSerial());
+	if (robot) {
+		send(&robot->getSerial());
+	}
 }
 
 // "home" and set data matching state
@@ -530,13 +539,53 @@ robotType RobotJoints::setStartState() {
 	return typeOfRobot;
 }
 
-template<T>shared_ptr<T> Robot::createAndAdd(const ofPoint& point, const ofPoint& state) {
-	shared_ptr<T> cmd = createCommand<T>();
-	if (cmd) {
-		cmd2->setup(1.0, 0, 0.0, 0.0, 0.0); // far right
-		path.push(cmd);
+shared_ptr<RobotCommands> Robot::add(RobotCommands::BuiltInCommandNames name) {
+	shared_ptr<RobotCommands> p = make_shared<RobotCommands>(this, name);
+	if (p) {
+		cmds.push_back(p);
 	}
-	return cmd; // finsih up, return added pointer but data can still be modifed by caller
+	return p;
+}
+
+RobotCommands::RobotCommands(Robot *robot, BuiltInCommandNames name) :RobotJoints(robot->data, robot->type) {
+	this->robot = robot;  
+	setUserDefinedRanges(&robot->userDefinedRanges); 
+	this->name = name;
+}
+void RobotCommands::reset() { // setup can be ignored for a reset is not required
+	setStartState();
+	send(&robot->serial); // send the mode, also resets the robot
+	setDefaultState();
+	clear(cmdVector);
+}
+void RobotCommands::draw() {
+
+	if (robot) {
+		switch (name) {
+		case RobotCommands::HighLevelTest:
+			sanityTestHighLevel(); // will populate cmdVector
+			break;
+		case RobotCommands::LowLevelTest:
+			sanityTestLowLevel(); 
+			break;
+		}
+
+		vector< RobotCommand >::iterator it = cmdVector.begin();
+		while (it != cmdVector.end()) {
+			//{UserDefined, LowLevelTest, HighLevelTest, Sizing
+
+			setPoint(it->point);
+			setState(it->settings);
+			it->sleep(); // sleep if requested
+			send(&robot->serial);// move
+			if (it->OKToDelete()) {
+				it = cmdVector.erase(it);
+			}
+			else {
+				++it;
+			}
+		}
+	}
 }
 
 //--------------------------------------------------------------
@@ -549,10 +598,13 @@ void ofApp::update(){
 	
 	robot.update();
 
-	shared_ptr<rectangleCommand> cmd = robot.createAndAdd<rectangleCommand>(ofPoint(0, 0, 0));
+	shared_ptr<RobotCommands> cmd = robot.add(RobotCommands::HighLevelTest);
+
+	/*
+	shared_ptr<RobotCommands> cmd = robot.createAndAdd<RobotCommands>(RobotCommand());
 	cmd->reset(); // home the device
 	cmd->setup(0.0001, 0, 0.0, 0.0, 0.0); // far left
-	robot.add(cmd);
+
 	shared_ptr<rectangleCommand> cmd2 = robot.createCommand<rectangleCommand>();
 	cmd2->reset(); // home the device
 	cmd2->millisSleep = 10000;// wait before moving
@@ -620,7 +672,7 @@ void ofApp::draw(){
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
 	if (key == ' ') {
-		robot.setPause();
+		robot.setPause();//bugbug need a thread/semaphore to do this
  		robot.echo();
 		robot.setPause(false);
 	}
