@@ -56,6 +56,14 @@ void RobotJoints::setGripper(int distance) {
 		setLowLevelGripper(distance);
 	}
 }
+int RobotJointsState::get(uint16_t high, uint16_t low) {
+	int number = -1;
+	if (data) {
+		int number = (data[low] << 8) + data[high];
+	}
+	return number;
+}
+
 void RobotJointsState::set(uint16_t high, uint16_t low, int val) {
 	ofLogNotice() << "set " << val;
 	set(high, highByte(val));
@@ -336,9 +344,25 @@ void Robot::setup() {
 }
 void Robot::update() {
 }
+void Command::echo() {
+	ofLogNotice() <<"x="<< getX();
+	ofLogNotice() << "y=" << getY();
+	ofLogNotice() << "z=" << getZ();
+	ofLogNotice() << "WristAngle=" << getWristAngle();
+	ofLogNotice() << "WristRotate=" << getWristRotate();
+	ofLogNotice() << "Gripper=" << getGripper();
+}
+void Robot::echoAllJoints() {
+	while (!path.empty()) {
+		ofLogNotice() << "**Echo:";
+		path.front()->echo();
+	}
+}
 
 void Robot::draw() {
-	
+	if (pause) {
+		return;
+	}
 	while (!path.empty()) {
 		path.front()->draw();
 		if (path.front()->deleteWhenDone) {
@@ -348,11 +372,14 @@ void Robot::draw() {
 }
 
 void DrawingRobot::setup() {
+
+	Robot::setup(); // set base class first
+
 	//bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
 	// set ranges so percents work against these. leave Y as is bugbug figure this all out
 	RobotJoints jv(getType());
-	userDefinedRanges.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 200);
-	userDefinedRanges.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 200); //bugbug figure how to table true values based on drawing area size
+	userDefinedRanges.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300);
+	userDefinedRanges.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300); //bugbug figure how to table true values based on drawing area size
 
 }
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
@@ -364,7 +391,7 @@ void RobotJointsState::set(uint16_t offset, uint8_t b) {
 
 
 void RobotJointsState::echo() {
-	if (data) {
+	if (!data) {
 		ofLogNotice("RobotJointsState::echo") << "no data to echo";
 		return;
 	}
@@ -503,6 +530,15 @@ robotType RobotJoints::setStartState() {
 	return typeOfRobot;
 }
 
+template<T>shared_ptr<T> Robot::createAndAdd(const ofPoint& point, const ofPoint& state) {
+	shared_ptr<T> cmd = createCommand<T>();
+	if (cmd) {
+		cmd2->setup(1.0, 0, 0.0, 0.0, 0.0); // far right
+		path.push(cmd);
+	}
+	return cmd; // finsih up, return added pointer but data can still be modifed by caller
+}
+
 //--------------------------------------------------------------
 void ofApp::setup(){
 	robot.setup();
@@ -512,10 +548,28 @@ void ofApp::setup(){
 void ofApp::update(){
 	
 	robot.update();
-	shared_ptr<rectangleCommand> cmd = robot.createCommand<rectangleCommand>();
+
+	shared_ptr<rectangleCommand> cmd = robot.createAndAdd<rectangleCommand>(ofPoint(0, 0, 0));
 	cmd->reset(); // home the device
-	cmd->setup(0.5, 0.5, 0.0, 0.20, 0.40);
+	cmd->setup(0.0001, 0, 0.0, 0.0, 0.0); // far left
 	robot.add(cmd);
+	shared_ptr<rectangleCommand> cmd2 = robot.createCommand<rectangleCommand>();
+	cmd2->reset(); // home the device
+	cmd2->millisSleep = 10000;// wait before moving
+	cmd2->setup(1.0, 0, 0.0, 0.0, 0.0); // far right
+	robot.add(cmd2);
+
+	shared_ptr<rectangleCommand> cmd3 = robot.createCommand<rectangleCommand>();
+	cmd3->reset(); // home the device
+	cmd3->millisSleep = 10000;// wait before moving
+	cmd3->setup(0.0, 1.0, 0.0, 0.0, 0.0); 
+	robot.add(cmd3);
+
+	shared_ptr<rectangleCommand> cmd4 = robot.createCommand<rectangleCommand>();
+	cmd4->reset(); // home the device
+	cmd4->millisSleep = 10000;// wait before moving
+	cmd4->setup(0.0, 0.0001, 0.0, 0.0, 0.0);
+	robot.add(cmd4);
 
 	//motion->setup(); // start a new motion bugbug outside of testing  like now this is only done one time
 	//path.push(motion);
@@ -565,7 +619,11 @@ void ofApp::draw(){
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
-
+	if (key == ' ') {
+		robot.setPause();
+ 		robot.echo();
+		robot.setPause(false);
+	}
 }
 
 //--------------------------------------------------------------

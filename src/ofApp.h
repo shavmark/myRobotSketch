@@ -2,6 +2,8 @@
 
 #include "ofMain.h"
 
+// lib is not dev'd or tested for multi threading yet
+
 //http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 
 // from firmware IKM_BACKHOE not 100% supported
@@ -76,9 +78,16 @@ protected:
 	void setLowLevelWristRotate(int a) { set(wristRotateHighByteOffset, wristRotateLowByteOffset, a); };
 	void setLowLevelGripper(int distance) { set(gripperHighByteOffset, gripperLowByteOffset, distance); };
 
-	// offsets bugbug store with JointValue, set at init time via constructor but still const
+	int getX() { return get(xHighByteOffset, xLowByteOffset); }
+	int getY() { return get(yHighByteOffset, yLowByteOffset); }
+	int getZ() { return get(zHighByteOffset, zLowByteOffset); }
+	int getWristAngle() { return get(wristAngleHighByteOffset, wristAngleLowByteOffset); }
+	int getWristRotate() { return get(wristRotateHighByteOffset, wristRotateLowByteOffset); }
+	int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
+
 private:
 	void set(uint16_t high, uint16_t low, int val);
+	int get(uint16_t high, uint16_t low);
 	uint8_t getChkSum();
 	static const uint16_t headerByteOffset = 0;
 	static const uint16_t xHighByteOffset = 1;
@@ -176,11 +185,16 @@ public:
 	void setup();
 	void update();
 	void draw();
-
+	void echoAllJoints(); // echos positions
+	void setPause(bool pause = true) { this->pause = pause; }
 	template<typename T> shared_ptr<T> createCommand() { return make_shared<T>(*this); };
+	
 	void add(shared_ptr<Command>cmd) { path.push(cmd); }
+	template<T> shared_ptr<T> createAndAdd(const ofPoint& point, const ofPoint& state = ofPoint());
+
 	robotType& getType() { return type; }
 	RobotSerial& getSerial() { return serial; }
+
 protected:
 	RobotValueRanges userDefinedRanges;
 
@@ -189,6 +203,7 @@ private:
 	uint8_t data[RobotJointsState::count];// one data instance per robot
 	robotType type;
 	queue <shared_ptr<Command>> path; // move to robot, move all other stuff out of here, up or down
+	bool pause = false;
 };
 
 class Command : protected RobotJoints {
@@ -203,6 +218,9 @@ public:
 		ofPoint point;
 		ofPoint settings;
 	};
+
+	void echo(); // echos positions
+
 	// put command in a known state
 	void reset() { // setup can be ignored for a reset is not required
 		setStartState();
@@ -225,7 +243,7 @@ public:
 	void setFillMode(int mode) { fillmode = mode; }
 	void addPointAndState(const ofPoint& point, const ofPoint& state = ofPoint()) { infoVector.push_back(CommandInfo(point, state)); }
 
-	void sleep() { if (millisSleep > -1) ofSleepMillis(500); }
+	void sleep() { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 
 	int millisSleep = -1;// no sleep by default
 	bool moveOrDraw = true; // false means draw
@@ -264,6 +282,8 @@ public://
 class DrawingRobot : public Robot {
 public:
 	void setup();
+
+
 };
 
 class ofApp : public ofBaseApp{
@@ -285,6 +305,6 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 
-		Robot robot;
+		DrawingRobot robot;
 		
 };
