@@ -112,28 +112,34 @@ int RobotJoints::getDefaultValue(robotArmJointType type) {
 	}
 	return  hardwareRanges.defaultValue[SpecificJoint(typeOfRobot, type)];
 }
-void RobotValueRanges::setDefault(SpecificJoint joint, int value, int max, int min) { 
-	if (value < max && value > min) {
-		defaultValue[joint] = value;
-	}
-	else {
-		ofLogError() << "default value out of range " << value << " range is " << min << ", " << max;
-	}
-}
-void RobotValueRanges::setMin(SpecificJoint joint, int value, int min, int max) {
-	if (value < max && value > min) {
-		minValue[joint] = value;
-	}
-	else {
-		ofLogError() << "minValue out of range " << value << " range is " << min << ", " << max;
+void RobotJoints::setDefault(SpecificJoint joint, int value) {
+	if (userDefinedRanges) {
+		if (value < hardwareRanges.maxValue[joint] && value > hardwareRanges.minValue[joint]) {
+			userDefinedRanges->defaultValue[joint] = value;
+		}
+		else {
+			ofLogError() << "defaultValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint];
+		}
 	}
 }
-void RobotValueRanges::setMax(SpecificJoint joint, int value, int min, int max) {
-	if (value < max && value > min) {
-		maxValue[joint] = value;
+void RobotJoints::setMin(SpecificJoint joint, int value) {
+	if (userDefinedRanges) {
+		if (value < hardwareRanges.maxValue[joint] && value > hardwareRanges.minValue[joint]) {
+			userDefinedRanges->minValue[joint] = value;
+		}
+		else {
+			ofLogError() << "minValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint];
+		}
 	}
-	else {
-		ofLogError() << "maxValue out of range " << value << " range is " << min << ", " << max;
+}
+void RobotJoints::setMax(SpecificJoint joint, int value) {
+	if (userDefinedRanges) {
+		if (value < hardwareRanges.maxValue[joint] && value > hardwareRanges.minValue[joint]) {
+			userDefinedRanges->maxValue[joint] = value;
+		}
+		else {
+			ofLogError() << "maxValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint];
+		}
 	}
 }
 
@@ -427,8 +433,8 @@ void ofDrawingRobot::setup() {
 	RobotJoints jv(getType());
 
 	// only set what we care about, let the rest stay at default. userDefinedRanges is a sparse array of sorts
-	userDefinedRanges.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300, jv.getMin(X), jv.getMax(X));
-	userDefinedRanges.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300, jv.getMin(X), jv.getMax(X));
+	jv.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300);
+	jv.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300);
 
 }
 void RobotJointsState::set(uint16_t offset, uint8_t b) { 
@@ -588,17 +594,18 @@ void ofRobotCommands::sizing() {
 	ofLogNotice() << "sizing";
 	reset();
 
-	add(RobotCommand(0.0f)); // need to be percents!!
-	add(RobotCommand(5000));// sleep
-
-	add(RobotCommand(1.0f)); // need to be percents!!
-	add(RobotCommand(5000));
+	for (float f = 0.0f; f < 1.0f; f += 0.01) {
+		add(RobotCommand(f)); // need to be percents!!
+		add(RobotCommand(5000));// sleep
+	}
 
 	add(RobotCommand(0.5f, 0.0f)); // need to be percents!!
 	add(RobotCommand(5000));
 
-	add(RobotCommand(NoRobotValue, 1.0f)); // need to be percents!!
-	add(RobotCommand(5000));
+	for (float f = 0.0f; f < 1.0f; f += 0.01) {
+		add(RobotCommand(NoRobotValue, f)); // need to be percents!!
+		add(RobotCommand(5000));
+	}
 
 	//z not sized
 
@@ -791,7 +798,7 @@ void ofApp::draw(){
 void ofApp::keyPressed(int key){
 	if (key == ' ') {
 		robot.setPause();//bugbug need a thread/semaphore to do this
- 		robot.echo();
+		robot.echo();
 		robot.setPause(false);
 	}
 }

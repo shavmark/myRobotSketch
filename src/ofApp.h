@@ -103,10 +103,6 @@ private:
 class RobotValueRanges {
 public:
 
-	void setDefault(SpecificJoint joint, int value, int min = MAXINT, int max = MININT);
-	void setMin(SpecificJoint joint, int value, int min = MAXINT, int max = MININT);
-	void setMax(SpecificJoint joint, int value, int min = MAXINT, int max = MININT);
-
 	map<SpecificJoint, int> minValue;
 	map<SpecificJoint, int> maxValue;
 	map<SpecificJoint, int> defaultValue;
@@ -119,7 +115,11 @@ public:
 	RobotJoints(const robotType& typeOfRobot) : RobotJointsState() { this->typeOfRobot = typeOfRobot; };
 	RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data) {	this->typeOfRobot = typeOfRobot;}
 	RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }
-	
+
+	void setDefault(SpecificJoint joint, int value);
+	void setMin(SpecificJoint joint, int value);
+	void setMax(SpecificJoint joint, int value);
+
 	void setX(int x);
 	void setY(int y);
 	void setZ(int z);
@@ -340,5 +340,4 @@ class ofApp : public ofBaseApp{
 		void gotMessage(ofMessage msg);
 
 		ofDrawingRobot robot;
-		
 };
