@@ -36,27 +36,12 @@ enum robotLowLevelCommand : uint8_t {
 	setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
 };
 
-class RobotSerial : public ofSerial {
-public:
-	void waitForSerial() { while (1) if (available() > 0) { return; } }
-	void clearSerial() { flush(); }
-	int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
-	int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
-	void readPose();
-	void write(uint8_t* data, int count);
-	robotType waitForRobot();
-
-protected:
-	robotType ArmIDResponsePacket(uint8_t *bytes);
-};
-
 // pure virtual base class, low level data without range checking so only use derived classes
 class RobotJointsState {
 
 public:
 
 	static const uint16_t count = 17;
-	void send(RobotSerial* serial);
 	robotLowLevelCommand getStartCommand(robotType type);
 
 protected:
@@ -85,10 +70,11 @@ protected:
 	int getWristRotate() { return get(wristRotateHighByteOffset, wristRotateLowByteOffset); }
 	int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
 
+	uint8_t *getData();
+
 private:
 	void set(uint16_t high, uint16_t low, int val);
 	int get(uint16_t high, uint16_t low);
-	uint8_t getChkSum();
 	static const uint16_t headerByteOffset = 0;
 	static const uint16_t xHighByteOffset = 1;
 	static const uint16_t xLowByteOffset = 2;
@@ -106,6 +92,8 @@ private:
 	static const uint16_t buttonByteOffset = 14;//bugbug not supported
 	static const uint16_t extValBytesOffset = 15;
 	static const uint16_t checksum = 16;
+
+	uint8_t getChkSum(); // hide to prevent using data out side of this object as much as possible
 
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
@@ -174,13 +162,38 @@ private:
 
 };
 
+class RobotVoice {
+public:
+	void draw() {}//bugbug enumerate and say, bring in SAPI 11 or such
+	void add(const string& say) { thingsToSay.push_back(say); }
+	vector<string> thingsToSay;
+};
+
+
+// bugbug openframeworks specific items here, c++ only above this line. use of as prefix as needed
+
+class ofRobotSerial : public ofSerial {
+public:
+	void waitForSerial() { while (1) if (available() > 0) { return; } }
+	void clearSerial() { flush(); }
+	int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
+	int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
+	void readPose();
+	void write(uint8_t* data, int count);
+	robotType waitForRobot();
+
+protected:
+	robotType ArmIDResponsePacket(uint8_t *bytes);
+};
+
+
 // positions are defined as % change of all range of joint, from the current position
 // RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
-class RobotPosition : protected ofPoint {
+class ofRobotPosition : protected ofPoint {
 public:
 	//=FLT_MAX means not set
 	#define NoRobotValue FLT_MAX
-	RobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
+	ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
 	void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
 	virtual void echo() const;
 	float getX()const { return x; }
@@ -193,9 +206,9 @@ protected:
 	bool validRange(float f);
 };
 
-class RobotState : public RobotPosition {
+class ofRobotState : public ofRobotPosition {
 public:
-	RobotState(float wristAngle = FLT_MAX, float wristRotate = FLT_MAX, float gripper = FLT_MAX) :RobotPosition(wristAngle, wristRotate, gripper) {  }
+	ofRobotState(float wristAngle = FLT_MAX, float wristRotate = FLT_MAX, float gripper = FLT_MAX) :ofRobotPosition(wristAngle, wristRotate, gripper) {  }
 
 	float getWristAngle()const { return getPtr()[0]; }
 	float getWristRotation() const { return getPtr()[1]; }
@@ -205,47 +218,52 @@ public:
 
 };
 
+
 class RobotCommand {
 public:
 	// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
-	RobotCommand(float xPercent=0, float yPercent = 0, float zPercent = 0, float wristAnglePercent = 0, float wristRotatePercent = 0, float gripperPercent = 0, int millisSleep = -1, bool deleteWhenDone = true) {
-		init(RobotPosition(xPercent, yPercent, zPercent), RobotState(wristAnglePercent, wristRotatePercent, gripperPercent), millisSleep, deleteWhenDone);
+	RobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, int millisSleep = -1, bool deleteWhenDone = true) {
+		init(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), millisSleep, deleteWhenDone);
 	}
 	// object based
-	RobotCommand(const RobotPosition& pointPercent, const RobotState& settingsPercent = RobotState(), int millisSleep = -1, bool deleteWhenDone = true) {
+	RobotCommand(const ofRobotPosition& pointPercent, const ofRobotState& settingsPercent = ofRobotState(), int millisSleep = -1, bool deleteWhenDone = true) {
 		init(pointPercent, settingsPercent, millisSleep, deleteWhenDone);
 	}
 	// make a sleep only command
 	RobotCommand(int millisSleep = -1, bool deleteWhenDone = true) {
-		init(RobotPosition(), RobotState(), millisSleep, deleteWhenDone);
+		init(ofRobotPosition(), ofRobotState(), millisSleep, deleteWhenDone);
 	}
-
+	
+	void addSay(const string& say) { voice.add(say); }
 	void sleep() const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 	bool OKToDelete() { return deleteWhenDone; }
 	void echo() const ;
 
-	RobotPosition pointPercent;
-	RobotState settingsPercent;
+	ofRobotPosition pointPercent;
+	ofRobotState settingsPercent;
 
 private:
-	void init(const RobotPosition& pointPercent = RobotPosition(), const RobotState& settingsPercent = RobotState(), int millisSleep = -1, bool deleteWhenDone = true);
+	void init(const ofRobotPosition& pointPercent = ofRobotPosition(), const ofRobotState& settingsPercent = ofRobotState(), int millisSleep = -1, bool deleteWhenDone = true);
 	bool deleteWhenDone; // false to repeat command per every draw occurance
 	int millisSleep;// no sleep by default
+	RobotVoice voice;
 
 };
 
-class Robot;
+class ofRobot;
 
-class RobotCommands : protected RobotJoints {
+class ofRobotCommands : protected RobotJoints {
 public:
 	
 	enum BuiltInCommandNames {UserDefined, LowLevelTest, HighLevelTest, Sizing};// command and basic commands.  Derive object or create functions to create more commands
 
 	// passed robot cannot go away while this object exists
-	RobotCommands(Robot *robot, BuiltInCommandNames = UserDefined);
-	RobotCommands(BuiltInCommandNames name = UserDefined) :RobotJoints(nullptr) { this->name = name; }
+	ofRobotCommands(ofRobot *robot, BuiltInCommandNames = UserDefined);
+	ofRobotCommands(BuiltInCommandNames name = UserDefined) :RobotJoints(nullptr) { this->name = name; }
 
 	void echo() const; // echos positions
+
+	void send(ofRobotSerial* serial);
 
 	// put command data in a known state
 	void reset();
@@ -259,45 +277,45 @@ public:
 
 protected:
 	BuiltInCommandNames getName() { return name; };
-	void setPoint(RobotPosition pt);
-	void setState(RobotState pt);
+	void setPoint(ofRobotPosition pt);
+	void setState(ofRobotState pt);
 	vector<RobotCommand> cmdVector; // one more more points
-	Robot *robot = nullptr; // owner
+	ofRobot *robot = nullptr; // owner
 
 private:
 	void sanityTestLowLevel(); // built in commands
 	void sanityTestHighLevel();
-	void sizeDrawing() {} // bugbug to do
+	void sizing();
 	BuiltInCommandNames name;
 };
 
 // the robot itself
-class Robot {
+class ofRobot {
 public:
-	friend class RobotCommands;
+	friend class ofRobotCommands;
 	void setup();
 	void update();
 	void draw();
 	void echo(); // echos positions
 	void setPause(bool pause = true) { this->pause = pause; }//bugbug go to threads
 
-	shared_ptr<RobotCommands> add(RobotCommands::BuiltInCommandNames name = RobotCommands::UserDefined);
+	shared_ptr<ofRobotCommands> add(ofRobotCommands::BuiltInCommandNames name = ofRobotCommands::UserDefined);
 
 	robotType& getType() { return type; }
-	RobotSerial& getSerial() { return serial; }
+	ofRobotSerial& getSerial() { return serial; }
 
 protected:
 	RobotValueRanges userDefinedRanges;
 
 private:
-	RobotSerial serial; // talking to the robot
+	ofRobotSerial serial; // talking to the robot
 	uint8_t data[RobotJointsState::count];// one data instance per robot
 	robotType type;
-	vector<shared_ptr<RobotCommands>> cmds;
+	vector<shared_ptr<ofRobotCommands>> cmds;
 	bool pause = false;
 };
 
-class DrawingRobot : public Robot {
+class ofDrawingRobot : public ofRobot {
 public:
 	void setup();
 };
@@ -321,6 +339,6 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 
-		DrawingRobot robot;
+		ofDrawingRobot robot;
 		
 };

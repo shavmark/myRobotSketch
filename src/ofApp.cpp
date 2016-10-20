@@ -76,13 +76,18 @@ void RobotJointsState::set(uint16_t high, uint16_t low, int val) {
 	set(low, lowByte(val));
 }
 
-void RobotJointsState::send(RobotSerial* serial) {
-	set(headerByteOffset, 255); // make sure its set
-	getChkSum();
+void ofRobotCommands::send(ofRobotSerial* serial) {
+	
 	echo();
 	if (serial) {
-		serial->write(data, count);
+		serial->write(getData(), count);
 	}
+}
+// return core data making sure its set properly
+uint8_t *RobotJointsState::getData() { 
+	set(headerByteOffset, 255); 
+	getChkSum(); 
+	return data; 
 }
 
 robotLowLevelCommand RobotJointsState::getStartCommand(robotType type) {
@@ -202,7 +207,7 @@ void echoRawBytes(uint8_t *bytes, int count) {
 	ofLogNotice() << buffer.str();
 }
 // get pose data from serial port bugbug decode this
-void RobotSerial::readPose() {
+void ofRobotSerial::readPose() {
 	if (available() == 0) {
 		return;
 	}
@@ -239,7 +244,7 @@ void RobotSerial::readPose() {
 	delete bytes;
 
 }
-int RobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
+int ofRobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	int result = 0;
 	if (available() > 0) {
 		if ((result = readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
@@ -259,7 +264,7 @@ int RobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	}
 	return result;
 }
-int RobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
+int ofRobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
 	int readIn = 0;
 	if (bytes) {
 		*bytes = 0;// null out to show data read
@@ -295,7 +300,7 @@ int RobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
 }
 
 // bool readOnly -- just read serial do not send request
-robotType RobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
+robotType ofRobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
 	if (bytes != nullptr) {
 		robotArmMode armMode = (robotArmMode)bytes[2];
 		switch (armMode) {
@@ -328,7 +333,7 @@ robotType RobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
 }
 
 
-robotType RobotSerial::waitForRobot() {
+robotType ofRobotSerial::waitForRobot() {
 	ofLogNotice() << "wait for mr robot...";
 	
 	waitForSerial();
@@ -355,7 +360,7 @@ robotType RobotSerial::waitForRobot() {
 	ofLogNotice() << bytes;
 	return type;
 }
-void Robot::setup() {
+void ofRobot::setup() {
 
 	clear(cmds);
 
@@ -377,10 +382,10 @@ void Robot::setup() {
 	jv.oneTimeSetup(); // do one time setup of static data
 					   
 }
-void Robot::update() {
+void ofRobot::update() {
 }
 
-void RobotCommands::echo() const {
+void ofRobotCommands::echo() const {
 	for (const auto& cmd :cmdVector) {
 		cmd.echo();
 	}
@@ -389,13 +394,13 @@ void RobotCommand::echo() const {
 	pointPercent.echo();
 	settingsPercent.echo();
 }
-void Robot::echo() {
+void ofRobot::echo() {
 	for (auto& cmd : cmds) {
 		cmd->echo();
 	}
 }
 
-void Robot::draw() {
+void ofRobot::draw() {
 	if (pause) {
 		return;
 	}
@@ -413,9 +418,9 @@ void RobotJoints::setUserDefinedRanges(SpecificJoint joint, RobotValueRanges *us
 	this->userDefinedRanges = userDefinedRanges; 
 }
 
-void DrawingRobot::setup() {
+void ofDrawingRobot::setup() {
 
-	Robot::setup(); // set base class first
+	ofRobot::setup(); // set base class first
 
 	//bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
 	// set ranges so percents work against these. leave Y as is bugbug figure this all out
@@ -473,7 +478,7 @@ uint8_t RobotJointsState::getChkSum() {
 	return 0;
 }
 
-void RobotSerial::write(uint8_t* data, int count) {
+void ofRobotSerial::write(uint8_t* data, int count) {
 	// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 		
 	//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
@@ -488,7 +493,7 @@ void RobotSerial::write(uint8_t* data, int count) {
 
 }
 // x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
-void RobotCommands::setState(RobotState statePercent) {
+void ofRobotCommands::setState(ofRobotState statePercent) {
 	if (isCylindrical()) {
 		if (statePercent.set[0]) {
 			setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
@@ -502,27 +507,27 @@ void RobotCommands::setState(RobotState statePercent) {
 	}
 }
 
-void RobotPosition::echo() const {
+void ofRobotPosition::echo() const {
 	ofLogNotice() << "x=" << (set[0] ? ofToString(x) : "<not set>");
 	ofLogNotice() << "y=" << (set[1] ? ofToString(y) : "<not set>");
 	ofLogNotice() << "z=" << (set[2] ? ofToString(z) : "<not set>");
 }
 // can be +//
-bool RobotPosition::validRange(float f) {
-	if (abs(f) >= 0.0 && abs(f) <= 1.0) {
+bool ofRobotPosition::validRange(float f) {
+	if (abs(f) >= 0.0f && abs(f) <= 1.0f) {
 		return true;
 	}
 	ofLogError() << "float out of range (0.0 to +/- 1.0) or 0 to 100% of range " << abs(f);
 	return false;
 }
 
-void RobotState::echo() const {
+void ofRobotState::echo() const {
 	ofLogNotice() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>");
 	ofLogNotice() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>");
 	ofLogNotice() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>");
 }
 
-void RobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
+void ofRobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
 	if (xPercent != NoRobotValue && validRange(xPercent)) {
 		x = xPercent;
 		set[0] = true;
@@ -547,7 +552,7 @@ void RobotPosition::setPercents(float xPercent, float yPercent, float zPercent) 
 }
 
 //+/- .001 to 1.000, 0 means ignore 
-void RobotCommands::setPoint(RobotPosition ptPercent) {
+void ofRobotCommands::setPoint(ofRobotPosition ptPercent) {
 	// only Cylindrical supported by this function, mainly the setx one
 	if (isCylindrical()) {
 		//ofMap
@@ -566,7 +571,7 @@ void RobotCommands::setPoint(RobotPosition ptPercent) {
 	}
 }
 // RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
-void RobotCommand::init(const RobotPosition& pointPercent, const RobotState& settingsPercent, int millisSleep, bool deleteWhenDone) {
+void RobotCommand::init(const ofRobotPosition& pointPercent, const ofRobotState& settingsPercent, int millisSleep, bool deleteWhenDone) {
 	this->pointPercent = pointPercent;
 	this->settingsPercent = settingsPercent;
 	this->deleteWhenDone = deleteWhenDone;
@@ -574,29 +579,47 @@ void RobotCommand::init(const RobotPosition& pointPercent, const RobotState& set
 }
 
 // add ranges checking
-void RobotCommands::add(const RobotCommand& cmd, BuiltInCommandNames name) { 
+void ofRobotCommands::add(const RobotCommand& cmd, BuiltInCommandNames name) { 
 	cmdVector.push_back(cmd); 
 	this->name = name; 
 }
 
-void RobotCommands::sanityTestHighLevel() {
-	ofLogNotice() << " high level sanityTest";
+void ofRobotCommands::sizing() {
+	ofLogNotice() << "sizing";
 	reset();
-	add(RobotCommand(0.3, 0.6, NoRobotValue, 1.0, -1.0, 0.5)); // need to be percents!!
-	add(RobotCommand(NoRobotValue, NoRobotValue, 0.3)); // too close could hit the bottom
-	add(RobotCommand(NoRobotValue, NoRobotValue, 1.0));
-	add(RobotCommand(NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, 1000)); // sleep
+
+	add(RobotCommand(0.0f)); // need to be percents!!
+	add(RobotCommand(5000));// sleep
+
+	add(RobotCommand(1.0f)); // need to be percents!!
+	add(RobotCommand(5000));
+
+	add(RobotCommand(0.5f, 0.0f)); // need to be percents!!
+	add(RobotCommand(5000));
+
+	add(RobotCommand(NoRobotValue, 1.0f)); // need to be percents!!
+	add(RobotCommand(5000));
+
+	//z not sized
+
+	setLowLevelCommand(NoArmCommand);
+	setDelta(255);
+}
+void ofRobotCommands::sanityTestHighLevel() {
+	ofLogNotice() << "high level sanityTest";
+	reset();
+	add(RobotCommand(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f)); // need to be percents!!
+	add(RobotCommand(NoRobotValue, NoRobotValue, 0.3f)); // too close could hit the bottom
+	add(RobotCommand(NoRobotValue, NoRobotValue, 1.0f));
+	add(RobotCommand(1000)); // sleep
 	setLowLevelCommand(NoArmCommand);
 	setDelta(255);
 	setButton();
-	if (robot) {
-		send(&robot->getSerial());
-	}
 }
 
 // set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
-void RobotCommands::sanityTestLowLevel() {
-	ofLogNotice() << " low level sanityTest";
+void ofRobotCommands::sanityTestLowLevel() {
+	ofLogNotice() << "low level sanityTest";
 	setX(300); // absolution position vs. percentages
 	setY(150);
 	setZ(150);
@@ -606,9 +629,6 @@ void RobotCommands::sanityTestLowLevel() {
 	setLowLevelCommand(NoArmCommand);
 	setDelta(255);
 	setButton();
-	if (robot) {
-		send(&robot->getSerial());
-	}
 }
 
 // "home" and set data matching state
@@ -631,15 +651,15 @@ robotType RobotJoints::setStartState() {
 	return typeOfRobot;
 }
 
-shared_ptr<RobotCommands> Robot::add(RobotCommands::BuiltInCommandNames name) {
-	shared_ptr<RobotCommands> p = make_shared<RobotCommands>(this, name);
+shared_ptr<ofRobotCommands> ofRobot::add(ofRobotCommands::BuiltInCommandNames name) {
+	shared_ptr<ofRobotCommands> p = make_shared<ofRobotCommands>(this, name);
 	if (p) {
 		cmds.push_back(p);
 	}
 	return p;
 }
 
-RobotCommands::RobotCommands(Robot *robot, BuiltInCommandNames name) :RobotJoints(robot->data, robot->type) {
+ofRobotCommands::ofRobotCommands(ofRobot *robot, BuiltInCommandNames name) :RobotJoints(robot->data, robot->type) {
 	this->robot = robot;  
 	if (robot) {
 		//typedef pair<robotType, robotArmJointType> SpecificJoint
@@ -647,21 +667,24 @@ RobotCommands::RobotCommands(Robot *robot, BuiltInCommandNames name) :RobotJoint
 	}
 	this->name = name;
 }
-void RobotCommands::reset() { // setup can be ignored for a reset is not required
+void ofRobotCommands::reset() { // setup can be ignored for a reset is not required
 	setStartState();
 	send(&robot->serial); // send the mode, also resets the robot
 	setDefaultState();
 	clear(cmdVector);
 }
-void RobotCommands::draw() {
+void ofRobotCommands::draw() {
 
 	if (robot) {
 		switch (name) {
-		case RobotCommands::HighLevelTest:
+		case ofRobotCommands::HighLevelTest:
 			sanityTestHighLevel(); // will populate cmdVector
 			break;
-		case RobotCommands::LowLevelTest:
+		case ofRobotCommands::LowLevelTest:
 			sanityTestLowLevel(); 
+			break;
+		case ofRobotCommands::Sizing:
+			sizing();
 			break;
 		}
 
@@ -693,7 +716,7 @@ void ofApp::update(){
 	
 	robot.update();
 
-	shared_ptr<RobotCommands> cmd = robot.add(RobotCommands::HighLevelTest);
+	shared_ptr<ofRobotCommands> cmd = robot.add(ofRobotCommands::HighLevelTest);
 
 	/*
 	shared_ptr<RobotCommands> cmd = robot.createAndAdd<RobotCommands>(RobotCommand());
