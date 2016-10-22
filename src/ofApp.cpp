@@ -17,6 +17,7 @@ void echoRawBytes(uint8_t *bytes, int count) {
 	}
 	ofLogNotice() << buffer.str();
 }
+
 // get pose data from serial port bugbug decode this
 void ofRobotSerial::readPose() {
 	if (available() == 0) {

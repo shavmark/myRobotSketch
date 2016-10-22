@@ -54,7 +54,7 @@ inline std::string echoJointType(SpecificJoint joint) {
 	std::stringstream buffer;
 	buffer << "SpecificJoint<robotType, robotArmJointType> = " << joint.first.first << ", " << joint.first.second << ", " << joint.second;
 	return buffer.str();
-}
+} 
 
 class RobotTrace {
 public:
