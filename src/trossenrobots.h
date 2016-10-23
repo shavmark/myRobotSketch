@@ -6,7 +6,8 @@
 #include <iostream>
 #include <string>
 #include <sstream>     
-#include "robot.h"
+
+// OF Free, Trossen specific
 
 // lib is not dev'd or tested for multi threading yet
 
@@ -51,8 +52,7 @@ inline std::string echoJointType(SpecificJoint joint) {
 } 
 
 // pure virtual base class, low level data without range checking so only use derived classes
-class RobotJointsState : public RobotBaseClass {
-
+class RobotJointsState {
 public:
 
 	static const uint16_t count = 17;
@@ -60,7 +60,7 @@ public:
 	
 protected:
 
-	RobotJointsState(uint8_t *data, RobotTrace *tracer) : RobotBaseClass(tracer) {setData(data); }
+	RobotJointsState(uint8_t *data)  {setData(data); }
 
 	virtual void virtfunction() = 0;
 	void setData(uint8_t *data) { this->data = data; }
@@ -126,9 +126,9 @@ public:
 class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
-	RobotJoints(const robotType& typeOfRobot, RobotTrace *tracer) : RobotJointsState(nullptr, tracer) { this->typeOfRobot = typeOfRobot; };
-	RobotJoints(uint8_t* data, const robotType& typeOfRobot, RobotTrace *tracer) : RobotJointsState(data, tracer) { this->typeOfRobot = typeOfRobot; }
-	RobotJoints(uint8_t* data, RobotTrace *tracer) : RobotJointsState(data, tracer) { typeOfRobot = createUndefinedRobotType(); }
+	RobotJoints(const robotType& typeOfRobot) : RobotJointsState(nullptr) { this->typeOfRobot = typeOfRobot; };
+	RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data) { this->typeOfRobot = typeOfRobot; }
+	RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }
 
 	void setDefault(SpecificJoint joint, int value);
 	void setMin(SpecificJoint joint, int value);

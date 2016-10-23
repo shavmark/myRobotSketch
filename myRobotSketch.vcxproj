@@ -201,6 +201,9 @@
     <ClCompile Include="..\..\..\addons\ofxXmlSettings\libs\tinyxml.cpp" />
     <ClCompile Include="..\..\..\addons\ofxXmlSettings\libs\tinyxmlerror.cpp" />
     <ClCompile Include="..\..\..\addons\ofxXmlSettings\libs\tinyxmlparser.cpp" />
+    <ClCompile Include="src\ofHelpers.cpp" />
+    <ClCompile Include="src\ofRobots.cpp" />
+    <ClCompile Include="src\robot.cpp" />
     <ClCompile Include="src\trossenrobots.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -242,6 +245,8 @@
     <ClInclude Include="..\..\..\addons\ofxOsc\libs\oscpack\src\osc\OscTypes.h" />
     <ClInclude Include="..\..\..\addons\ofxXmlSettings\src\ofxXmlSettings.h" />
     <ClInclude Include="..\..\..\addons\ofxXmlSettings\libs\tinyxml.h" />
+    <ClInclude Include="src\ofHelpers.h" />
+    <ClInclude Include="src\ofRobots.h" />
     <ClInclude Include="src\robot.h" />
     <ClInclude Include="src\trossenrobots.h" />
   </ItemGroup>
