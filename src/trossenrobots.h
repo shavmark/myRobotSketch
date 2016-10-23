@@ -6,16 +6,12 @@
 #include <iostream>
 #include <string>
 #include <sstream>     
-#include <functional>
+#include "robot.h"
 
 // lib is not dev'd or tested for multi threading yet
 
 //http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 
-inline uint16_t bytes_to_u16(uint8_t high, uint8_t low) {
-	// robot data seems to be big endian, most os seem to be little
-	return (((uint16_t)high) & 255) << 8 | (low & 255);
-}
 
 // from firmware IKM_BACKHOE not 100% supported
 enum robotArmMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED };
@@ -47,8 +43,6 @@ enum robotLowLevelCommand : uint8_t {
 	setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
 };
 
-typedef void(*CallbackFunctionPtr)(const std::string &s);
-
 // tracing helper
 inline std::string echoJointType(SpecificJoint joint) {
 	std::stringstream buffer;
@@ -56,40 +50,17 @@ inline std::string echoJointType(SpecificJoint joint) {
 	return buffer.str();
 } 
 
-class RobotTrace {
-public:
-	void setCallback(CallbackFunctionPtr cb) { callback = cb; }
-
-	template <class T>
-	RobotTrace& operator<<(const T& value) {
-		//this << value;
-		if (callback) {
-			callback("test1");
-		}
-		else {
-			std::cout << "test2";
-		}
-		return *this;
-	}
-protected:
-	CallbackFunctionPtr callback=nullptr;
-};
-class RobotError : public RobotTrace {
-public:
-};
-
 // pure virtual base class, low level data without range checking so only use derived classes
-class RobotJointsState {
+class RobotJointsState : public RobotBaseClass {
 
 public:
 
 	static const uint16_t count = 17;
 	robotLowLevelCommand getStartCommand(robotType type);
 	
-	
 protected:
 
-	RobotJointsState(uint8_t *data = nullptr) { setData(data); }
+	RobotJointsState(uint8_t *data, RobotTrace *tracer) : RobotBaseClass(tracer) {setData(data); }
 
 	virtual void virtfunction() = 0;
 	void setData(uint8_t *data) { this->data = data; }
@@ -141,8 +112,6 @@ private:
 	uint8_t lowByte(uint16_t a) { return a % 256; }
 	uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 	uint8_t *data = nullptr; // data to send
-	RobotTrace tracer;
-
 };
 
 class RobotValueRanges {
@@ -157,9 +126,9 @@ public:
 class RobotJoints : public RobotJointsState {
 public:
 	// constructor required
-	RobotJoints(const robotType& typeOfRobot) : RobotJointsState() { this->typeOfRobot = typeOfRobot; };
-	RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data) { this->typeOfRobot = typeOfRobot; }
-	RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }
+	RobotJoints(const robotType& typeOfRobot, RobotTrace *tracer) : RobotJointsState(nullptr, tracer) { this->typeOfRobot = typeOfRobot; };
+	RobotJoints(uint8_t* data, const robotType& typeOfRobot, RobotTrace *tracer) : RobotJointsState(data, tracer) { this->typeOfRobot = typeOfRobot; }
+	RobotJoints(uint8_t* data, RobotTrace *tracer) : RobotJointsState(data, tracer) { typeOfRobot = createUndefinedRobotType(); }
 
 	void setDefault(SpecificJoint joint, int value);
 	void setMin(SpecificJoint joint, int value);

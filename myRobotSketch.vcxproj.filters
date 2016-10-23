@@ -266,6 +266,9 @@
     <ClInclude Include="src\trossenrobots.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\robot.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="icon.rc" />

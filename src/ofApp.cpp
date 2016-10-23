@@ -10,12 +10,12 @@ template<typename T>void clear(vector< T > vect) {
 }
 
 // echo, ignoring null bytes
-void echoRawBytes(uint8_t *bytes, int count) {
+void ofRobotSerial::echoRawBytes(uint8_t *bytes, int count) {
 	std::stringstream buffer;
 	for (int i = 0; i < count; ++i) {
 		buffer << " bytes[" << i << "] = " << (int)bytes[i]; // echo in one line
 	}
-	ofLogNotice() << buffer.str();
+	getTracer() << buffer.str() << std::endl;
 }
 
 // get pose data from serial port bugbug decode this
@@ -24,7 +24,7 @@ void ofRobotSerial::readPose() {
 		return;
 	}
 
-	ofLogNotice() << "RobotSerial::readPose";
+	getTracer() << "RobotSerial::readPose" << std::endl;
 
 	uint8_t *bytes = new uint8_t[1000];//bugbug clean this up
 	int i = 0;
@@ -60,13 +60,13 @@ int ofRobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 	int result = 0;
 	if (available() > 0) {
 		if ((result = readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
-			ofLogError() << "serial failed";
+			getErrorTracer() << "serial failed" << std::endl;
 			return 0;
 		}
 		while (result == OF_SERIAL_NO_DATA) {
 			result = readBytes(bytes, bytesMax);
 			if (result == OF_SERIAL_ERROR) {
-				ofLogError() << "serial failed";
+				getErrorTracer() << "serial failed" << std::endl;
 				return 0;
 			}
 			if (result != OF_SERIAL_NO_DATA) {
@@ -93,7 +93,7 @@ int ofRobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
 				// check for error code
 				if (result == OF_SERIAL_ERROR) {
 					// something bad happened
-					ofLog(OF_LOG_ERROR, "unrecoverable error reading from serial");
+					getErrorTracer() << "unrecoverable error reading from serial" << std::endl;
 					// bail out
 					break;
 				}
@@ -117,26 +117,26 @@ robotType ofRobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
 		robotArmMode armMode = (robotArmMode)bytes[2];
 		switch (armMode) {
 		case IKM_IK3D_CARTESIAN:
-			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN";
+			getTracer() << "arm mode IKM_IK3D_CARTESIAN" << std::endl;
 			break;
 		case IKM_IK3D_CARTESIAN_90:
-			ofLogNotice() << "arm mode IKM_IK3D_CARTESIAN_90";
+			getTracer() << "arm mode IKM_IK3D_CARTESIAN_90" << std::endl;
 			break;
 		case IKM_CYLINDRICAL:
-			ofLogNotice() << "arm mode IKM_CYLINDRICAL";
+			getTracer() << "arm mode IKM_CYLINDRICAL" << std::endl;
 			break;
 		case IKM_CYLINDRICAL_90:
-			ofLogNotice() << "arm mode IKM_CYLINDRICAL_90";
+			getTracer() << "arm mode IKM_CYLINDRICAL_90" << std::endl;
 			break;
 		default:
-			ofLogNotice() << "arm mode IKM_BACKHOE mode?";
+			getTracer() << "arm mode IKM_BACKHOE mode?" << std::endl;
 			break;
 		}
 		RobotTypeID id= unknownRobotType;
 		switch (bytes[1]) {
 		case 2:
 			id = InterbotiXPhantomXReactorArm;
-			ofLogNotice() << "InterbotiXPhantomXReactorArm";
+			getTracer() << "InterbotiXPhantomXReactorArm" << std::endl;
 			break;
 		}
 		return robotType(armMode, id);
@@ -146,7 +146,7 @@ robotType ofRobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
 
 
 robotType ofRobotSerial::waitForRobot() {
-	ofLogNotice() << "wait for mr robot...";
+	getTracer() << "wait for mr robot..." << std::endl;
 	
 	waitForSerial();
 
@@ -157,19 +157,19 @@ robotType ofRobotSerial::waitForRobot() {
 	if (readin == 5) {
 		type = ArmIDResponsePacket(bytes);
 		if (type.first == IKM_NOT_DEFINED) {
-			ofLogError() << "invalid robot type";
+			getErrorTracer() << "invalid robot type" << std::endl;
 			return type;
 		}
 	}
 	else {
-		ofLogError() << "invalid robot sign on";
+		getErrorTracer() << "invalid robot sign on" << std::endl;
 		return type;
 	}
 
 	// get sign on echo from device
 	readin = readBytesInOneShot(bytes, 30);
 	bytes[readin] = 0;
-	ofLogNotice() << bytes;
+	getTracer() << bytes << std::endl;
 	return type;
 }
 void ofRobot::setup() {
@@ -183,14 +183,14 @@ void ofRobot::setup() {
 	// start with default mode
 	robotType defaultType;
 	if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
-		ofLogNotice() << "robot setup complete";
+		getTracer() << "robot setup complete" << std::endl;
 	}
 
-	ofLogNotice() << "use IKM_CYLINDRICAL";
+	getTracer() << "use IKM_CYLINDRICAL" << std::endl;
 	type = robotType(IKM_CYLINDRICAL, defaultType.second);
 
 	// do one time setup
-	RobotJoints jv(data, type);
+	RobotJoints jv(data, type, &getTracer());
 	jv.oneTimeSetup(); // do one time setup of static data
 					   
 }
@@ -202,9 +202,9 @@ void ofRobotCommands::echo() const {
 		cmd.echo();
 	}
 }
-void RobotCommand::echo() const {
-	pointPercent.echo();
-	settingsPercent.echo();
+void RobotCommand::echo(RobotTrace &tracer) const {
+	pointPercent.echo(tracer);
+	settingsPercent.echo(tracer);
 }
 void ofRobot::echo() {
 	for (auto& cmd : cmds) {
@@ -227,7 +227,7 @@ void ofDrawingRobot::setup() {
 
 	//bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
 	// set ranges so percents work against these. leave Y as is bugbug figure this all out
-	RobotJoints jv(getType());
+	RobotJoints jv(getType(), &getTracer());
 
 	// only set what we care about, let the rest stay at default. userDefinedRanges is a sparse array of sorts
 	jv.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300);
@@ -243,7 +243,7 @@ void ofRobotSerial::write(uint8_t* data, int count) {
 	ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
 	int sent = writeBytes(data, count);
 
-	ofLogNotice() << "write sent = " << sent;
+	getTracer() << "write sent = " << sent << std::endl;
 
 	readPose(); // pose is sent all the time
 	readPose(); // how often are two sent?
@@ -265,23 +265,23 @@ void ofRobotCommands::setState(ofRobotState statePercent) {
 }
 
 void ofRobotPosition::echo() const {
-	ofLogNotice() << "x=" << (set[0] ? ofToString(x) : "<not set>");
-	ofLogNotice() << "y=" << (set[1] ? ofToString(y) : "<not set>");
-	ofLogNotice() << "z=" << (set[2] ? ofToString(z) : "<not set>");
+	getTracer() << "x=" << (set[0] ? ofToString(x) : "<not set>") << std::endl;
+	getTracer() << "y=" << (set[1] ? ofToString(y) : "<not set>") << std::endl;
+	getTracer() << "z=" << (set[2] ? ofToString(z) : "<not set>") << std::endl;
 }
 // can be +//
 bool ofRobotPosition::validRange(float f) {
 	if (abs(f) >= 0.0f && abs(f) <= 1.0f) {
 		return true;
 	}
-	ofLogError() << "float out of range (0.0 to +/- 1.0) or 0 to 100% of range " << abs(f);
+	getErrorTracer() << "float out of range (0.0 to +/- 1.0) or 0 to 100% of range " << abs(f) << std::endl;
 	return false;
 }
 
-void ofRobotState::echo() const {
-	ofLogNotice() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>");
-	ofLogNotice() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>");
-	ofLogNotice() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>");
+void ofRobotState::echo(RobotTrace &tracer) const {
+	tracer << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
+	tracer << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
+	tracer << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
 }
 
 void ofRobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
@@ -324,7 +324,7 @@ void ofRobotCommands::setPoint(ofRobotPosition ptPercent) {
 		}
 	}
 	else {
-		ofLogError("Command::setPoint") << "setPoint not supported";
+		getErrorTracer("Command::setPoint") << "setPoint not supported" << std::endl;
 	}
 }
 // RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
@@ -342,7 +342,7 @@ void ofRobotCommands::add(const RobotCommand& cmd, BuiltInCommandNames name) {
 }
 
 void ofRobotCommands::sizing() {
-	ofLogNotice() << "sizing";
+	getTracer() << "sizing" << std::endl;
 	reset();
 
 	for (float f = 0.0f; f < 1.0f; f += 0.01) {
@@ -364,7 +364,7 @@ void ofRobotCommands::sizing() {
 	setDelta(255);
 }
 void ofRobotCommands::sanityTestHighLevel() {
-	ofLogNotice() << "high level sanityTest";
+	getTracer() << "high level sanityTest" << std::endl;
 	reset();
 	add(RobotCommand(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f)); // need to be percents!!
 	add(RobotCommand(NoRobotValue, NoRobotValue, 0.3f)); // too close could hit the bottom
@@ -384,7 +384,7 @@ void ofRobotCommands::send(ofRobotSerial* serial) {
 
 // set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 void ofRobotCommands::sanityTestLowLevel() {
-	ofLogNotice() << "low level sanityTest";
+	getTracer() << "low level sanityTest" << std::endl;
 	setX(300); // absolution position vs. percentages
 	setY(150);
 	setZ(150);
@@ -397,14 +397,14 @@ void ofRobotCommands::sanityTestLowLevel() {
 }
 
 shared_ptr<ofRobotCommands> ofRobot::add(ofRobotCommands::BuiltInCommandNames name) {
-	shared_ptr<ofRobotCommands> p = make_shared<ofRobotCommands>(this, name);
+	shared_ptr<ofRobotCommands> p = make_shared<ofRobotCommands>(this, name, &getTracer());
 	if (p) {
 		cmds.push_back(p);
 	}
 	return p;
 }
 
-ofRobotCommands::ofRobotCommands(ofRobot *robot, BuiltInCommandNames name) :RobotJoints(robot->data, robot->type) {
+ofRobotCommands::ofRobotCommands(ofRobot *robot, BuiltInCommandNames name, RobotTrace *tracer) :RobotJoints(robot->data, robot->type, tracer) {
 	this->robot = robot;  
 	if (robot) {
 		//typedef pair<robotType, robotArmJointType> SpecificJoint

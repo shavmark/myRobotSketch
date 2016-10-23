@@ -3,6 +3,20 @@
 #include "ofMain.h"
 #include "trossenrobots.h"
 
+
+class ofRobotTrace : public RobotTrace {
+public:
+	virtual void sendline() {
+		if (isError) {
+			ofLogError() << message.str(); //bugbug support all log types from OF
+		}
+		else {
+			ofLogNotice() << message.str();
+		}
+	}
+	virtual void send() {}
+};
+
 class RobotVoice {
 public:
 	void draw() {}//bugbug enumerate and say, bring in SAPI 11 or such
@@ -12,8 +26,9 @@ public:
 
 // bugbug openframeworks specific items here, c++ only above this line. use of as prefix as needed
 
-class ofRobotSerial : public ofSerial {
+class ofRobotSerial : public ofSerial, public RobotBaseClass {
 public:
+	ofRobotSerial() : RobotBaseClass (new ofRobotTrace) {}
 	void waitForSerial() { while (1) if (available() > 0) { return; } }
 	void clearSerial() { flush(); }
 	int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
@@ -23,17 +38,18 @@ public:
 	robotType waitForRobot();
 
 protected:
+	void echoRawBytes(uint8_t *bytes, int count);
 	robotType ArmIDResponsePacket(uint8_t *bytes);
 };
 
 
 // positions are defined as % change of all range of joint, from the current position
 // RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
-class ofRobotPosition : protected ofPoint {
+class ofRobotPosition : protected ofPoint, public RobotBaseClass {
 public:
 	//=FLT_MAX means not set
 	#define NoRobotValue FLT_MAX
-	ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
+	ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) : RobotBaseClass() { setPercents(xPercent, yPercent, zPercent); }
 	void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
 	virtual void echo() const;
 	float getX()const { return x; }
@@ -54,7 +70,7 @@ public:
 	float getWristRotation() const { return getPtr()[1]; }
 	float getGripper() const { return getPtr()[2]; }
 
-	void echo() const;
+	void echo(RobotTrace &tracer) const;
 
 };
 
@@ -77,7 +93,7 @@ public:
 	void addSay(const string& say) { voice.add(say); }
 	void sleep() const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 	bool OKToDelete() { return deleteWhenDone; }
-	void echo() const ;
+	void echo(RobotTrace &tracer) const ;
 
 	ofRobotPosition pointPercent;
 	ofRobotState settingsPercent;
@@ -98,8 +114,8 @@ public:
 	enum BuiltInCommandNames {UserDefined, LowLevelTest, HighLevelTest, Sizing};// command and basic commands.  Derive object or create functions to create more commands
 
 	// passed robot cannot go away while this object exists
-	ofRobotCommands(ofRobot *robot, BuiltInCommandNames = UserDefined);
-	ofRobotCommands(BuiltInCommandNames name = UserDefined) :RobotJoints(nullptr) { this->name = name; }
+	ofRobotCommands(ofRobot *robot, BuiltInCommandNames, RobotTrace *tracer);
+	ofRobotCommands(BuiltInCommandNames name, RobotTrace *tracer) :RobotJoints(nullptr, tracer) { this->name = name; }
 
 	void echo() const; // echos positions
 
@@ -130,8 +146,9 @@ private:
 };
 
 // the robot itself
-class ofRobot {
+class ofRobot : public RobotBaseClass {
 public:
+	ofRobot() : RobotBaseClass(new ofRobotTrace)  { }
 	friend class ofRobotCommands;
 	void setup();
 	void update();
@@ -142,7 +159,6 @@ public:
 	shared_ptr<ofRobotCommands> add(ofRobotCommands::BuiltInCommandNames name = ofRobotCommands::UserDefined);
 
 	robotType& getType() { return type; }
-	ofRobotSerial& getSerial() { return serial; }
 
 protected:
 	RobotValueRanges userDefinedRanges;
