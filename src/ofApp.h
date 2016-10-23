@@ -1,9 +1,8 @@
 #pragma once
 
 #include "ofMain.h"
-#include "robot.h"
 #include "trossenrobots.h"
-#include "ofHelpers.h"
+#include "ofUtils.h"
 #include "ofRobots.h"
 
 
@@ -29,5 +28,5 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 
-		ofDrawingRobot robot;
+		RobotArtists::ofDrawingRobot robot;
 };

@@ -1,5 +1,4 @@
 #include "ofApp.h"
-#include "robot.h"
 #include "trossenrobots.h"
 #include <algorithm> 
 
@@ -18,7 +17,7 @@ void ofApp::update() {
 
 	robot.update();
 
-	shared_ptr<ofRobotCommands> cmd = robot.add(ofRobotCommands::HighLevelTest);
+	shared_ptr<RobotArtists::ofRobotCommands> cmd = robot.add(RobotArtists::ofRobotCommands::HighLevelTest);
 
 	/*
 	shared_ptr<RobotCommands> cmd = robot.createAndAdd<RobotCommands>(RobotCommand());
