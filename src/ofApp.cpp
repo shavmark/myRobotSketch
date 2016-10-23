@@ -146,7 +146,7 @@ robotType ofRobotSerial::ArmIDResponsePacket(uint8_t *bytes) {
 
 
 robotType ofRobotSerial::waitForRobot() {
-	getTracer() << "wait for mr robot..." << std::endl;
+	ofRobotTrace() << "wait for mr robot..." << std::endl;
 	
 	waitForSerial();
 
@@ -202,9 +202,9 @@ void ofRobotCommands::echo() const {
 		cmd.echo();
 	}
 }
-void RobotCommand::echo(RobotTrace &tracer) const {
-	pointPercent.echo(tracer);
-	settingsPercent.echo(tracer);
+void RobotCommand::echo() const {
+	pointPercent.echo();
+	settingsPercent.echo();
 }
 void ofRobot::echo() {
 	for (auto& cmd : cmds) {
@@ -265,23 +265,22 @@ void ofRobotCommands::setState(ofRobotState statePercent) {
 }
 
 void ofRobotPosition::echo() const {
-	getTracer() << "x=" << (set[0] ? ofToString(x) : "<not set>") << std::endl;
-	getTracer() << "y=" << (set[1] ? ofToString(y) : "<not set>") << std::endl;
-	getTracer() << "z=" << (set[2] ? ofToString(z) : "<not set>") << std::endl;
+	ofRobotTrace() << "x=" << (set[0] ? ofToString(x) : "<not set>") << std::endl;
+	ofRobotTrace() << "y=" << (set[1] ? ofToString(y) : "<not set>") << std::endl;
+	ofRobotTrace() << "z=" << (set[2] ? ofToString(z) : "<not set>") << std::endl;
 }
 // can be +//
 bool ofRobotPosition::validRange(float f) {
 	if (abs(f) >= 0.0f && abs(f) <= 1.0f) {
 		return true;
 	}
-	getErrorTracer() << "float out of range (0.0 to +/- 1.0) or 0 to 100% of range " << abs(f) << std::endl;
 	return false;
 }
 
-void ofRobotState::echo(RobotTrace &tracer) const {
-	tracer << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
-	tracer << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
-	tracer << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
+void ofRobotState::echo() const {
+	ofRobotTrace() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
+	ofRobotTrace() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
+	ofRobotTrace() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
 }
 
 void ofRobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
@@ -324,7 +323,7 @@ void ofRobotCommands::setPoint(ofRobotPosition ptPercent) {
 		}
 	}
 	else {
-		getErrorTracer("Command::setPoint") << "setPoint not supported" << std::endl;
+		ofLogError("Command::setPoint") << "setPoint not supported" << std::endl;
 	}
 }
 // RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)

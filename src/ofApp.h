@@ -45,11 +45,11 @@ protected:
 
 // positions are defined as % change of all range of joint, from the current position
 // RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
-class ofRobotPosition : protected ofPoint, public RobotBaseClass {
+class ofRobotPosition : protected ofPoint {
 public:
 	//=FLT_MAX means not set
 	#define NoRobotValue FLT_MAX
-	ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) : RobotBaseClass() { setPercents(xPercent, yPercent, zPercent); }
+	ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
 	void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
 	virtual void echo() const;
 	float getX()const { return x; }
@@ -70,7 +70,7 @@ public:
 	float getWristRotation() const { return getPtr()[1]; }
 	float getGripper() const { return getPtr()[2]; }
 
-	void echo(RobotTrace &tracer) const;
+	void echo() const;
 
 };
 
@@ -93,7 +93,7 @@ public:
 	void addSay(const string& say) { voice.add(say); }
 	void sleep() const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 	bool OKToDelete() { return deleteWhenDone; }
-	void echo(RobotTrace &tracer) const ;
+	void echo() const ;
 
 	ofRobotPosition pointPercent;
 	ofRobotState settingsPercent;
