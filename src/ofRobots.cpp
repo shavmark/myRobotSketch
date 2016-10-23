@@ -2,84 +2,18 @@
 #include <algorithm> 
 
 
-void ofRobot::setup() {
-
-	clear(cmds);
-
-	serial.listDevices(); // let viewer see thats out there
-
-	serial.setup(1, 38400);//bugbug get from xml
-
-						   // start with default mode
-	robotType defaultType;
-	if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
-		RobotTrace() << "robot setup complete" << std::endl;
-	}
-
-	RobotTrace() << "use IKM_CYLINDRICAL" << std::endl;
-	type = robotType(IKM_CYLINDRICAL, defaultType.second);
-
-	// do one time setup
-	RobotJoints jv(data, type);
-	jv.oneTimeSetup(); // do one time setup of static data
-
+void ofRobotState::echo() const {
+	ofRobotTrace() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
+	ofRobotTrace() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
+	ofRobotTrace() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
 }
-void ofRobot::update() {
+// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
+void ofRobotCommand::init(const ofRobotPosition& pointPercent, const ofRobotState& settingsPercent, int millisSleep, bool deleteWhenDone) {
+	this->pointPercent = pointPercent;
+	this->settingsPercent = settingsPercent;
+	this->deleteWhenDone = deleteWhenDone;
+	this->millisSleep = millisSleep;
 }
-
-void ofRobotCommands::echo() const {
-	for (const auto& cmd : cmdVector) {
-		cmd.echo();
-	}
-}
-void ofRobotCommand::echo() const {
-	pointPercent.echo();
-	settingsPercent.echo();
-}
-void ofRobot::echo() {
-	for (auto& cmd : cmds) {
-		cmd->echo();
-	}
-}
-
-void ofRobot::draw() {
-	if (pause) {
-		return;
-	}
-	for (auto& cmd : cmds) {
-		cmd->draw();
-	}
-}
-
-void ofDrawingRobot::setup() {
-
-	ofRobot::setup(); // set base class first
-
-					  //bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
-					  // set ranges so percents work against these. leave Y as is bugbug figure this all out
-	RobotJoints jv(getType());
-
-	// only set what we care about, let the rest stay at default. userDefinedRanges is a sparse array of sorts
-	jv.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300);
-	jv.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300);
-
-}
-
-// x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
-void ofRobotCommands::setState(ofRobotState statePercent) {
-	if (isCylindrical()) {
-		if (statePercent.set[0]) {
-			setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
-		}
-		if (statePercent.set[1]) {
-			setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
-		}
-		if (statePercent.set[2]) {
-			setGripper(getMin(Gripper) + (statePercent.getGripper() * (getMax(Gripper) - getMin(Gripper))));
-		}
-	}
-}
-
 void ofRobotPosition::echo() const {
 	ofRobotTrace() << "x=" << (set[0] ? ofToString(x) : "<not set>") << std::endl;
 	ofRobotTrace() << "y=" << (set[1] ? ofToString(y) : "<not set>") << std::endl;
@@ -91,12 +25,6 @@ bool ofRobotPosition::validRange(float f) {
 		return true;
 	}
 	return false;
-}
-
-void ofRobotState::echo() const {
-	ofRobotTrace() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
-	ofRobotTrace() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
-	ofRobotTrace() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
 }
 
 void ofRobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
@@ -122,6 +50,27 @@ void ofRobotPosition::setPercents(float xPercent, float yPercent, float zPercent
 		set[2] = false;
 	}
 }
+void ofRobotCommands::echo() const {
+	for (const auto& cmd : cmdVector) {
+		cmd.echo();
+	}
+}
+
+// x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
+void ofRobotCommands::setState(ofRobotState statePercent) {
+	if (isCylindrical()) {
+		if (statePercent.set[0]) {
+			setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
+		}
+		if (statePercent.set[1]) {
+			setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
+		}
+		if (statePercent.set[2]) {
+			setGripper(getMin(Gripper) + (statePercent.getGripper() * (getMax(Gripper) - getMin(Gripper))));
+		}
+	}
+}
+
 
 //+/- .001 to 1.000, 0 means ignore 
 void ofRobotCommands::setPoint(ofRobotPosition ptPercent) {
@@ -141,13 +90,6 @@ void ofRobotCommands::setPoint(ofRobotPosition ptPercent) {
 	else {
 		ofLogError("Command::setPoint") << "setPoint not supported" << std::endl;
 	}
-}
-// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
-void ofRobotCommand::init(const ofRobotPosition& pointPercent, const ofRobotState& settingsPercent, int millisSleep, bool deleteWhenDone) {
-	this->pointPercent = pointPercent;
-	this->settingsPercent = settingsPercent;
-	this->deleteWhenDone = deleteWhenDone;
-	this->millisSleep = millisSleep;
 }
 
 // add ranges checking
@@ -265,4 +207,64 @@ void ofRobotCommands::draw() {
 		}
 	}
 }
+
+void ofRobotCommand::echo() const {
+	pointPercent.echo();
+	settingsPercent.echo();
+}
+
+void ofRobot::setup() {
+
+	clear(cmds);
+
+	serial.listDevices(); // let viewer see thats out there
+
+	serial.setup(1, 38400);//bugbug get from xml
+
+						   // start with default mode
+	robotType defaultType;
+	if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
+		RobotTrace() << "robot setup complete" << std::endl;
+	}
+
+	RobotTrace() << "use IKM_CYLINDRICAL" << std::endl;
+	type = robotType(IKM_CYLINDRICAL, defaultType.second);
+
+	// do one time setup
+	RobotJoints jv(data, type);
+	jv.oneTimeSetup(); // do one time setup of static data
+
+}
+void ofRobot::update() {
+}
+
+void ofRobot::echo() {
+	for (auto& cmd : cmds) {
+		cmd->echo();
+	}
+}
+
+void ofRobot::draw() {
+	if (pause) {
+		return;
+	}
+	for (auto& cmd : cmds) {
+		cmd->draw();
+	}
+}
+
+void ofDrawingRobot::setup() {
+
+	ofRobot::setup(); // set base class first
+
+					  //bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
+					  // set ranges so percents work against these. leave Y as is bugbug figure this all out
+	RobotJoints jv(getType());
+
+	// only set what we care about, let the rest stay at default. userDefinedRanges is a sparse array of sorts
+	jv.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300);
+	jv.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300);
+
+}
+
 
