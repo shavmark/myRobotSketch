@@ -178,3 +178,44 @@ void ofRobotSerial::write(uint8_t* data, int count) {
 	readPose(); // how often are two sent?
 
 }
+void ofRobotState::echo() const {
+	ofRobotTrace() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
+	ofRobotTrace() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
+	ofRobotTrace() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
+}
+void ofRobotPosition::echo() const {
+	ofRobotTrace() << "x=" << (set[0] ? ofToString(x) : "<not set>") << std::endl;
+	ofRobotTrace() << "y=" << (set[1] ? ofToString(y) : "<not set>") << std::endl;
+	ofRobotTrace() << "z=" << (set[2] ? ofToString(z) : "<not set>") << std::endl;
+}
+// can be +//
+bool ofRobotPosition::validRange(float f) {
+	if (abs(f) >= 0.0f && abs(f) <= 1.0f) {
+		return true;
+	}
+	return false;
+}
+
+void ofRobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
+	if (xPercent != NoRobotValue && validRange(xPercent)) {
+		x = xPercent;
+		set[0] = true;
+	}
+	else {
+		set[0] = false;
+	}
+	if (yPercent != NoRobotValue && validRange(yPercent)) {
+		y = yPercent;
+		set[1] = true;
+	}
+	else {
+		set[1] = false;
+	}
+	if (zPercent != NoRobotValue && validRange(zPercent)) {
+		z = zPercent;
+		set[2] = true;
+	}
+	else {
+		set[2] = false;
+	}
+}
