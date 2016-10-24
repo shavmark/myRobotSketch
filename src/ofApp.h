@@ -28,5 +28,5 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 
-		RobotArtists::ofDrawingRobot robot;
+		RobotArtists::ofRobot robot;
 };

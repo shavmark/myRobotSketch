@@ -1,6 +1,9 @@
 #include "ofApp.h"
 #include <algorithm> 
 
+#define _USE_MATH_DEFINES
+#include <math.h>
+
 namespace RobotArtists {
 
 	// echo, ignoring null bytes
@@ -257,6 +260,9 @@ namespace RobotArtists {
 		if (isCylindrical()) {
 			//ofMap
 			if (ptPercent.set[0]) {
+				float gx = ptPercent.getX();
+				float mx = getMax(X);
+				float mn = getMin(X);
 				setX(getMin(X) + (ptPercent.getX() * (getMax(X) - getMin(X))));
 			}
 			if (ptPercent.set[1]) {
@@ -277,28 +283,6 @@ namespace RobotArtists {
 		this->name = name;
 	}
 
-	void ofRobotCommands::sizing() {
-		TraceBaseClass() << "sizing" << std::endl;
-		reset();
-
-		for (float f = 0.0f; f < 1.0f; f += 0.01) {
-			add(ofRobotCommand(f)); // need to be percents!!
-			add(ofRobotCommand(5000));// sleep
-		}
-
-		add(ofRobotCommand(0.5f, 0.0f)); // need to be percents!!
-		add(ofRobotCommand(5000));
-
-		for (float f = 0.0f; f < 1.0f; f += 0.01) {
-			add(ofRobotCommand(NoRobotValue, f)); // need to be percents!!
-			add(ofRobotCommand(5000));
-		}
-
-		//z not sized
-
-		setLowLevelCommand(NoArmCommand);
-		setDelta(255);
-	}
 	void ofRobotCommands::sanityTestHighLevel() {
 		TraceBaseClass() << "high level sanityTest" << std::endl;
 		reset();
@@ -344,7 +328,7 @@ namespace RobotArtists {
 		this->robot = robot;
 		if (robot) {
 			//typedef pair<robotType, robotArmJointType> SpecificJoint
-			setUserDefinedRanges(SpecificJoint(robot->getType(), X), &robot->userDefinedRanges);
+			setUserDefinedRanges(SpecificJoint(robot->getType(), X), robot->userDefinedRanges);
 		}
 		this->name = name;
 	}
@@ -354,18 +338,36 @@ namespace RobotArtists {
 		setDefaultState();
 		clear(cmdVector);
 	}
+
+	void ofRobotCommands::DrawCircle(int points, double radius, ofRobotPosition center)
+	{
+		double slice = 2 * M_PI / points;
+		for (int i = 0; i < points; i++)	{
+			double angle = slice * i;
+			float newX = (float)(center.x + radius * cos(angle));
+			float newY = (float)(center.y + radius * sin(angle));
+			add(ofRobotCommand(newX, newY)); // need to be percents!! bugbug make this a json player, then the creators of json are the engine
+		}
+	}
+
+	void ofRobotCommands::userDefined() {
+		TraceBaseClass() << "userDefined" << std::endl;
+		//reset();
+		DrawCircle(10, 0.10f, ofRobotPosition(0.50f, 0.50f));
+		add(ofRobotCommand(1000)); // sleep
+	}
 	void ofRobotCommands::draw() {
 
 		if (robot) {
 			switch (name) {
 			case ofRobotCommands::HighLevelTest:
-				sanityTestHighLevel(); // will populate cmdVector
+				sanityTestHighLevel(); // populates cmdVector
 				break;
 			case ofRobotCommands::LowLevelTest:
 				sanityTestLowLevel();
 				break;
-			case ofRobotCommands::Sizing:
-				sizing();
+			case ofRobotCommands::UserDefined:
+				userDefined();
 				break;
 			}
 
@@ -430,20 +432,6 @@ namespace RobotArtists {
 		for (auto& cmd : cmds) {
 			cmd->draw();
 		}
-	}
-
-	void ofDrawingRobot::setup() {
-
-		ofRobot::setup(); // set base class first
-
-						  //bugbug swing arm x and y, space means break and you get size that way. use a menu and xml for this
-						  // set ranges so percents work against these. leave Y as is bugbug figure this all out
-		RobotJoints jv(getType());
-
-		// only set what we care about, let the rest stay at default. userDefinedRanges is a sparse array of sorts
-		jv.setMin(createJoint(X, getType().first, getType().second), jv.getMid(X) - 300);
-		jv.setMax(createJoint(X, getType().first, getType().second), jv.getMid(X) + 300);
-
 	}
 
 }

@@ -5,7 +5,6 @@ namespace RobotArtists {
 
 	TraceBaseClass& TraceBaseClass::operator<<(manip1 fp) {
 		std::ostringstream check;
-		message << fp;
 		check << fp;
 		if (check.str()[0] == '\n') {
 			if (type == ErrorLog) {
@@ -14,6 +13,9 @@ namespace RobotArtists {
 			else {
 				sendLogline();
 			}
+		}
+		else {
+			message << fp;
 		}
 		return *this;
 	}

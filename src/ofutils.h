@@ -5,7 +5,7 @@
 #include <vector>
 #include <sstream>
 
-// basic OF related classes etc, not specific to any solutions such as Robots
+// basic OF related classes etc, not specific to any solutions such as Robots. 
 
 namespace RobotArtists {
 
@@ -46,7 +46,7 @@ namespace RobotArtists {
 		std::ostringstream message;
 		// capture messages as they come in
 		virtual void send() {
-			std::cout << formatMessage(); // default usage
+			//std::cout << formatMessage(); // default usage
 		}
 		// just watch lines bugbug only error and log supported right now
 		virtual void sendErrorline() {
@@ -60,6 +60,37 @@ namespace RobotArtists {
 
 	private:
 
+	};
+	class ofRobotTrace : public TraceBaseClass {
+	public:
+		ofRobotTrace(TraceType type = TraceLog) : TraceBaseClass(type) {}
+		virtual void sendErrorline() {
+			ofLogError() << formatMessage(); //bugbug support all log types from OF
+		}
+		virtual void sendLogline() {
+			ofLogNotice() << formatMessage();
+		}
+	};
+	class ofRobotTraceNetwork : public TraceBaseClass {
+	public:
+		ofRobotTraceNetwork(TraceType type = TraceLog) : TraceBaseClass(type) {}
+		virtual void sendErrorline() {
+			ofLogError() << formatMessage(); //bugbug support all log types from OF
+		}
+		virtual void sendLogline() {
+			ofLogNotice() << formatMessage();
+		}
+	};
+
+	class ofRobotSay : public TraceBaseClass {
+	public:
+		//bugbug send to say code via network
+		virtual void sendErrorline() {
+			ofLogError() << formatMessage(); //bugbug support all log types from OF
+		}
+		virtual void sendLogline() {
+			ofLogNotice() << formatMessage();
+		}
 	};
 
 }

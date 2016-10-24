@@ -1,3 +1,4 @@
+#include "ofApp.h"
 #include "ofutils.h"
 #include "trossenrobots.h"
 
@@ -14,42 +15,42 @@ namespace RobotArtists {
 	}
 
 	void RobotJointsState::set(uint16_t high, uint16_t low, int val) {
-		TraceBaseClass() << "set " << val << std::endl;
+		ofRobotTrace() << "set " << val << std::endl;
 		set(high, highByte(val));
 		set(low, lowByte(val));
 	}
 	void RobotJoints::setX(int x) {
-		TraceBaseClass() << "try to set x=" << x << std::endl;
+		ofRobotTrace() << "try to set x=" << x << std::endl;
 		if (inRange(X, x)) {
 			setLowLevelX(x, addMagicNumber());
 		}
 	}
 	void RobotJoints::setY(int y) {
-		TraceBaseClass() << "try to set y=" << y << std::endl;
+		ofRobotTrace() << "try to set y=" << y << std::endl;
 		if (inRange(Y, y)) {
 			setLowLevelY(y);
 		}
 	}
 	void RobotJoints::setZ(int z) {
-		TraceBaseClass() << "try to set z=" << z << std::endl;
+		ofRobotTrace() << "try to set z=" << z << std::endl;
 		if (inRange(Z, z)) {
 			setLowLevelZ(z);
 		}
 	}
 	void RobotJoints::setWristAngle(int a) {
-		TraceBaseClass() << "try to set setWristAngle=" << a << std::endl;
+		ofRobotTrace() << "try to set setWristAngle=" << a << std::endl;
 		if (inRange(wristAngle, a)) {
 			setLowLevelWristAngle(a);
 		}
 	}
 	void RobotJoints::setWristRotate(int a) {
-		TraceBaseClass() << "try to set setWristRotate=" << a << std::endl;
+		ofRobotTrace() << "try to set setWristRotate=" << a << std::endl;
 		if (inRange(wristRotate, a)) {
 			setLowLevelWristRotate(a);
 		}
 	}
 	void RobotJoints::setGripper(int distance) {
-		TraceBaseClass() << "try to set setGripper=" << distance << std::endl;
+		ofRobotTrace() << "try to set setGripper=" << distance << std::endl;
 		if (inRange(Gripper, distance)) {
 			setLowLevelGripper(distance);
 		}
@@ -60,7 +61,7 @@ namespace RobotArtists {
 				userDefinedRanges->minValue[joint] = value;
 			}
 			else {
-				TraceBaseClass(ErrorLog) << "minValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint] << std::endl;
+				ofRobotTrace(ErrorLog) << "minValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint] << std::endl;
 			}
 		}
 	}
@@ -70,7 +71,7 @@ namespace RobotArtists {
 				userDefinedRanges->maxValue[joint] = value;
 			}
 			else {
-				TraceBaseClass(ErrorLog) << "maxValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint] << std::endl;
+				ofRobotTrace(ErrorLog) << "maxValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint] << std::endl;
 			}
 		}
 	}
@@ -99,7 +100,7 @@ namespace RobotArtists {
 
 	bool RobotJoints::inRange(robotArmJointType type, int value) {
 		if (value > getMax(type) || value < getMin(type)) {
-			TraceBaseClass(ErrorLog) << "out of range " << value << " (" << getMin(type) << ", " << getMax(type) << ")" << std::endl;
+			ofRobotTrace(ErrorLog) << "out of range " << value << " (" << getMin(type) << ", " << getMax(type) << ")" << std::endl;
 			return false;
 		}
 		return true;
@@ -157,14 +158,14 @@ namespace RobotArtists {
 		return unKnownCommand;//bugbug support all types once the basics are working
 	}
 	void RobotJointsState::set(uint16_t offset, uint8_t b) {
-		TraceBaseClass() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
+		ofRobotTrace() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
 		if (data) {
 			data[offset] = b;
 		}
 	}
 	// "home" and set data matching state
 	void RobotJoints::setDefaultState() {
-		TraceBaseClass() << "setDefaults";
+		ofRobotTrace() << "setDefaults";
 		setX(getDefaultValue(X));
 		setY(getDefaultValue(Y));
 		setZ(getDefaultValue(Z));
@@ -177,17 +178,17 @@ namespace RobotArtists {
 	}
 	// will block until arm is ready
 	robotType RobotJoints::setStartState() {
-		TraceBaseClass() << "setStartState " << typeOfRobot.first << " " << typeOfRobot.second << std::endl;
+		ofRobotTrace() << "setStartState " << typeOfRobot.first << " " << typeOfRobot.second << std::endl;
 		setLowLevelCommand(getStartCommand(typeOfRobot));
 		return typeOfRobot;
 	}
 
 	void RobotJointsState::echo() {
 		if (!data) {
-			TraceBaseClass() << "no data to echo" << std::endl;
+			ofRobotTrace() << "no data to echo" << std::endl;
 			return;
 		}
-#define ECHO(a)TraceBaseClass() << "echo[" << a << "] = "  << std::hex << (unsigned int)data[a] << "h "  <<  std::dec <<(unsigned int)data[a] << "d "<< #a << std::endl;
+#define ECHO(a)ofRobotTrace() << "echo[" << a << "] = "  << std::hex << (unsigned int)data[a] << "h "  <<  std::dec <<(unsigned int)data[a] << "d "<< #a << std::endl;
 
 		ECHO(headerByteOffset)
 			ECHO(xLowByteOffset)
@@ -222,17 +223,19 @@ namespace RobotArtists {
 		return 0;
 	}
 	// user defined can never be greater than hardware min/max
-	void RobotJoints::setUserDefinedRanges(SpecificJoint joint, RobotValueRanges *userDefinedRanges) {
+	void RobotJoints::setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>) {
 
-		if (userDefinedRanges->minValue[joint] < hardwareRanges.minValue[joint] || userDefinedRanges->maxValue[joint] > hardwareRanges.maxValue[joint]) {
-			TraceBaseClass(ErrorLog) << "RobotJoints::setUserDefinedRanges value out of range ignored " << std::endl;
-			return;
+		if (userDefinedRanges) {
+			if (userDefinedRanges->minValue[joint] < hardwareRanges.minValue[joint] || userDefinedRanges->maxValue[joint] > hardwareRanges.maxValue[joint]) {
+				ofRobotTrace(ErrorLog) << "RobotJoints::setUserDefinedRanges value out of range ignored " << std::endl;
+				return;
+			}
 		}
 		this->userDefinedRanges = userDefinedRanges;
 	}
 
 	void RobotJoints::set(SpecificJoint type, int minVal, int maxVal, int defaultVal) {
-		TraceBaseClass() << "RobotJoints::set" << echoJointType(type) << " - min = " << minVal << " max = " << maxVal << " default = " << defaultVal << std::endl;
+		ofRobotTrace() << "RobotJoints::set" << echoJointType(type) << " - min = " << minVal << " max = " << maxVal << " default = " << defaultVal << std::endl;
 
 		hardwareRanges.minValue[type] = minVal;
 		hardwareRanges.maxValue[type] = maxVal;
@@ -251,7 +254,7 @@ namespace RobotArtists {
 				userDefinedRanges->defaultValue[joint] = value;
 			}
 			else {
-				TraceBaseClass(ErrorLog) << "defaultValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint] << std::endl;
+				ofRobotTrace(ErrorLog) << "defaultValue out of range " << value << " range is " << hardwareRanges.minValue[joint] << ", " << hardwareRanges.maxValue[joint] << std::endl;
 			}
 		}
 	}

@@ -17,7 +17,7 @@ void ofApp::update() {
 
 	robot.update();
 
-	shared_ptr<RobotArtists::ofRobotCommands> cmd = robot.add(RobotArtists::ofRobotCommands::HighLevelTest);
+	shared_ptr<RobotArtists::ofRobotCommands> cmd = robot.add(RobotArtists::ofRobotCommands::UserDefined);
 
 	/*
 	shared_ptr<RobotCommands> cmd = robot.createAndAdd<RobotCommands>(RobotCommand());

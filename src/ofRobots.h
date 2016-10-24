@@ -4,38 +4,6 @@
 
 namespace RobotArtists {
 
-	class ofRobotTrace : public TraceBaseClass {
-	public:
-		ofRobotTrace(TraceType type = TraceLog) : TraceBaseClass(type) {}
-		virtual void sendErrorline() {
-			ofLogError() << formatMessage(); //bugbug support all log types from OF
-		}
-		virtual void sendLogline() {
-			ofLogNotice() << formatMessage();
-		}
-	};
-	class ofRobotTraceNetwork : public TraceBaseClass {
-	public:
-		ofRobotTraceNetwork(TraceType type = TraceLog) : TraceBaseClass(type) {}
-		virtual void sendErrorline() {
-			ofLogError() << formatMessage(); //bugbug support all log types from OF
-		}
-		virtual void sendLogline() {
-			ofLogNotice() << formatMessage();
-		}
-	};
-
-	class ofRobotSay : public TraceBaseClass {
-	public:
-		//bugbug send to say code via network
-		virtual void sendErrorline() {
-			ofLogError() << formatMessage(); //bugbug support all log types from OF
-		}
-		virtual void sendLogline() {
-			ofLogNotice() << formatMessage();
-		}
-	};
-
 	class ofRobotSerial : public ofSerial {
 	public:
 		ofRobotSerial() {}
@@ -61,7 +29,7 @@ namespace RobotArtists {
 
 	// positions are defined as % change of all range of joint, from the current position
 	// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
-	class ofRobotPosition : protected ofPoint {
+	class ofRobotPosition : public ofPoint {
 	public:
 		//=FLT_MAX means not set
 #define NoRobotValue FLT_MAX
@@ -71,7 +39,6 @@ namespace RobotArtists {
 		float getX()const { return x; }
 		float getY() const { return y; }
 		float getZ() const { return z; } // want to make sure x is read only
-
 		bool set[3];
 
 	protected:
@@ -128,7 +95,7 @@ namespace RobotArtists {
 	class ofRobotCommands : protected RobotJoints {
 	public:
 
-		enum BuiltInCommandNames { UserDefined, LowLevelTest, HighLevelTest, Sizing };// command and basic commands.  Derive object or create functions to create more commands
+		enum BuiltInCommandNames { UserDefined, LowLevelTest, HighLevelTest };// command and basic commands.  Derive object or create functions to create more commands
 
 																					  // passed robot cannot go away while this object exists
 		ofRobotCommands(ofRobot *robot, BuiltInCommandNames);
@@ -158,7 +125,9 @@ namespace RobotArtists {
 	private:
 		void sanityTestLowLevel(); // built in commands
 		void sanityTestHighLevel();
-		void sizing();
+		void userDefined();
+		void DrawCircle(int points, double radius, ofRobotPosition center);
+
 		BuiltInCommandNames name;
 	};
 
@@ -171,13 +140,12 @@ namespace RobotArtists {
 		void draw();
 		void echo(); // echos positions
 		void setPause(bool pause = true) { this->pause = pause; }//bugbug go to threads
-
 		shared_ptr<ofRobotCommands> add(ofRobotCommands::BuiltInCommandNames name = ofRobotCommands::UserDefined);
 
 		robotType& getType() { return type; }
 
 	protected:
-		RobotValueRanges userDefinedRanges;
+		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
 
 	private:
 		ofRobotSerial serial; // talking to the robot
@@ -185,11 +153,6 @@ namespace RobotArtists {
 		robotType type;
 		vector<shared_ptr<ofRobotCommands>> cmds;
 		bool pause = false;
-	};
-
-	class ofDrawingRobot : public ofRobot {
-	public:
-		void setup();
 	};
 
 }

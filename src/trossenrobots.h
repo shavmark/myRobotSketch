@@ -163,13 +163,13 @@ namespace RobotArtists {
 		robotType setStartState();
 		robotType getRobotType() { return typeOfRobot; }
 		void setDefaultState();
-		void setUserDefinedRanges(SpecificJoint joint, RobotValueRanges *userDefinedRanges);
+		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
 	protected:
 
 	private:
 		// user defined ranges
 		static RobotValueRanges hardwareRanges;
-		RobotValueRanges *userDefinedRanges = nullptr;
+		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr;
 		int deltaDefault = 255;
 
 		void set(SpecificJoint type, int min, int max, int defaultvalue);
