@@ -2,6 +2,7 @@
 #include "trossenrobots.h"
 #include <algorithm> 
 
+using namespace RobotArtists;
 
 //--------------------------------------------------------------
 void ofApp::draw(){
@@ -16,8 +17,8 @@ void ofApp::setup() {
 void ofApp::update() {
 
 	robot.update();
-
-	shared_ptr<RobotArtists::ofRobotCommands> cmd = robot.add(RobotArtists::ofRobotCommands::UserDefined);
+	robot.commands.add(ofRobotCommand(1000));// sleep
+	//shared_ptr<RobotArtists::ofRobotCommands> cmd = robot.add(RobotArtists::ofRobotCommands::UserDefined);
 
 	/*
 	shared_ptr<RobotCommands> cmd = robot.createAndAdd<RobotCommands>(RobotCommand());

@@ -128,6 +128,7 @@ namespace RobotArtists {
 	class RobotJoints : public RobotJointsState {
 	public:
 		// constructor required
+		RobotJoints() : RobotJointsState(nullptr) {}
 		RobotJoints(const robotType& typeOfRobot) : RobotJointsState(nullptr) { this->typeOfRobot = typeOfRobot; };
 		RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data) { this->typeOfRobot = typeOfRobot; }
 		RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }

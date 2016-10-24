@@ -1,6 +1,5 @@
 #include "ofApp.h"
 #include <algorithm> 
-
 #define _USE_MATH_DEFINES
 #include <math.h>
 
@@ -226,13 +225,6 @@ namespace RobotArtists {
 		}
 	}
 
-	// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
-	void ofRobotCommand::init(const ofRobotPosition& pointPercent, const ofRobotState& settingsPercent, int millisSleep, bool deleteWhenDone) {
-		this->pointPercent = pointPercent;
-		this->settingsPercent = settingsPercent;
-		this->deleteWhenDone = deleteWhenDone;
-		this->millisSleep = millisSleep;
-	}
 	void ofRobotCommands::echo() const {
 		for (const auto& cmd : cmdVector) {
 			cmd.echo();
@@ -278,18 +270,23 @@ namespace RobotArtists {
 	}
 
 	// add ranges checking
-	void ofRobotCommands::add(const ofRobotCommand& cmd, BuiltInCommandNames name) {
+	void ofRobotCommands::add(const ofRobotCommand& cmd) {
 		cmdVector.push_back(cmd);
-		this->name = name;
 	}
 
 	void ofRobotCommands::sanityTestHighLevel() {
 		TraceBaseClass() << "high level sanityTest" << std::endl;
 		reset();
-		add(ofRobotCommand(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f)); // need to be percents!!
-		add(ofRobotCommand(NoRobotValue, NoRobotValue, 0.3f)); // too close could hit the bottom
-		add(ofRobotCommand(NoRobotValue, NoRobotValue, 1.0f));
+
+		// add one command with main points/states
+		ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
+		cmd.add(ofRobotCommand::robotCommandState(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f)));// need to be percents!!
+		cmd.add(ofRobotCommand::robotCommandState(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f), ofRobotState()));// need to be percents!!
+		cmd.add(ofRobotCommand::robotCommandState(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f), ofRobotState()));// need to be percents!!
+
+		// add a new command, either way works
 		add(ofRobotCommand(1000)); // sleep
+
 		setLowLevelCommand(NoArmCommand);
 		setDelta(255);
 		setButton();
@@ -316,21 +313,13 @@ namespace RobotArtists {
 		setButton();
 	}
 
-	shared_ptr<ofRobotCommands> ofRobot::add(ofRobotCommands::BuiltInCommandNames name) {
-		shared_ptr<ofRobotCommands> p = make_shared<ofRobotCommands>(this, name);
-		if (p) {
-			cmds.push_back(p);
-		}
-		return p;
-	}
 
-	ofRobotCommands::ofRobotCommands(ofRobot *robot, BuiltInCommandNames name) :RobotJoints(robot->data, robot->type) {
+	ofRobotCommands::ofRobotCommands(ofRobot *robot) :RobotJoints(robot->data, robot->type) {
 		this->robot = robot;
 		if (robot) {
 			//typedef pair<robotType, robotArmJointType> SpecificJoint
 			setUserDefinedRanges(SpecificJoint(robot->getType(), X), robot->userDefinedRanges);
 		}
-		this->name = name;
 	}
 	void ofRobotCommands::reset() { // setup can be ignored for a reset is not required
 		setStartState();
@@ -339,8 +328,24 @@ namespace RobotArtists {
 		clear(cmdVector);
 	}
 
-	void ofRobotCommands::DrawCircle(int points, double radius, ofRobotPosition center)
+	//ofPushMatrix();
+	//ofTranslate(400, 300);
+	//ofPopMatrix();
+
+	// draw circle at current positon
+	void ofRobotCommands::DrawCircle(double radius)
 	{
+		// do a move like OF does so drawing always starts at current
+		float slice = 2 * M_PI / 10;
+		for (int i = 0; i < 10; i++) {
+			float angle = slice * i;
+			int newX = (int)(0 + 10 * cos(angle));
+			int newY = (int)(0 + 10 * sin(angle));
+			ofRobotTrace() << newX << " " << newY << std::endl;
+			//add(ofRobotCommand(newX, newY)); // need to be percents!! bugbug make this a json player, then the creators of json are the engine
+		}
+		int i = 0;
+		/*
 		double slice = 2 * M_PI / points;
 		for (int i = 0; i < points; i++)	{
 			double angle = slice * i;
@@ -348,12 +353,13 @@ namespace RobotArtists {
 			float newY = (float)(center.y + radius * sin(angle));
 			add(ofRobotCommand(newX, newY)); // need to be percents!! bugbug make this a json player, then the creators of json are the engine
 		}
+		*/
 	}
 
 	void ofRobotCommands::userDefined() {
 		TraceBaseClass() << "userDefined" << std::endl;
-		//reset();
-		DrawCircle(10, 0.10f, ofRobotPosition(0.50f, 0.50f));
+		reset();
+		DrawCircle(0.50f);
 		add(ofRobotCommand(1000)); // sleep
 	}
 	void ofRobotCommands::draw() {
@@ -369,16 +375,26 @@ namespace RobotArtists {
 			case ofRobotCommands::UserDefined:
 				userDefined();
 				break;
+			case ofRobotCommands::Push:
+				pushMatrix();
+				break;
+			case ofRobotCommands::Pop:
+				popMatrix();
+				break;
+			case ofRobotCommands::Translate:
+				//translate();
+				break;
 			}
 
 			vector< ofRobotCommand >::iterator it = cmdVector.begin();
 			while (it != cmdVector.end()) {
-				//{UserDefined, LowLevelTest, HighLevelTest, Sizing
-
-				setPoint(it->pointPercent);
-				setState(it->settingsPercent);
-				it->sleep(); // sleep if requested
-				send(&robot->serial);// move
+				// draw out all the points & states, sleeping as needed
+				for (const auto& a : it->vectorData) {
+					setPoint(a.first);
+					setState(a.second);
+					it->sleep(); // sleep if requested
+					send(&robot->serial);
+				}
 				if (it->OKToDelete()) {
 					it = cmdVector.erase(it);
 				}
@@ -390,13 +406,13 @@ namespace RobotArtists {
 	}
 
 	void ofRobotCommand::echo() const {
-		pointPercent.echo();
-		settingsPercent.echo();
+		for (const auto& a : vectorData) {
+			a.first.echo();
+			a.second.echo();
+		}
 	}
 
 	void ofRobot::setup() {
-
-		clear(cmds);
 
 		serial.listDevices(); // let viewer see thats out there
 
@@ -420,18 +436,14 @@ namespace RobotArtists {
 	}
 
 	void ofRobot::echo() {
-		for (auto& cmd : cmds) {
-			cmd->echo();
-		}
+		commands.echo();
 	}
 
 	void ofRobot::draw() {
 		if (pause) {
 			return;
 		}
-		for (auto& cmd : cmds) {
-			cmd->draw();
-		}
+		commands.draw();
 	}
 
 }

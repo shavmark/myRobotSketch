@@ -1,4 +1,5 @@
 #pragma once
+#include <stack>
 
 // robots
 
@@ -57,35 +58,37 @@ namespace RobotArtists {
 
 	};
 
-
-
 	class ofRobotCommand {
 	public:
+
+		typedef std::pair<ofRobotPosition, ofRobotState> robotCommandState;
+
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
-		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, int millisSleep = -1, bool deleteWhenDone = true) {
-			init(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), millisSleep, deleteWhenDone);
+		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue) {
+			add(robotCommandState(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent)));
 		}
 		// object based
-		ofRobotCommand(const ofRobotPosition& pointPercent, const ofRobotState& settingsPercent = ofRobotState(), int millisSleep = -1, bool deleteWhenDone = true) {
-			init(pointPercent, settingsPercent, millisSleep, deleteWhenDone);
+		ofRobotCommand(const robotCommandState&state) {
+			add(state);
 		}
-		// make a sleep only command
-		ofRobotCommand(int millisSleep = -1, bool deleteWhenDone = true) {
-			init(ofRobotPosition(), ofRobotState(), millisSleep, deleteWhenDone);
-		}
+		ofRobotCommand(int millisSleep) { setSleep(millisSleep); }
+
+		void add(const robotCommandState& data) { vectorData.push_back(data); }
 
 		void addSay(const string& say) { voice.add(say); }
+
+		void SetDeleteWhenDone(bool b = true) { deleteWhenDone = b; }
+		void setSleep(int value) { millisSleep = value; }
 		void sleep() const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 		bool OKToDelete() { return deleteWhenDone; }
+
 		void echo() const;
 
-		ofRobotPosition pointPercent;
-		ofRobotState settingsPercent;
+		vector<robotCommandState> vectorData;
 
 	private:
-		void init(const ofRobotPosition& pointPercent = ofRobotPosition(), const ofRobotState& settingsPercent = ofRobotState(), int millisSleep = -1, bool deleteWhenDone = true);
-		bool deleteWhenDone; // false to repeat command per every draw occurance
-		int millisSleep;// no sleep by default
+		bool deleteWhenDone = true; // false to repeat command per every draw occurance
+		int millisSleep = -1;// no sleep by default
 		ofRobotVoice voice;
 
 	};
@@ -94,12 +97,11 @@ namespace RobotArtists {
 
 	class ofRobotCommands : protected RobotJoints {
 	public:
+		ofRobotCommands() {}
+		enum BuiltInCommandNames { Reset, UserDefined, LowLevelTest, HighLevelTest, Translate, Push, Pop, Sleep };// command and basic commands.  Derive object or create functions to create more commands
 
-		enum BuiltInCommandNames { UserDefined, LowLevelTest, HighLevelTest };// command and basic commands.  Derive object or create functions to create more commands
-
-																					  // passed robot cannot go away while this object exists
-		ofRobotCommands(ofRobot *robot, BuiltInCommandNames);
-		ofRobotCommands(BuiltInCommandNames name) :RobotJoints(nullptr) { this->name = name; }
+	    // passed robot cannot go away while this object exists
+		ofRobotCommands(ofRobot *robot);
 
 		void echo() const; // echos positions
 
@@ -111,36 +113,53 @@ namespace RobotArtists {
 		// move or draw based on the value in moveOrDraw
 		virtual void draw();
 		void setFillMode(int mode) { fillmode = mode; }
-		void add(const ofRobotCommand& cmd, BuiltInCommandNames name = UserDefined);
+		void add(const ofRobotCommand& cmd);
 		bool moveOrDraw = true; // false means draw
 		int fillmode = 0;
+		BuiltInCommandNames getName() { return name; };
 
 	protected:
-		BuiltInCommandNames getName() { return name; };
+		void translate(float x, float y) {currentPosition.setPercents(x, y);}
+		void pushMatrix() { stack.push(currentPosition); }
+		void popMatrix() { 
+			if (stack.size() == 0) {
+				ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
+			}
+			else {
+				currentPosition = stack.top();
+				stack.pop();
+			}
+		}
 		void setPoint(ofRobotPosition pt);
 		void setState(ofRobotState pt);
 		vector<ofRobotCommand> cmdVector; // one more more points
 		ofRobot *robot = nullptr; // owner
 
 	private:
-		void sanityTestLowLevel(); // built in commands
+		BuiltInCommandNames name;
+
+		ofRobotPosition currentPosition; // default to 0,0,0
+		stack<ofRobotPosition> stack; // bugbug once working likely to include colors, brush size etc
+									  // built in commands
+		void sanityTestLowLevel();
 		void sanityTestHighLevel();
 		void userDefined();
-		void DrawCircle(int points, double radius, ofRobotPosition center);
+		void DrawCircle(double radius);
 
-		BuiltInCommandNames name;
 	};
 
 	// the robot itself
 	class ofRobot {
 	public:
+		
 		friend class ofRobotCommands;
 		void setup();
 		void update();
 		void draw();
 		void echo(); // echos positions
 		void setPause(bool pause = true) { this->pause = pause; }//bugbug go to threads
-		shared_ptr<ofRobotCommands> add(ofRobotCommands::BuiltInCommandNames name = ofRobotCommands::UserDefined);
+
+		ofRobotCommands commands;
 
 		robotType& getType() { return type; }
 
@@ -151,7 +170,6 @@ namespace RobotArtists {
 		ofRobotSerial serial; // talking to the robot
 		uint8_t data[RobotJointsState::count];// one data instance per robot
 		robotType type;
-		vector<shared_ptr<ofRobotCommands>> cmds;
 		bool pause = false;
 	};
 
