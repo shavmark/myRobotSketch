@@ -1,6 +1,6 @@
 #pragma once
 #include <stack>
-
+#include <tuple>
 // robots
 
 namespace RobotArtists {
@@ -61,8 +61,8 @@ namespace RobotArtists {
 
 	class ofRobotCommand {
 	public:
-
-		typedef std::pair<ofRobotPosition, ofRobotState> robotCommandState;
+		//pos, state, sleep 
+		typedef std::tuple<ofRobotPosition, ofRobotState, int> robotCommandState;
 
 		enum RobotCommand { None, UserDefinded, Translate, Sleep, Circle };// command and basic commands.  Derive object or create functions to create more commands
 
@@ -76,31 +76,29 @@ namespace RobotArtists {
 			add(state);
 			type = UserDefinded;
 		}
-		ofRobotCommand(RobotCommand command, int millisSleep = -1) { type = command; setSleep(millisSleep); }
-		ofRobotCommand(RobotCommand command, float f, int millisSleep = -1) { type = command; floatdata = f; setSleep(millisSleep); }
+		ofRobotCommand(RobotCommand command) { type = command; }
+		ofRobotCommand(RobotCommand command, float f) { type = command; floatdata = f; }
 
 		void add(const robotCommandState& data) { vectorData.push_back(data); }
 
 		void addSay(const string& say) { voice.add(say); }
 
 		void SetDeleteWhenDone(bool b = true) { deleteWhenDone = b; }
-		void setSleep(int value) { millisSleep = value; }
-		void sleep() const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 		bool OKToDelete() { return deleteWhenDone; }
 
 		void echo() const;
-		static robotCommandState setCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue) {
-			return robotCommandState(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent));
+		static robotCommandState setCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, int sleep=-1) {
+			return robotCommandState(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep);
 		}
-		static robotCommandState setCommand(const ofRobotPosition& position, const ofRobotState& state= ofRobotState()) {
-			return robotCommandState(position, state);
+		static robotCommandState setCommand(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), int sleep = -1) {
+			return robotCommandState(position, state, sleep);
 		}
 		vector<robotCommandState> vectorData;
 		RobotCommand commandType() { return type; }
 		void drawCircle();
+		float getFloatData() { return floatdata; }
 	private:
 		bool deleteWhenDone = true; // false to repeat command per every draw occurance
-		int millisSleep = -1;// no sleep by default
 		ofRobotVoice voice;
 		RobotCommand type= UserDefinded;
 		float floatdata=0.0f;
@@ -129,6 +127,7 @@ namespace RobotArtists {
 		bool moveOrDraw = true; // false means draw
 		int fillmode = 0;
 		BuiltInCommandNames getName() { return name; };
+		void sleep(int millisSleep) const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 
 	protected:
 		void translate(float x, float y) {currentPosition.setPercents(x, y);}

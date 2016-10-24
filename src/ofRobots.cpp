@@ -277,7 +277,7 @@ namespace RobotArtists {
 
 		// add one command with main points/states using various techniques
 		ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
-		cmd.add(ofRobotCommand::robotCommandState(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f)));// need to be percents!!
+		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f)));// need to be percents!!
 		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f)));// need to be percents!!
 		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f)));// need to be percents!!
 
@@ -392,16 +392,20 @@ namespace RobotArtists {
 
 			vector< ofRobotCommand >::iterator it = cmdVector.begin();
 			while (it != cmdVector.end()) {
+				
+				if (it->commandType() == ofRobotCommand::Sleep) {
+					sleep(it->getFloatData()); // sleep at command level
+				}
 				if (it->commandType() == ofRobotCommand::Translate) {
 					if (it->vectorData.size() == 0) {
 						ofRobotTrace(ErrorLog) << "ofRobotCommand::Translate requires data" << std::endl;
 					}
 					else {
-						move(it->vectorData[0].first); // Translate requires data
+						move(std::get<0>(it->vectorData[0])); // Translate requires data
 						//bugbug test before sending
 						testdata();
 						//send(&robot->serial);
-						it->sleep(); // sleep if requested
+						sleep(std::get<2>(it->vectorData[0])); // sleep if requested, at point or state change level
 					}
 				}
 				else {
@@ -410,12 +414,12 @@ namespace RobotArtists {
 					}
 					// draw out all the points & states, sleeping as needed
 					for (const auto& a : it->vectorData) {
-						setPoint(a.first);
-						setState(a.second);
+						setPoint(std::get<0>(a));
+						setState(std::get<1>(a));
 						//bugbug test before sending 
 						testdata();
 						//send(&robot->serial);
-						it->sleep(); // sleep between every point, bugbug if this becomes an item we can have 2 sleeps, between each point and for each command
+						sleep(std::get<2>(a)); // sleep between every point, bugbug if this becomes an item we can have 2 sleeps, between each point and for each command
 					}
 				}
 				if (it->OKToDelete()) {
@@ -430,8 +434,8 @@ namespace RobotArtists {
 
 	void ofRobotCommand::echo() const {
 		for (const auto& a : vectorData) {
-			a.first.echo();
-			a.second.echo();
+			std::get<0>(a).echo();
+			std::get<1>(a).echo();
 		}
 	}
 
