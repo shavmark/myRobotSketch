@@ -66,7 +66,7 @@ namespace RobotArtists {
 
 		virtual void virtfunction() = 0;
 		void setData(uint8_t *data) { this->data = data; }
-		void echo();
+		void echoRawData();
 		void set(uint16_t offset, uint8_t b);
 		void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
 		void setDelta(uint8_t value = 128) { set(deltaValBytesOffset, value); }

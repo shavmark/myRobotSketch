@@ -37,9 +37,10 @@ namespace RobotArtists {
 		ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
 		void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
 		virtual void echo() const;
-		float getX()const { return x; }
+		float getX() const { return x; }
 		float getY() const { return y; }
-		float getZ() const { return z; } // want to make sure x is read only
+		float getZ() const { return z; } // want to make sure we do not access data directly so we can range check
+
 		bool set[3];
 
 	protected:
@@ -63,15 +64,20 @@ namespace RobotArtists {
 
 		typedef std::pair<ofRobotPosition, ofRobotState> robotCommandState;
 
+		enum RobotCommand { None, UserDefinded, Translate, Sleep, Circle };// command and basic commands.  Derive object or create functions to create more commands
+
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
 		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue) {
-			add(robotCommandState(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent)));
+			add(setCommand(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent));
+			type = UserDefinded;
 		}
 		// object based
 		ofRobotCommand(const robotCommandState&state) {
 			add(state);
+			type = UserDefinded;
 		}
-		ofRobotCommand(int millisSleep) { setSleep(millisSleep); }
+		ofRobotCommand(RobotCommand command, int millisSleep = -1) { type = command; setSleep(millisSleep); }
+		ofRobotCommand(RobotCommand command, float f, int millisSleep = -1) { type = command; floatdata = f; setSleep(millisSleep); }
 
 		void add(const robotCommandState& data) { vectorData.push_back(data); }
 
@@ -83,24 +89,30 @@ namespace RobotArtists {
 		bool OKToDelete() { return deleteWhenDone; }
 
 		void echo() const;
-
+		static robotCommandState setCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue) {
+			return robotCommandState(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent));
+		}
+		static robotCommandState setCommand(const ofRobotPosition& position, const ofRobotState& state= ofRobotState()) {
+			return robotCommandState(position, state);
+		}
 		vector<robotCommandState> vectorData;
-
+		RobotCommand commandType() { return type; }
+		void drawCircle();
 	private:
 		bool deleteWhenDone = true; // false to repeat command per every draw occurance
 		int millisSleep = -1;// no sleep by default
 		ofRobotVoice voice;
-
+		RobotCommand type= UserDefinded;
+		float floatdata=0.0f;
 	};
 
 	class ofRobot;
 
 	class ofRobotCommands : protected RobotJoints {
 	public:
-		ofRobotCommands() {}
-		enum BuiltInCommandNames { Reset, UserDefined, LowLevelTest, HighLevelTest, Translate, Push, Pop, Sleep };// command and basic commands.  Derive object or create functions to create more commands
+		enum BuiltInCommandNames { Reset, LowLevelTest, HighLevelTest, Push, Pop, Move };// command and basic commands.  Derive object or create functions to create more commands
 
-	    // passed robot cannot go away while this object exists
+	    // a robot is required for life of this object
 		ofRobotCommands(ofRobot *robot);
 
 		void echo() const; // echos positions
@@ -137,15 +149,13 @@ namespace RobotArtists {
 
 	private:
 		BuiltInCommandNames name;
-
+		void testdata();
 		ofRobotPosition currentPosition; // default to 0,0,0
 		stack<ofRobotPosition> stack; // bugbug once working likely to include colors, brush size etc
 									  // built in commands
 		void sanityTestLowLevel();
 		void sanityTestHighLevel();
-		void userDefined();
-		void DrawCircle(double radius);
-
+		void move(const ofRobotPosition& pos);
 	};
 
 	// the robot itself
@@ -159,7 +169,7 @@ namespace RobotArtists {
 		void echo(); // echos positions
 		void setPause(bool pause = true) { this->pause = pause; }//bugbug go to threads
 
-		ofRobotCommands commands;
+		shared_ptr<ofRobotCommands> commands=nullptr;
 
 		robotType& getType() { return type; }
 

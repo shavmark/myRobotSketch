@@ -183,7 +183,7 @@ namespace RobotArtists {
 		return typeOfRobot;
 	}
 
-	void RobotJointsState::echo() {
+	void RobotJointsState::echoRawData() {
 		if (!data) {
 			ofRobotTrace() << "no data to echo" << std::endl;
 			return;

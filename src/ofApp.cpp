@@ -17,7 +17,11 @@ void ofApp::setup() {
 void ofApp::update() {
 
 	robot.update();
-	robot.commands.add(ofRobotCommand(1000));// sleep
+
+	if (robot.commands) {
+		robot.commands->add(ofRobotCommand(ofRobotCommand::Circle, 0.1f));//bugbug data is too bug, just testing getting data around
+		robot.commands->add(ofRobotCommand(ofRobotCommand::Sleep, 1000));
+	}
 	//shared_ptr<RobotArtists::ofRobotCommands> cmd = robot.add(RobotArtists::ofRobotCommands::UserDefined);
 
 	/*

@@ -252,9 +252,6 @@ namespace RobotArtists {
 		if (isCylindrical()) {
 			//ofMap
 			if (ptPercent.set[0]) {
-				float gx = ptPercent.getX();
-				float mx = getMax(X);
-				float mn = getMin(X);
 				setX(getMin(X) + (ptPercent.getX() * (getMax(X) - getMin(X))));
 			}
 			if (ptPercent.set[1]) {
@@ -278,11 +275,11 @@ namespace RobotArtists {
 		TraceBaseClass() << "high level sanityTest" << std::endl;
 		reset();
 
-		// add one command with main points/states
+		// add one command with main points/states using various techniques
 		ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
 		cmd.add(ofRobotCommand::robotCommandState(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f)));// need to be percents!!
-		cmd.add(ofRobotCommand::robotCommandState(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f), ofRobotState()));// need to be percents!!
-		cmd.add(ofRobotCommand::robotCommandState(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f), ofRobotState()));// need to be percents!!
+		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f)));// need to be percents!!
+		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f)));// need to be percents!!
 
 		// add a new command, either way works
 		add(ofRobotCommand(1000)); // sleep
@@ -333,15 +330,16 @@ namespace RobotArtists {
 	//ofPopMatrix();
 
 	// draw circle at current positon
-	void ofRobotCommands::DrawCircle(double radius)
+	void ofRobotCommand::drawCircle()
 	{
 		// do a move like OF does so drawing always starts at current
 		float slice = 2 * M_PI / 10;
 		for (int i = 0; i < 10; i++) {
 			float angle = slice * i;
-			int newX = (int)(0 + 10 * cos(angle));
-			int newY = (int)(0 + 10 * sin(angle));
+			float newX = floatdata * cos(angle);
+			float newY = floatdata * sin(angle);
 			ofRobotTrace() << newX << " " << newY << std::endl;
+			add(setCommand(newX, newY)); //bugbug data is wrong, just getting getting the data
 			//add(ofRobotCommand(newX, newY)); // need to be percents!! bugbug make this a json player, then the creators of json are the engine
 		}
 		int i = 0;
@@ -356,11 +354,23 @@ namespace RobotArtists {
 		*/
 	}
 
-	void ofRobotCommands::userDefined() {
-		TraceBaseClass() << "userDefined" << std::endl;
-		reset();
-		DrawCircle(0.50f);
-		add(ofRobotCommand(1000)); // sleep
+	void ofRobotCommands::move(const ofRobotPosition& pos) {
+		setPoint(pos);
+		
+		// set Z to max, then restore z
+		pushMatrix();
+		ofRobotPosition newPos = pos;
+		newPos.setPercents(NoRobotValue, NoRobotValue, getMax(Z));
+		send(&robot->serial);
+		popMatrix();
+
+		send(&robot->serial); // restore to normal z
+
+	}
+	void ofRobotCommands::testdata() {
+		getData(); // do check sum
+		echoRawData();
+		echo(); // echo object data
 	}
 	void ofRobotCommands::draw() {
 
@@ -370,10 +380,7 @@ namespace RobotArtists {
 				sanityTestHighLevel(); // populates cmdVector
 				break;
 			case ofRobotCommands::LowLevelTest:
-				sanityTestLowLevel();
-				break;
-			case ofRobotCommands::UserDefined:
-				userDefined();
+				sanityTestLowLevel();// populates cmdVector
 				break;
 			case ofRobotCommands::Push:
 				pushMatrix();
@@ -381,19 +388,35 @@ namespace RobotArtists {
 			case ofRobotCommands::Pop:
 				popMatrix();
 				break;
-			case ofRobotCommands::Translate:
-				//translate();
-				break;
 			}
 
 			vector< ofRobotCommand >::iterator it = cmdVector.begin();
 			while (it != cmdVector.end()) {
-				// draw out all the points & states, sleeping as needed
-				for (const auto& a : it->vectorData) {
-					setPoint(a.first);
-					setState(a.second);
-					it->sleep(); // sleep if requested
-					send(&robot->serial);
+				if (it->commandType() == ofRobotCommand::Translate) {
+					if (it->vectorData.size() == 0) {
+						ofRobotTrace(ErrorLog) << "ofRobotCommand::Translate requires data" << std::endl;
+					}
+					else {
+						move(it->vectorData[0].first); // Translate requires data
+						//bugbug test before sending
+						testdata();
+						//send(&robot->serial);
+						it->sleep(); // sleep if requested
+					}
+				}
+				else {
+					if (it->commandType() == ofRobotCommand::Circle) {
+						it->drawCircle(); // populates vectorData
+					}
+					// draw out all the points & states, sleeping as needed
+					for (const auto& a : it->vectorData) {
+						setPoint(a.first);
+						setState(a.second);
+						//bugbug test before sending 
+						testdata();
+						//send(&robot->serial);
+						it->sleep(); // sleep between every point, bugbug if this becomes an item we can have 2 sleeps, between each point and for each command
+					}
 				}
 				if (it->OKToDelete()) {
 					it = cmdVector.erase(it);
@@ -427,6 +450,8 @@ namespace RobotArtists {
 		ofRobotTrace() << "use IKM_CYLINDRICAL" << std::endl;
 		type = robotType(IKM_CYLINDRICAL, defaultType.second);
 
+		commands = make_shared<ofRobotCommands>(this);
+
 		// do one time setup
 		RobotJoints jv(data, type);
 		jv.oneTimeSetup(); // do one time setup of static data
@@ -436,14 +461,18 @@ namespace RobotArtists {
 	}
 
 	void ofRobot::echo() {
-		commands.echo();
+		if (commands) {
+			commands->echo();
+		}
 	}
 
 	void ofRobot::draw() {
 		if (pause) {
 			return;
 		}
-		commands.draw();
+		if (commands) {
+			commands->draw();
+		}
 	}
 
 }
