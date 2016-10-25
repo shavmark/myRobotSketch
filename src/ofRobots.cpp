@@ -1,3 +1,21 @@
+/*
+ofRobots.cpp - openframeworks based classes for managing robots
+Copyright (c) 2016 Mark J Shavlik.  All right reserved.This file is part of myRobot.
+
+myRobot is free software : you can redistribute it and / or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+myRobot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with myRobot.If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include "ofApp.h"
 #include <algorithm> 
 #define _USE_MATH_DEFINES
@@ -338,8 +356,8 @@ namespace RobotArtists {
 			float angle = slice * i;
 			float newX = floatdata * cos(angle);
 			float newY = floatdata * sin(angle);
-			ofRobotTrace() << newX << " " << newY << std::endl;
-			add(setCommand(newX, newY)); //bugbug data is wrong, just getting getting the data
+			ofRobotTrace() << newX << " " << newY << std::endl; 
+			add(setCommand(ofRobotPosition(newX, newY), RobotJointsState::slowestDelta)); 
 			//add(ofRobotCommand(newX, newY)); // need to be percents!! bugbug make this a json player, then the creators of json are the engine
 		}
 		int i = 0;
@@ -360,7 +378,7 @@ namespace RobotArtists {
 		// set Z to max, then restore z
 		pushMatrix();
 		ofRobotPosition newPos = pos;
-		newPos.setPercents(NoRobotValue, NoRobotValue, getMax(Z));
+		newPos.setPercents(NoRobotValue, NoRobotValue, getMin(Z));
 		send(&robot->serial);
 		popMatrix();
 
@@ -372,6 +390,12 @@ namespace RobotArtists {
 		echoRawData();
 		echo(); // echo object data
 	}
+	void ofRobotCommands::setTuple(ofRobotCommand::robotCommandRequest request) {
+		setPoint(std::get<0>(request));
+		setState(std::get<1>(request));
+		setDelta(std::get<2>(request));
+	}
+
 	void ofRobotCommands::draw() {
 
 		if (robot) {
@@ -392,7 +416,7 @@ namespace RobotArtists {
 
 			vector< ofRobotCommand >::iterator it = cmdVector.begin();
 			while (it != cmdVector.end()) {
-				
+				//bugbug address the robot delay also, the 0 to 255 -- that is maybe more what needs to be set at the point level
 				if (it->commandType() == ofRobotCommand::Sleep) {
 					sleep(it->getFloatData()); // sleep at command level
 				}
@@ -403,9 +427,8 @@ namespace RobotArtists {
 					else {
 						move(std::get<0>(it->vectorData[0])); // Translate requires data
 						//bugbug test before sending
-						testdata();
-						//send(&robot->serial);
-						sleep(std::get<2>(it->vectorData[0])); // sleep if requested, at point or state change level
+						//testdata();
+						send(&robot->serial);
 					}
 				}
 				else {
@@ -414,12 +437,10 @@ namespace RobotArtists {
 					}
 					// draw out all the points & states, sleeping as needed
 					for (const auto& a : it->vectorData) {
-						setPoint(std::get<0>(a));
-						setState(std::get<1>(a));
+						setTuple(a);
 						//bugbug test before sending 
-						testdata();
-						//send(&robot->serial);
-						sleep(std::get<2>(a)); // sleep between every point, bugbug if this becomes an item we can have 2 sleeps, between each point and for each command
+						//testdata();
+						send(&robot->serial);
 					}
 				}
 				if (it->OKToDelete()) {

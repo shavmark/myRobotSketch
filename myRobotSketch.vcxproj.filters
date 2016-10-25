@@ -94,13 +94,10 @@
     <ClCompile Include="src\trossenrobots.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\robot.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\ofRobots.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\ofHelpers.cpp">
+    <ClCompile Include="src\ofutils.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
@@ -275,13 +272,10 @@
     <ClInclude Include="src\trossenrobots.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\robot.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\ofRobots.h">
       <Filter>src</Filter>
     </ClInclude>
-    <ClInclude Include="src\ofHelpers.h">
+    <ClInclude Include="src\ofutils.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

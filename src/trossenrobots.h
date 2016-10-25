@@ -1,3 +1,21 @@
+/*
+trossenrobots.h - openframeworks based classes for managing trossen robots
+Copyright (c) 2016 Mark J Shavlik.  All right reserved.This file is part of myRobot.
+
+myRobot is free software : you can redistribute it and / or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+myRobot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with myRobot.If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #pragma once
 
 #include <stdint.h>
@@ -45,6 +63,8 @@ namespace RobotArtists {
 		unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
 		setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
 	};
+	typedef uint8_t RobotArmDelta;
+
 
 	// tracing helper
 	inline std::string echoJointType(SpecificJoint joint) {
@@ -58,6 +78,9 @@ namespace RobotArtists {
 	public:
 
 		static const uint16_t count = 17;
+		static const RobotArmDelta fastestDelta = 0;
+		static const RobotArmDelta slowestDelta = 255;
+
 		robotLowLevelCommand getStartCommand(robotType type);
 
 	protected:
@@ -69,7 +92,7 @@ namespace RobotArtists {
 		void echoRawData();
 		void set(uint16_t offset, uint8_t b);
 		void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
-		void setDelta(uint8_t value = 128) { set(deltaValBytesOffset, value); }
+		void setDelta(RobotArmDelta value = 128) { set(deltaValBytesOffset, value); }
 		void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 
 		void setLowLevelX(int x, int magicNumer) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care

@@ -1,3 +1,21 @@
+/*
+ofRobots.h - openframeworks based classes for managing robots
+Copyright (c) 2016 Mark J Shavlik.  All right reserved.This file is part of myRobot.
+
+myRobot is free software : you can redistribute it and / or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+myRobot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with myRobot.If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #pragma once
 #include <stack>
 #include <tuple>
@@ -62,24 +80,24 @@ namespace RobotArtists {
 	class ofRobotCommand {
 	public:
 		//pos, state, sleep 
-		typedef std::tuple<ofRobotPosition, ofRobotState, int> robotCommandState;
+		typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotCommandRequest;
 
 		enum RobotCommand { None, UserDefinded, Translate, Sleep, Circle };// command and basic commands.  Derive object or create functions to create more commands
 
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
-		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue) {
-			add(setCommand(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent));
+		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta delta = 255) {
+			add(setCommand(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent, delta));
 			type = UserDefinded;
 		}
 		// object based
-		ofRobotCommand(const robotCommandState&state) {
+		ofRobotCommand(const robotCommandRequest&state) {
 			add(state);
 			type = UserDefinded;
 		}
 		ofRobotCommand(RobotCommand command) { type = command; }
 		ofRobotCommand(RobotCommand command, float f) { type = command; floatdata = f; }
 
-		void add(const robotCommandState& data) { vectorData.push_back(data); }
+		void add(const robotCommandRequest& data) { vectorData.push_back(data); }
 
 		void addSay(const string& say) { voice.add(say); }
 
@@ -87,13 +105,13 @@ namespace RobotArtists {
 		bool OKToDelete() { return deleteWhenDone; }
 
 		void echo() const;
-		static robotCommandState setCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, int sleep=-1) {
-			return robotCommandState(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep);
+		static robotCommandRequest setCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta sleep = RobotJointsState::slowestDelta) {
+			return robotCommandRequest(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep);
 		}
-		static robotCommandState setCommand(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), int sleep = -1) {
-			return robotCommandState(position, state, sleep);
+		static robotCommandRequest setCommand(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), RobotArmDelta sleep = RobotJointsState::slowestDelta) {
+			return robotCommandRequest(position, state, sleep);
 		}
-		vector<robotCommandState> vectorData;
+		vector<robotCommandRequest> vectorData;
 		RobotCommand commandType() { return type; }
 		void drawCircle();
 		float getFloatData() { return floatdata; }
@@ -155,6 +173,7 @@ namespace RobotArtists {
 		void sanityTestLowLevel();
 		void sanityTestHighLevel();
 		void move(const ofRobotPosition& pos);
+		void setTuple(ofRobotCommand::robotCommandRequest request);
 	};
 
 	// the robot itself
