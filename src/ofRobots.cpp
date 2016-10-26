@@ -319,7 +319,11 @@ namespace RobotArtists {
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 	void ofRobotCommands::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
-		reset();
+		setGripper(ofRandom(255));
+		setLowLevelCommand(NoArmCommand);
+		setDelta(255);
+		send(&robot->serial);
+		//reset();
 		return;
 		setX(300); // absolution position vs. percentages
 		setY(150);
@@ -327,10 +331,7 @@ namespace RobotArtists {
 		setWristAngle(30);
 		setWristRotate(120);
 		setGripper(0);
-		setLowLevelCommand(NoArmCommand);
-		setDelta(255);
 		setButton();
-		send(&robot->serial);
 	}
 
 
@@ -477,9 +478,10 @@ namespace RobotArtists {
 		}
 		else {
 			ofRobotTrace(FatalErrorLog) << "could not sign on " << std::endl;
+			return;
 		}
 
-		ofRobotTrace() << "install duration in ms " << t - ofGetElapsedTimeMillis() << std::endl;
+		ofRobotTrace() << "install duration in ms " << (int)(t - ofGetElapsedTimeMillis()) << std::endl;
 
 		ofRobotTrace() << "use IKM_CYLINDRICAL" << std::endl;
 		type = robotType(IKM_CYLINDRICAL, defaultType.second);

@@ -44,7 +44,8 @@ namespace RobotArtists {
 	class TraceBaseClass {
 	public:
 
-		TraceBaseClass(TraceType type = TraceLog) { this->type = type; }
+		TraceBaseClass(const string & module) { this->type = TraceLog; this->module = module; }
+		TraceBaseClass(TraceType type = TraceLog, const string & module = "") { this->type = type; this->module = module; }
 
 		// overload for manipulators
 		typedef std::ostream& (*manip1)(std::ostream&);
@@ -66,12 +67,12 @@ namespace RobotArtists {
 		virtual void send() {
 			//std::cout << formatMessage(); // default usage, pick send or sendline, send sends data as it comes in
 		}
-		// just watch lines bugbug only error and log supported right now
-		virtual void sendline(TraceType) {
-			std::cout << formatMessage();
+		// just watch lines 
+		virtual void sendline() {
+			std::cout <<"C++ message " << formatMessage();
 		}
 		TraceType type;
-
+		std::string module;
 		//bugbug json format
 		std::string formatMessage() { return message.str(); }
 
@@ -86,18 +87,18 @@ namespace RobotArtists {
 		virtual void sendline() {
 			switch (type) {
 			case DebugLog:
-				ofLogVerbose() << formatMessage();
+				ofLogVerbose(module) << formatMessage();
 				break;
 			case TraceLog:
-				ofLogNotice() << formatMessage();
+				ofLogNotice(module) << formatMessage();
 				break;
 			case WarningLog:
 				break;
 			case ErrorLog:
-				ofLogError() << formatMessage(); //bugbug support all log types from OF
+				ofLogError(module) << formatMessage();
 				break;
 			case FatalErrorLog:
-				ofLogFatalError() << formatMessage(); //bugbug support all log types from OF
+				ofLogFatalError(module) << formatMessage();
 				break;
 			}
 		}
