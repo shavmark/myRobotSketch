@@ -82,7 +82,7 @@ namespace RobotArtists {
 		//pos, state, sleep 
 		typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotCommandRequest;
 
-		enum RobotCommand { None, UserDefinded, Translate, Sleep, Circle };// command and basic commands.  Derive object or create functions to create more commands
+		enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, HighLevelTest, UserDefinded, Translate, Sleep, Circle };// command and basic commands.  Derive object or create functions to create more commands
 
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
 		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta delta = 255) {
@@ -126,7 +126,6 @@ namespace RobotArtists {
 
 	class ofRobotCommands : protected RobotJoints {
 	public:
-		enum BuiltInCommandNames { Reset, LowLevelTest, HighLevelTest, Push, Pop, Move };// command and basic commands.  Derive object or create functions to create more commands
 
 	    // a robot is required for life of this object
 		ofRobotCommands(ofRobot *robot);
@@ -144,7 +143,6 @@ namespace RobotArtists {
 		void add(const ofRobotCommand& cmd);
 		bool moveOrDraw = true; // false means draw
 		int fillmode = 0;
-		BuiltInCommandNames getName() { return name; };
 		void sleep(int millisSleep) const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 
 	protected:
@@ -165,7 +163,6 @@ namespace RobotArtists {
 		ofRobot *robot = nullptr; // owner
 
 	private:
-		BuiltInCommandNames name;
 		void testdata();
 		ofRobotPosition currentPosition; // default to 0,0,0
 		stack<ofRobotPosition> stack; // bugbug once working likely to include colors, brush size etc

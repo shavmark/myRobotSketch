@@ -27,7 +27,7 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
-	enum TraceType { DebugLog, TraceLog, ErrorLog, FatalErrorLog };
+	enum TraceType { DebugLog, TraceLog, WarningLog, ErrorLog, FatalErrorLog };
 
 	inline uint16_t bytes_to_u16(uint8_t high, uint8_t low) {
 		// robot data seems to be big endian, most os seem to be little
@@ -64,12 +64,11 @@ namespace RobotArtists {
 		std::ostringstream message;
 		// capture messages as they come in
 		virtual void send() {
-			//std::cout << formatMessage(); // default usage
+			//std::cout << formatMessage(); // default usage, pick send or sendline, send sends data as it comes in
 		}
 		// just watch lines bugbug only error and log supported right now
-		virtual void sendErrorline() {
-		}
-		virtual void sendLogline() {
+		virtual void sendline(TraceType) {
+			std::cout << formatMessage();
 		}
 		TraceType type;
 
@@ -79,24 +78,38 @@ namespace RobotArtists {
 	private:
 
 	};
+
+	// supports openframeworks so TraceBaseClass can be used w/o down the road, enabling all objects to use the same logging object (w or w/o of)
 	class ofRobotTrace : public TraceBaseClass {
 	public:
 		ofRobotTrace(TraceType type = TraceLog) : TraceBaseClass(type) {}
-		virtual void sendErrorline() {
-			ofLogError() << formatMessage(); //bugbug support all log types from OF
-		}
-		virtual void sendLogline() {
-			ofLogNotice() << formatMessage();
+		virtual void sendline() {
+			switch (type) {
+			case DebugLog:
+				ofLogVerbose() << formatMessage();
+				break;
+			case TraceLog:
+				ofLogNotice() << formatMessage();
+				break;
+			case WarningLog:
+				break;
+			case ErrorLog:
+				ofLogError() << formatMessage(); //bugbug support all log types from OF
+				break;
+			case FatalErrorLog:
+				ofLogFatalError() << formatMessage(); //bugbug support all log types from OF
+				break;
+			}
 		}
 	};
 	class ofRobotTraceNetwork : public TraceBaseClass {
 	public:
 		ofRobotTraceNetwork(TraceType type = TraceLog) : TraceBaseClass(type) {}
 		virtual void sendErrorline() {
-			ofLogError() << formatMessage(); //bugbug support all log types from OF
+			//bugbug fill in
 		}
 		virtual void sendLogline() {
-			ofLogNotice() << formatMessage();
+			//bugbug fill in
 		}
 	};
 

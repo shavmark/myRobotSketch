@@ -176,7 +176,9 @@ namespace RobotArtists {
 			}
 		}
 		else {
-			ofRobotTrace(ErrorLog) << "invalid robot sign on" << std::endl;
+			bytes[readin] = 0;
+			uint16_t i = *bytes;
+			ofRobotTrace(ErrorLog) << "invalid robot sign on:" << i << std::endl;
 			return type;
 		}
 
@@ -317,6 +319,8 @@ namespace RobotArtists {
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 	void ofRobotCommands::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
+		reset();
+		return;
 		setX(300); // absolution position vs. percentages
 		setY(150);
 		setZ(150);
@@ -326,6 +330,7 @@ namespace RobotArtists {
 		setLowLevelCommand(NoArmCommand);
 		setDelta(255);
 		setButton();
+		send(&robot->serial);
 	}
 
 
@@ -399,49 +404,46 @@ namespace RobotArtists {
 	void ofRobotCommands::draw() {
 
 		if (robot) {
-			switch (name) {
-			case ofRobotCommands::HighLevelTest:
-				sanityTestHighLevel(); // populates cmdVector
-				break;
-			case ofRobotCommands::LowLevelTest:
-				sanityTestLowLevel();// populates cmdVector
-				break;
-			case ofRobotCommands::Push:
-				pushMatrix();
-				break;
-			case ofRobotCommands::Pop:
-				popMatrix();
-				break;
-			}
-
+			
 			vector< ofRobotCommand >::iterator it = cmdVector.begin();
 			while (it != cmdVector.end()) {
-				//bugbug address the robot delay also, the 0 to 255 -- that is maybe more what needs to be set at the point level
-				if (it->commandType() == ofRobotCommand::Sleep) {
+				switch (it->commandType()) {
+				case ofRobotCommand::HighLevelTest:
+					sanityTestHighLevel(); // populates cmdVector
+					break;
+				case ofRobotCommand::LowLevelTest:
+					sanityTestLowLevel();
+					return; // low level, nothing else to do
+				case ofRobotCommand::Push:
+					pushMatrix();
+					break;
+				case ofRobotCommand::Pop:
+					popMatrix();
+					break;
+				case ofRobotCommand::Circle:
+					it->drawCircle(); // populates vectorData
+					break;
+				case ofRobotCommand::Sleep:
 					sleep(it->getFloatData()); // sleep at command level
-				}
-				if (it->commandType() == ofRobotCommand::Translate) {
+					break;
+				case ofRobotCommand::Translate:
 					if (it->vectorData.size() == 0) {
 						ofRobotTrace(ErrorLog) << "ofRobotCommand::Translate requires data" << std::endl;
 					}
 					else {
 						move(std::get<0>(it->vectorData[0])); // Translate requires data
-						//bugbug test before sending
-						//testdata();
-						send(&robot->serial);
+															  //bugbug test before sending
+															  //testdata();
 					}
+					break;
 				}
-				else {
-					if (it->commandType() == ofRobotCommand::Circle) {
-						it->drawCircle(); // populates vectorData
-					}
-					// draw out all the points & states, sleeping as needed
-					for (const auto& a : it->vectorData) {
-						setTuple(a);
-						//bugbug test before sending 
-						//testdata();
-						send(&robot->serial);
-					}
+
+				// draw out all the points & states, sleeping as needed
+				for (const auto& a : it->vectorData) {
+					setTuple(a);
+					//bugbug test before sending 
+					//testdata();
+					send(&robot->serial);
 				}
 				if (it->OKToDelete()) {
 					it = cmdVector.erase(it);
@@ -464,13 +466,20 @@ namespace RobotArtists {
 
 		serial.listDevices(); // let viewer see thats out there
 
+		uint64_t t = ofGetElapsedTimeMillis();
+		
 		serial.setup(1, 38400);//bugbug get from xml
 
-							   // start with default mode
+ 	    // start with default mode
 		robotType defaultType;
 		if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
 			ofRobotTrace() << "robot setup complete" << std::endl;
 		}
+		else {
+			ofRobotTrace(FatalErrorLog) << "could not sign on " << std::endl;
+		}
+
+		ofRobotTrace() << "install duration in ms " << t - ofGetElapsedTimeMillis() << std::endl;
 
 		ofRobotTrace() << "use IKM_CYLINDRICAL" << std::endl;
 		type = robotType(IKM_CYLINDRICAL, defaultType.second);

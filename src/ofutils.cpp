@@ -26,12 +26,7 @@ namespace RobotArtists {
 		std::ostringstream check;
 		check << fp;
 		if (check.str()[0] == '\n') {
-			if (type == ErrorLog) {
-				sendErrorline();
-			}
-			else {
-				sendLogline();
-			}
+			sendline(type);
 		}
 		else {
 			message << fp;
