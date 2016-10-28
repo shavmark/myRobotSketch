@@ -23,6 +23,17 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
+	void ofRobotSerial::waitForSerial() {
+		while (1) {
+			ofRobotTrace() << "check serial port " << std::endl;
+			if (available() > 0) {
+				ofRobotTrace() << "data found" << std::endl;
+				return;
+			}
+			ofSleepMillis(500);
+		}
+	}
+
 	// echo, ignoring null bytes
 	void ofRobotSerial::echoRawBytes(uint8_t *bytes, int count) {
 		std::stringstream buffer;
@@ -467,11 +478,11 @@ namespace RobotArtists {
 
 		serial.listDevices(); // let viewer see thats out there
 
-		uint64_t t = ofGetElapsedTimeMillis();
 		
 		serial.setup(1, 38400);//bugbug get from xml
 
  	    // start with default mode
+		uint64_t t1 = ofGetElapsedTimeMillis();
 		robotType defaultType;
 		if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
 			ofRobotTrace() << "robot setup complete" << std::endl;
@@ -481,7 +492,9 @@ namespace RobotArtists {
 			return;
 		}
 
-		ofRobotTrace() << "install duration in ms " << (int)(t - ofGetElapsedTimeMillis()) << std::endl;
+		uint64_t t2 = ofGetElapsedTimeMillis();
+		int gone = t2 - t1;
+		ofRobotTrace() << "install duration in milliseconds " << gone << std::endl;
 
 		ofRobotTrace() << "use IKM_CYLINDRICAL" << std::endl;
 		type = robotType(IKM_CYLINDRICAL, defaultType.second);

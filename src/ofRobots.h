@@ -26,7 +26,7 @@ namespace RobotArtists {
 	class ofRobotSerial : public ofSerial {
 	public:
 		ofRobotSerial() {}
-		void waitForSerial() { while (1) if (available() > 0) { return; } }
+		void waitForSerial();
 		void clearSerial() { flush(); }
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
