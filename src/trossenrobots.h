@@ -38,7 +38,7 @@ namespace RobotArtists {
 	enum robotArmMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED };
 	enum robotArmJointType { X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined };
 	// only 1 supported
-	enum RobotTypeID { InterbotiXPhantomXReactorArm, unknownRobotType };
+	enum RobotTypeID { InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType };
 
 	typedef std::pair<robotArmMode, RobotTypeID> robotType;
 	typedef std::pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets different handling, see is spec. Its not fully supported here

@@ -26,6 +26,9 @@ namespace RobotArtists {
 	class ofRobotSerial : public ofSerial {
 	public:
 		ofRobotSerial() {}
+
+		void setName(const string& name) { this->name = name; }
+		string&getName() { return name; }
 		void waitForSerial();
 		void clearSerial() { flush(); }
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
@@ -37,6 +40,7 @@ namespace RobotArtists {
 	protected:
 		void echoRawBytes(uint8_t *bytes, int count);
 		robotType ArmIDResponsePacket(uint8_t *bytes);
+		string name; // ofSerial is a little strange. It lists all availble ports but it creates a handle to the one at setup and then it uses that handle
 	};
 
 	class ofRobotVoice {
@@ -178,7 +182,7 @@ namespace RobotArtists {
 	public:
 		
 		friend class ofRobotCommands;
-		void setup();
+		void setup(int port=1);
 		void update();
 		void draw();
 		void echo(); // echos positions
@@ -187,15 +191,17 @@ namespace RobotArtists {
 		shared_ptr<ofRobotCommands> commands=nullptr;
 
 		robotType& getType() { return type; }
-
+		void setName(const string&name) { this->name = name; }
+		string&getName() { return name; }
 	protected:
 		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
 
 	private:
-		ofRobotSerial serial; // talking to the robot
+		ofRobotSerial serial; // talking to the robots
 		uint8_t data[RobotJointsState::count];// one data instance per robot
 		robotType type;
 		bool pause = false;
+		string name;
 	};
 
 }

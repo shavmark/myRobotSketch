@@ -24,8 +24,8 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 namespace RobotArtists {
 
 	void ofRobotSerial::waitForSerial() {
-		while (1) {
-			ofRobotTrace() << "check serial port " << std::endl;
+		for (int i = 0; 1; ++i) {
+			ofRobotTrace() << "check serial port (try #) = " << i << " for " << getName() << std::endl;
 			if (available() > 0) {
 				ofRobotTrace() << "data found" << std::endl;
 				return;
@@ -159,6 +159,10 @@ namespace RobotArtists {
 			}
 			RobotTypeID id = unknownRobotType;
 			switch (bytes[1]) {
+			case 1:
+				id = InterbotiXPhantomXPincherArm;
+				ofRobotTrace() << "InterbotiXPhantomXPincherArm" << std::endl;
+				break;
 			case 2:
 				id = InterbotiXPhantomXReactorArm;
 				ofRobotTrace() << "InterbotiXPhantomXReactorArm" << std::endl;
@@ -171,7 +175,7 @@ namespace RobotArtists {
 
 
 	robotType ofRobotSerial::waitForRobot() {
-		ofRobotTrace() << "wait for mr robot..." << std::endl;
+		ofRobotTrace() << "wait for mr robot ... aka " << getName() << std::endl;
 
 		waitForSerial();
 
@@ -474,12 +478,18 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobot::setup() {
+	void ofRobot::setup(int port) {
 
 		serial.listDevices(); // let viewer see thats out there
 
-		
-		serial.setup(1, 38400);//bugbug get from xml
+		// support multiple robots
+
+		serial.setName(getName());
+
+		if (!serial.setup(port, 38400)) {
+			ofRobotTrace(FatalErrorLog) << "robot setup complete" << std::endl;
+			return;
+		}
 
  	    // start with default mode
 		uint64_t t1 = ofGetElapsedTimeMillis();

@@ -6,20 +6,25 @@ using namespace RobotArtists;
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-	robot.draw();
+	robotReactor.draw();
 }
 //--------------------------------------------------------------
 void ofApp::setup() {
-	robot.setup();
+	robotReactor.setName("Reactor");
+	robotReactor.setup(2); //bugbug figure out a better way to scan ports for robots or such, then get type and go from there
+
+	robotPincher.setName("Pincher");
+	robotPincher.setup(1);
+
 }
 
 //--------------------------------------------------------------
 void ofApp::update() {
 
-	robot.update();
+	robotReactor.update();
 
-	if (robot.commands) {
-		robot.commands->add(ofRobotCommand::LowLevelTest);//bugbug data is too bug, just testing getting data around
+	if (robotReactor.commands) {
+		robotReactor.commands->add(ofRobotCommand::LowLevelTest);//bugbug data is too bug, just testing getting data around
 		//robot.commands->add(ofRobotCommand(ofRobotCommand::Circle, 0.1f));//bugbug data is too bug, just testing getting data around
 		//robot.commands->add(ofRobotCommand(ofRobotCommand::Sleep, 1000));
 	}
@@ -92,9 +97,9 @@ void ofApp::update() {
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
 	if (key == ' ') {
-		robot.setPause();//bugbug need a thread/semaphore to do this
-		robot.echo();
-		robot.setPause(false);
+		robotReactor.setPause();//bugbug need a thread/semaphore to do this
+		robotReactor.echo();
+		robotReactor.setPause(false);
 	}
 }
 
