@@ -25,10 +25,10 @@ namespace RobotArtists {
 	TraceBaseClass& TraceBaseClass::operator<<(manip1 fp) {
 		std::ostringstream check;
 		check << fp;
-		message << fp;
 		if (check.str()[0] == '\n') {
 			sendline();
 		}
+		message << fp;
 		return *this;
 	}
 	TraceBaseClass& TraceBaseClass::operator<<(manip2 fp) {

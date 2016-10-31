@@ -27,20 +27,20 @@ namespace RobotArtists {
 	public:
 		ofRobotSerial() {}
 
-		void setName(const string& name) { this->name = name; }
-		string&getName() { return name; }
-		void waitForSerial();
+		bool waitForSerial(int retries);
 		void clearSerial() { flush(); }
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
 		void readPose();
 		void write(uint8_t* data, int count);
-		robotType waitForRobot();
-
+		robotType waitForRobot(int retries);
+		vector <ofSerialDeviceInfo>& getDevices() {
+			buildDeviceList();
+			return devices;
+		}
 	protected:
 		void echoRawBytes(uint8_t *bytes, int count);
 		robotType ArmIDResponsePacket(uint8_t *bytes);
-		string name; // ofSerial is a little strange. It lists all availble ports but it creates a handle to the one at setup and then it uses that handle
 	};
 
 	class ofRobotVoice {
@@ -182,7 +182,10 @@ namespace RobotArtists {
 	public:
 		
 		friend class ofRobotCommands;
-		void setup(int port=1);
+
+		ofRobot(const string& name, robotType type, const ofRobotSerial& serial) { this->name = name;  this->type = type; this->serial = serial; }
+
+		void setup();
 		void update();
 		void draw();
 		void echo(); // echos positions
@@ -190,10 +193,11 @@ namespace RobotArtists {
 
 		shared_ptr<ofRobotCommands> commands=nullptr;
 
-		robotType& getType() { return type; }
 		void setName(const string&name) { this->name = name; }
 		string&getName() { return name; }
-	protected:
+
+		RobotTypeID getTypeID() { return type.second; }
+
 		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
 
 	private:
@@ -202,6 +206,27 @@ namespace RobotArtists {
 		robotType type;
 		bool pause = false;
 		string name;
+	};
+
+	// all robots being managed
+	class ofRobotFamly {
+	public:
+
+		void setup();
+		void update();
+		void draw();
+
+		//InterbotiXPhantomXPincherArm for example
+		void set(RobotTypeID id= AllRobotTypes) {
+			ofLogNotice() << "set id " << id;
+			idToUse = id;
+		}
+
+		shared_ptr<ofRobot> getRobot(int index, RobotTypeID id = AllRobotTypes);
+
+	private:
+		RobotTypeID idToUse= AllRobotTypes;
+		vector<shared_ptr<ofRobot>> robots;
 	};
 
 }

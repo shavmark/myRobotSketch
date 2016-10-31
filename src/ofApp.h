@@ -5,6 +5,7 @@
 #include "ofUtils.h"
 #include "ofRobots.h"
 
+using namespace RobotArtists;
 
 // bugbug openframeworks specific items here, c++ only above this line. use of as prefix as needed
 
@@ -28,6 +29,5 @@ class ofApp : public ofBaseApp{
 		void dragEvent(ofDragInfo dragInfo);
 		void gotMessage(ofMessage msg);
 
-		RobotArtists::ofRobot robotReactor;
-		RobotArtists::ofRobot robotPincher;
+		ofRobotFamly family;
 };

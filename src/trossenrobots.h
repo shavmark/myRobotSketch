@@ -38,7 +38,7 @@ namespace RobotArtists {
 	enum robotArmMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED };
 	enum robotArmJointType { X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined };
 	// only 1 supported
-	enum RobotTypeID { InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType };
+	enum RobotTypeID { InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType, AllRobotTypes };
 
 	typedef std::pair<robotArmMode, RobotTypeID> robotType;
 	typedef std::pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets different handling, see is spec. Its not fully supported here
@@ -167,7 +167,7 @@ namespace RobotArtists {
 		void setWristRotate(int a);
 		void setGripper(int distance);
 
-		void oneTimeSetup();
+		static void oneTimeSetup();
 
 		bool inRange(robotArmJointType type, int value);
 
@@ -196,7 +196,7 @@ namespace RobotArtists {
 		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr;
 		int deltaDefault = 255;
 
-		void set(SpecificJoint type, int min, int max, int defaultvalue);
+		static void set(SpecificJoint type, int min, int max, int defaultvalue);
 		robotType typeOfRobot;// required
 		void virtfunction() {};
 

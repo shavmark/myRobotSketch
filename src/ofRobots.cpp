@@ -23,15 +23,16 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
-	void ofRobotSerial::waitForSerial() {
-		for (int i = 0; 1; ++i) {
-			ofRobotTrace() << "check serial port (try #) = " << i << " for " << getName() << std::endl;
+	bool ofRobotSerial::waitForSerial(int retries) {
+		for (int i = 0; i < retries; ++i) {
+			ofRobotTrace() << "check serial data (try #/) = " << i << "/" << retries << std::endl;
 			if (available() > 0) {
 				ofRobotTrace() << "data found" << std::endl;
-				return;
+				return true;
 			}
-			ofSleepMillis(500);
+			ofSleepMillis(1000);
 		}
+		return false;
 	}
 
 	// echo, ignoring null bytes
@@ -174,33 +175,35 @@ namespace RobotArtists {
 	}
 
 
-	robotType ofRobotSerial::waitForRobot() {
-		ofRobotTrace() << "wait for mr robot ... aka " << getName() << std::endl;
-
-		waitForSerial();
+	robotType ofRobotSerial::waitForRobot(int retries) {
+		ofRobotTrace() << "wait for mr robot ... aka " << std::endl;
 
 		robotType type = createUndefinedRobotType();
-		uint8_t bytes[31];
 
-		int readin = readBytesInOneShot(bytes, 5);
-		if (readin == 5) {
-			type = ArmIDResponsePacket(bytes);
-			if (type.first == IKM_NOT_DEFINED) {
-				ofRobotTrace(ErrorLog) << "invalid robot type" << std::endl;
+		if (waitForSerial(retries)) {
+			// somethis is out there, see if we can ID it
+			uint8_t bytes[31];
+
+			int readin = readBytesInOneShot(bytes, 5);
+			if (readin == 5) {
+				type = ArmIDResponsePacket(bytes);
+				if (type.first == IKM_NOT_DEFINED) {
+					ofRobotTrace(ErrorLog) << "invalid robot type" << std::endl;
+					return type;
+				}
+			}
+			else {
+				bytes[readin] = 0;
+				uint16_t i = *bytes;
+				ofRobotTrace(ErrorLog) << "invalid robot sign on:" << i << std::endl;
 				return type;
 			}
-		}
-		else {
-			bytes[readin] = 0;
-			uint16_t i = *bytes;
-			ofRobotTrace(ErrorLog) << "invalid robot sign on:" << i << std::endl;
-			return type;
-		}
 
-		// get sign on echo from device
-		readin = readBytesInOneShot(bytes, 30);
-		bytes[readin] = 0;
-		ofRobotTrace() << bytes << std::endl;
+			// get sign on echo from device
+			readin = readBytesInOneShot(bytes, 30);
+			bytes[readin] = 0;
+			ofRobotTrace() << bytes << std::endl;
+		}
 		return type;
 	}
 
@@ -337,16 +340,14 @@ namespace RobotArtists {
 		setGripper(ofRandom(255));
 		setLowLevelCommand(NoArmCommand);
 		setDelta(255);
-		send(&robot->serial);
-		//reset();
-		return;
-		setX(300); // absolution position vs. percentages
-		setY(150);
-		setZ(150);
+		setX(100); // absolution position vs. percentages
+		setY(100);
+		setZ(100);
 		setWristAngle(30);
 		setWristRotate(120);
 		setGripper(0);
 		setButton();
+		send(&robot->serial);
 	}
 
 
@@ -354,7 +355,7 @@ namespace RobotArtists {
 		this->robot = robot;
 		if (robot) {
 			//typedef pair<robotType, robotArmJointType> SpecificJoint
-			setUserDefinedRanges(SpecificJoint(robot->getType(), X), robot->userDefinedRanges);
+			setUserDefinedRanges(SpecificJoint(robot->type, X), robot->userDefinedRanges);
 		}
 	}
 	void ofRobotCommands::reset() { // setup can be ignored for a reset is not required
@@ -478,42 +479,9 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobot::setup(int port) {
-
-		serial.listDevices(); // let viewer see thats out there
-
-		// support multiple robots
-
-		serial.setName(getName());
-
-		if (!serial.setup(port, 38400)) {
-			ofRobotTrace(FatalErrorLog) << "robot setup complete" << std::endl;
-			return;
-		}
-
- 	    // start with default mode
-		uint64_t t1 = ofGetElapsedTimeMillis();
-		robotType defaultType;
-		if (!robotTypeIsError(defaultType = serial.waitForRobot())) {
-			ofRobotTrace() << "robot setup complete" << std::endl;
-		}
-		else {
-			ofRobotTrace(FatalErrorLog) << "could not sign on " << std::endl;
-			return;
-		}
-
-		uint64_t t2 = ofGetElapsedTimeMillis();
-		int gone = t2 - t1;
-		ofRobotTrace() << "install duration in milliseconds " << gone << std::endl;
-
-		ofRobotTrace() << "use IKM_CYLINDRICAL" << std::endl;
-		type = robotType(IKM_CYLINDRICAL, defaultType.second);
+	void ofRobot::setup() {
 
 		commands = make_shared<ofRobotCommands>(this);
-
-		// do one time setup
-		RobotJoints jv(data, type);
-		jv.oneTimeSetup(); // do one time setup of static data
 
 	}
 	void ofRobot::update() {
@@ -532,6 +500,89 @@ namespace RobotArtists {
 		if (commands) {
 			commands->draw();
 		}
+	}
+	shared_ptr<ofRobot> ofRobotFamly::getRobot(int index, RobotTypeID id) {
+		ofRobotTrace() << "getRobot" << std::endl;
+		int count = 0;
+		for (int i = 0; i < robots.size(); ++i) {
+			if (id == AllRobotTypes || id == robots[i]->getTypeID()) {
+				if (count == index) {
+					return robots[i];
+				}
+				++count;
+			}
+		}
+		return nullptr;
+	}
+	void ofRobotFamly::update() {
+		ofRobotTrace() << "update robots" << std::endl;
+		for (const auto robot : robots) {
+			if (idToUse == AllRobotTypes || idToUse == robot->getTypeID()) {
+				robot->update();
+			}
+		}
+	}
+
+	void ofRobotFamly::draw() {
+		ofRobotTrace() << "draw robots" << std::endl;
+		for (const auto robot : robots) {
+			if (idToUse == AllRobotTypes || idToUse == robot->getTypeID()) {
+				robot->draw();
+			}
+		}
+	}
+
+	void ofRobotFamly::setup() {
+
+		// do one time setup
+		RobotJoints::oneTimeSetup(); // do one time setup of static data
+
+		ofRobotSerial serial;
+		serial.listDevices(); // let viewer see thats out there
+
+		for (auto&device : serial.getDevices()) {
+			if (device.getDeviceID() == 0) {
+				continue;//bugbug skipping com1, not sure whats on it
+			}
+			ofLogNotice("FindAllRobots") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
+			if (!serial.setup(device.getDeviceName(), 38400)) {
+				ofRobotTrace(FatalErrorLog) << "FindAllRobots" << std::endl;
+				return;
+			}
+			// port found, see what may be on it
+			// start with default mode
+			uint64_t t1 = ofGetElapsedTimeMillis();
+			robotType robotType;
+			if (!robotTypeIsError(robotType = serial.waitForRobot(25))) {
+				uint64_t t2 = ofGetElapsedTimeMillis();
+				int gone = t2 - t1;
+
+				// one of InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType 
+				std::ostringstream name;
+				switch (robotType.second) {
+				case InterbotiXPhantomXReactorArm:
+					// add robot here
+					name << "Reactor " << device.getDeviceID();
+					break;
+				case InterbotiXPhantomXPincherArm:
+					name << "Pincher " << device.getDeviceID();
+					break;
+				case unknownRobotType:
+					ofRobotTrace() << "unknown robot type " << std::endl;
+					return;
+				}
+				shared_ptr<ofRobot> robot = make_shared<ofRobot>(name.str(), robotType, serial);
+				if (robot) {
+					robot->setup();
+					robots.push_back(robot);
+					ofRobotTrace() << "install duration in milliseconds " << gone << " for " << name.str() << std::endl;
+				}
+			}
+			else {
+				ofRobotTrace() << "no robot at " << device.getDeviceName() << std::endl;
+			}
+		}
+
 	}
 
 }
