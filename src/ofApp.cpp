@@ -19,7 +19,7 @@ void ofApp::update() {
 	family.update();
 	shared_ptr<ofRobot> robot = family.getRobot(0, InterbotiXPhantomXPincherArm); // work with first pincher found
 	if (robot) {
-		robot->commands->add(ofRobotCommand::LowLevelTest);//bugbug data is too bug, just testing getting data around
+		robot->commands->add(ofRobotCommand::HighLevelTest);//bugbug data is too bug, just testing getting data around
 	}
 
 	//if (robotPincher.commands) {

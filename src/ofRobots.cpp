@@ -311,7 +311,7 @@ namespace RobotArtists {
 	}
 
 	void ofRobotCommands::sanityTestHighLevel() {
-		TraceBaseClass() << "high level sanityTest" << std::endl;
+		ofRobotTrace() << "high level sanityTest" << std::endl;
 		reset();
 
 		// add one command with main points/states using various techniques
@@ -320,11 +320,13 @@ namespace RobotArtists {
 		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f)));// need to be percents!!
 		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f)));// need to be percents!!
 
+		add(cmd);
+
 		// add a new command, either way works
 		add(ofRobotCommand(1000)); // sleep
 
 		setLowLevelCommand(NoArmCommand);
-		setDelta(255);
+		setDelta();
 		setButton();
 	}
 	void ofRobotCommands::send(ofRobotSerial* serial) {
@@ -436,7 +438,7 @@ namespace RobotArtists {
 			while (it != cmdVector.end()) {
 				switch (it->commandType()) {
 				case ofRobotCommand::HighLevelTest:
-					sanityTestHighLevel(); // populates cmdVector
+					it->sanityTestHighLevel(); // populates cmdVector
 					break;
 				case ofRobotCommand::LowLevelTest:
 					sanityTestLowLevel();
