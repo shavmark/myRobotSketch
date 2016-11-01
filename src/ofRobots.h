@@ -183,9 +183,12 @@ namespace RobotArtists {
 		
 		friend class ofRobotCommands;
 
-		ofRobot(const string& name, robotType type, const ofRobotSerial& serial) { this->name = name;  this->type = type; this->serial = serial; }
+		ofRobot(const string& name, robotType type) { 
+			this->name = name;  
+			this->type = type; 
+		}
 
-		void setup();
+		void setup(int deviceID);
 		void update();
 		void draw();
 		void echo(); // echos positions

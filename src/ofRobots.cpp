@@ -39,7 +39,7 @@ namespace RobotArtists {
 	void ofRobotSerial::echoRawBytes(uint8_t *bytes, int count) {
 		std::stringstream buffer;
 		for (int i = 0; i < count; ++i) {
-			buffer << " bytes[" << i << "] = " << (int)bytes[i]; // echo in one line
+			buffer << " bytes[" << i << "] = " << (int)bytes[i] << std::endl; // echo in one line
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
@@ -213,6 +213,7 @@ namespace RobotArtists {
 		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 		// no need to hurry packets so just want the minimum amount no matter what
 		ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
+		echoRawBytes(data, count);
 		int sent = writeBytes(data, count);
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;
@@ -479,9 +480,12 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobot::setup() {
-
+	void ofRobot::setup(int deviceID) {
 		commands = make_shared<ofRobotCommands>(this);
+
+		if (!serial.setup(deviceID, 38400)) {
+			ofRobotTrace(FatalErrorLog) << "serial fails to setup" << std::endl;
+		}
 
 	}
 	void ofRobot::update() {
@@ -545,7 +549,8 @@ namespace RobotArtists {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
 			ofLogNotice("FindAllRobots") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
-			if (!serial.setup(device.getDeviceName(), 38400)) {
+			ofRobotSerial testSerial;// need to close this and free port once set up
+			if (!testSerial.setup(device.getDeviceName(), 38400)) {
 				ofRobotTrace(FatalErrorLog) << "FindAllRobots" << std::endl;
 				return;
 			}
@@ -553,7 +558,7 @@ namespace RobotArtists {
 			// start with default mode
 			uint64_t t1 = ofGetElapsedTimeMillis();
 			robotType robotType;
-			if (!robotTypeIsError(robotType = serial.waitForRobot(25))) {
+			if (!robotTypeIsError(robotType = testSerial.waitForRobot(25))) {
 				uint64_t t2 = ofGetElapsedTimeMillis();
 				int gone = t2 - t1;
 
@@ -562,18 +567,19 @@ namespace RobotArtists {
 				switch (robotType.second) {
 				case InterbotiXPhantomXReactorArm:
 					// add robot here
-					name << "Reactor " << device.getDeviceID();
+					name << "Reactor on " << device.getDeviceName();
 					break;
 				case InterbotiXPhantomXPincherArm:
-					name << "Pincher " << device.getDeviceID();
+					name << "Pincher on " << device.getDeviceName();
 					break;
 				case unknownRobotType:
 					ofRobotTrace() << "unknown robot type " << std::endl;
 					return;
 				}
-				shared_ptr<ofRobot> robot = make_shared<ofRobot>(name.str(), robotType, serial);
+				testSerial.close();
+				shared_ptr<ofRobot> robot = make_shared<ofRobot>(name.str(), robotType);
 				if (robot) {
-					robot->setup();
+					robot->setup(device.getDeviceID());
 					robots.push_back(robot);
 					ofRobotTrace() << "install duration in milliseconds " << gone << " for " << name.str() << std::endl;
 				}
