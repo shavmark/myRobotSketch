@@ -92,12 +92,12 @@ namespace RobotArtists {
 		void echoRawData();
 		void set(uint16_t offset, uint8_t b);
 		void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
-		void setDelta(RobotArmDelta value = 128) { set(deltaValBytesOffset, value); }
+		void setDelta(RobotArmDelta value = 128) { if (value > 254) value = 254; set(deltaValBytesOffset, value); }
 		void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 
 		void setLowLevelX(int x, int magicNumer) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
 		void setLowLevelY(int y) { set(yHighByteOffset, yLowByteOffset, y); }
-		void setLowLevelZ(int z) { set(zHighByteOffset, zLowByteOffset, z); }
+		void setLowLevelZ(int z) { if (z > 250) z = 250; set(zHighByteOffset, zLowByteOffset, z); }
 		void setLowLevelWristAngle(int a) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a + 90); };
 		void setLowLevelWristRotate(int a) { set(wristRotateHighByteOffset, wristRotateLowByteOffset, a); };
 		void setLowLevelGripper(int distance) { set(gripperHighByteOffset, gripperLowByteOffset, distance); };

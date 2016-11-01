@@ -338,16 +338,20 @@ namespace RobotArtists {
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 	void ofRobotCommands::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
-		setGripper(ofRandom(255));
+		reset();
 		setLowLevelCommand(NoArmCommand);
-		setDelta(255);
+		setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
-		setZ(100);
+		setZ(50);
 		setWristAngle(30);
 		setWristRotate(120);
 		setGripper(0);
 		setButton();
+		send(&robot->serial);
+		setGripper(100);
+		send(&robot->serial);
+		setGripper(511);
 		send(&robot->serial);
 	}
 
@@ -482,7 +486,8 @@ namespace RobotArtists {
 
 	void ofRobot::setup(int deviceID) {
 		commands = make_shared<ofRobotCommands>(this);
-
+		memset(data, 0, sizeof(data));
+		
 		if (!serial.setup(deviceID, 38400)) {
 			ofRobotTrace(FatalErrorLog) << "serial fails to setup" << std::endl;
 		}
