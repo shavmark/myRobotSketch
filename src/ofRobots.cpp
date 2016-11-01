@@ -339,19 +339,24 @@ namespace RobotArtists {
 	void ofRobotCommands::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
 		reset();
-		setLowLevelCommand(NoArmCommand);
+		send(&robot->serial);
 		setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
-		setZ(50);
+		//setZ(50);
 		setWristAngle(30);
-		setWristRotate(120);
-		setGripper(0);
+		//setWristRotate(120);
+		setGripper(10);
 		setButton();
 		send(&robot->serial);
 		setGripper(100);
 		send(&robot->serial);
 		setGripper(511);
+		send(&robot->serial);
+		sleep(1000);
+		setX(200);
+		send(&robot->serial);
+		setX(0);
 		send(&robot->serial);
 	}
 

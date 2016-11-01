@@ -172,8 +172,8 @@ namespace RobotArtists {
 
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXPincherArm), wristRotate), 0, 1023, 512);
 				set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXPincherArm), wristRotate), 0, 1023, 512);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXPincherArm), Gripper), 0, 512, 512);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXPincherArm), Gripper), 0, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, InterbotiXPhantomXPincherArm), Gripper), 10, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, InterbotiXPhantomXPincherArm), Gripper), 10, 512, 512);
 
 
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXPincherArm), X), 0, 1023, 512);
@@ -191,8 +191,8 @@ namespace RobotArtists {
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXPincherArm), wristRotate), 0, 1023, 512);
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXPincherArm), wristRotate), 0, 1023, 512);
 
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXPincherArm), Gripper), 0, 512, 512);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXPincherArm), Gripper), 0, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, InterbotiXPhantomXPincherArm), Gripper), 10, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, InterbotiXPhantomXPincherArm), Gripper), 10, 512, 512);
 
 		// mark end of list for debugging
 		set(SpecificJoint(createUndefinedRobotType(), JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
