@@ -23,8 +23,6 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
-	inline uint8_t maxDelta() { return 254; }
-
 	class ofRobotSerial : public ofSerial {
 	public:
 		ofRobotSerial() {}
@@ -87,19 +85,19 @@ namespace RobotArtists {
 
 	class RobotCommandData {
 	public:
-		typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotArmCommandData;
+		typedef std::tuple<ofRobotPosition, ofRobotState, uint8_t> robotArmCommandData;
 
 		RobotCommandData(const robotArmCommandData& data) { this->data = data; }
 		RobotCommandData(float float1 = 0.0f) {  this->float1 = float1; }
 		RobotCommandData(int int1 = 0) { this->int1 = int1; }
 	
-		RobotCommandData(ofRobotPosition pos, ofRobotState state, RobotArmDelta delta) {
+		RobotCommandData(ofRobotPosition pos, ofRobotState state, uint8_t delta) {
 			data = robotArmCommandData(pos, state, delta);
 		}
 
 		ofRobotPosition& getPoint() { return std::get<0>(data); }
 		ofRobotState& getState() { return std::get<1>(data); }
-		RobotArmDelta& getDelta() { return std::get<2>(data); }
+		uint8_t& getDelta() { return std::get<2>(data); }
 
 		robotArmCommandData data;
 		
@@ -111,7 +109,7 @@ namespace RobotArtists {
 	class ofRobotCommand {
 	public:
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
-		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta delta = maxDelta()) {
+		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, uint8_t delta = RobotBaseClass::maxDelta()) {
 			add(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent, delta);
 		}
 		// object based
@@ -133,10 +131,10 @@ namespace RobotArtists {
 		bool OKToDelete() { return deleteWhenDone; }
 
 		void echo();
-	    void add(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta sleep = RobotJointsState::slowestDelta) {
+	    void add(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, uint8_t sleep = RobotBaseClass::minDelta()) {
 			add(RobotCommandData(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep));
 		}
-		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), RobotArmDelta delta = RobotJointsState::slowestDelta) {
+		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), uint8_t delta = RobotState::minDelta()) {
 			add(RobotCommandData(position, state, delta));
 		}
 
@@ -149,9 +147,21 @@ namespace RobotArtists {
 		
 	};
 
+	//bugbug work on naming, "of" vs. "Trossen" or maybe tr and of?
+	class ofRobotJoints : public RobotJoints {
+	public:
+		ofRobotJoints(uint8_t *data) : RobotJoints(data) {}
+		ofRobotJoints() : RobotJoints(nullptr) {}
+		ofRobotJoints(const robotType& typeOfRobot) : RobotJoints(nullptr, typeOfRobot) { };
+		ofRobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJoints(data, typeOfRobot) {  }
+
+		virtual void echo() {};
+		void sendToRobot(ofRobotSerial* serial);
+	};
+
 	class ofRobot;
 
-	class ofRobotCommands : protected RobotJoints {
+	class ofRobotCommands : protected ofRobotJoints {
 	public:
 
 	    // a robot is required for life of this object
@@ -198,7 +208,6 @@ namespace RobotArtists {
 	private:
 		vector<RobotCommandData> results; // results of executing commands
 		vector<ofRobotCommand> vectorOfRobotCommands; // one more more points
-		void sendToRobot(ofRobotSerial* serial);
 		void testdata();
 		ofRobotPosition currentPosition; // default to 0,0,0
 		stack<ofRobotPosition> stack; // bugbug once working likely to include colors, brush size etc
@@ -237,7 +246,7 @@ namespace RobotArtists {
 
 	private:
 		ofRobotSerial serial; // talking to the robots
-		uint8_t data[RobotJointsState::count];// one data instance per robot
+		uint8_t data[RobotState::count];// one data instance per robot
 		robotType type;
 		bool pause = false;
 		string name;

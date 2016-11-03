@@ -21,9 +21,71 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
-	RobotValueRanges RobotJoints::hardwareRanges;
+	RobotValueRanges RobotJoints::hardwareRanges; // just need to set once
 
-	int RobotJointsState::get(uint16_t high, uint16_t low) {
+	void RobotJoints::reportServoRegister(unsigned char command, int id, int registerNumber, int length) {
+		// from arduino code:  
+		//else if (armlink.ext == 0x81) {  //129
+			//ReportServoRegister(armlink.ext, armlink.Xaxis, armlink.Yaxis, armlink.Zaxis);
+		//}
+		/*
+		int registerValue = ax12GetRegister(id, registerNumber, length);
+
+
+  unsigned char registerHigh;
+  unsigned char registerLow;
+  registerHigh = ((registerValue & 0xFF00) >> 8);
+  registerLow = (registerValue & 0x00FF);
+  Serial.write(0xff);
+  Serial.write(command);
+  Serial.write(registerHigh);
+  Serial.write(registerLow);
+  Serial.write((unsigned char)(255 - (command+registerHigh+registerLow)%256));
+*/
+		// set
+		//uint8_t registerHigh;
+		//uint8_t registerLow;
+	}
+	void RobotJoints::setServoRegister(unsigned char command, int id, int registerNumber, int length, int data) {
+		 //else if (armlink.ext == 0x82) {  //130
+			// SetServoRegister(armlink.ext, armlink.Xaxis, armlink.Yaxis, armlink.Zaxis, armlink.W_ang);
+		 //}
+		/*
+		void SetServoRegister(unsigned char command, int id, int registerNumber, int length, int data)
+{
+
+  unsigned char registerHigh;
+  unsigned char registerLow;
+  
+  if(length == 1)
+  {
+    ax12SetRegister(id, registerNumber, data);
+  }
+  else if (length == 2)
+  {
+    ax12SetRegister2(id, registerNumber, data);
+  }
+  
+
+
+  registerHigh = ((data & 0xFF00) >> 8);
+  registerLow = (data & 0x00FF);
+  Serial.write(0xff);
+  Serial.write(command); // should this be an error bit?
+  Serial.write(registerHigh);
+  Serial.write(registerLow);
+  Serial.write((unsigned char)(255 - (command+registerHigh+registerLow)%256));
+
+}
+
+*/
+		// write
+		//uint8_t registerHigh;
+		//uint8_t registerLow;
+	}
+
+
+	int RobotState::get(uint16_t high, uint16_t low) {
 		int number = -1;
 		if (data) {
 			int number = bytes_to_u16(data[high], data[low]);
@@ -31,7 +93,7 @@ namespace RobotArtists {
 		return number;
 	}
 
-	void RobotJointsState::set(uint16_t high, uint16_t low, int val) {
+	void RobotState::set(uint16_t high, uint16_t low, int val) {
 		ofRobotTrace() << "set " << val << std::endl;
 		set(high, highByte(val));
 		set(low, lowByte(val));
@@ -93,7 +155,7 @@ namespace RobotArtists {
 		}
 	}
 	// return core data making sure its set properly
-	uint8_t *RobotJointsState::getData() {
+	uint8_t *RobotState::getData() {
 		set(headerByteOffset, 255);
 		getChkSum();
 		return data;
@@ -201,7 +263,7 @@ namespace RobotArtists {
 
 	}
 
-	robotLowLevelCommand RobotJointsState::getStartCommand(robotType type) {
+	robotLowLevelCommand RobotState::getStartCommand(robotType type) {
 		if (type.first == IKM_IK3D_CARTESIAN) {
 			return setArm3DCartesianStraightWristAndGoHome; // bugbug support all types once the basics are working
 		}
@@ -216,7 +278,7 @@ namespace RobotArtists {
 		}
 		return unKnownCommand;//bugbug support all types once the basics are working
 	}
-	void RobotJointsState::set(uint16_t offset, uint8_t b) {
+	void RobotState::set(uint16_t offset, uint8_t b) {
 		ofRobotTrace() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
 		if (data) {
 			data[offset] = b;
@@ -231,7 +293,7 @@ namespace RobotArtists {
 		setWristAngle(getDefaultValue(wristAngle));
 		setWristRotate(getDefaultValue(wristRotate));
 		setGripper(getDefaultValue(Gripper));
-		setDelta(getDeltaDefault());
+		setDelta();
 		setLowLevelCommand(NoArmCommand);
 		setButton();
 	}
@@ -242,7 +304,7 @@ namespace RobotArtists {
 		return typeOfRobot;
 	}
 
-	void RobotJointsState::echoRawData() {
+	void RobotState::echoRawData() {
 		if (!data) {
 			ofRobotTrace() << "no data to echo" << std::endl;
 			return;
@@ -267,7 +329,7 @@ namespace RobotArtists {
 			ECHO(checksum)
 	}
 
-	uint8_t RobotJointsState::getChkSum() {
+	uint8_t RobotState::getChkSum() {
 		if (data) {
 			uint16_t sum = 0;
 			for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {

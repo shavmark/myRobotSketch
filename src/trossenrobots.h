@@ -36,6 +36,7 @@ namespace RobotArtists {
 
 	// from firmware IKM_BACKHOE not 100% supported
 	enum robotArmMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED };
+
 	enum robotArmJointType { X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined };
 	// only 1 supported
 	enum RobotTypeID { InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType, AllRobotTypes };
@@ -63,7 +64,6 @@ namespace RobotArtists {
 		unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
 		setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
 	};
-	typedef uint8_t RobotArmDelta;
 
 
 	// tracing helper
@@ -73,26 +73,33 @@ namespace RobotArtists {
 		return buffer.str();
 	}
 
+	// initial attempt at a generic robot definition, bugbug once understood move to the right object location
+	class RobotBaseClass {
+	public:
+		static uint8_t minDelta() { return 0; }
+		static uint8_t maxDelta() { return 254; }
+
+	};
+
 	// pure virtual base class, low level data without range checking so only use derived classes
-	class RobotJointsState {
+	// the Interbotix software uses a block of memory to manage a robot arm.  This class manages that block of memory. its a pure virtual class as its too
+	// low level, missing things like range checking
+	class RobotState : public RobotBaseClass {
 	public:
 
 		static const uint16_t count = 17;
-		static const RobotArmDelta fastestDelta = 0;
-		static const RobotArmDelta slowestDelta = 255;
-
 		robotLowLevelCommand getStartCommand(robotType type);
 
 	protected:
 
-		RobotJointsState(uint8_t *data) { setData(data); }
+		RobotState(uint8_t *data) { setData(data); }
 
 		virtual void virtfunction() = 0;
 		void setData(uint8_t *data) { this->data = data; }
 		void echoRawData();
 		void set(uint16_t offset, uint8_t b);
 		void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
-		void setDelta(RobotArmDelta value = 128) { if (value > 254) value = 254; set(deltaValBytesOffset, value); }
+		void setDelta(uint8_t value = 128) { if (value > maxDelta()) value = maxDelta(); set(deltaValBytesOffset, value); }
 		void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 
 		void setLowLevelX(int x, int magicNumer) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
@@ -139,6 +146,7 @@ namespace RobotArtists {
 		uint8_t *data = nullptr; // data to send
 	};
 
+
 	class RobotValueRanges {
 	public:
 
@@ -148,13 +156,13 @@ namespace RobotArtists {
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
-	class RobotJoints : public RobotJointsState {
+	class RobotJoints : public RobotState {
 	public:
 		// constructor required
-		RobotJoints() : RobotJointsState(nullptr) {}
-		RobotJoints(const robotType& typeOfRobot) : RobotJointsState(nullptr) { this->typeOfRobot = typeOfRobot; };
-		RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJointsState(data) { this->typeOfRobot = typeOfRobot; }
-		RobotJoints(uint8_t* data) : RobotJointsState(data) { typeOfRobot = createUndefinedRobotType(); }
+		RobotJoints() : RobotState(nullptr) {}
+		RobotJoints(const robotType& typeOfRobot) : RobotState(nullptr) { this->typeOfRobot = typeOfRobot; };
+		RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotState(data) { this->typeOfRobot = typeOfRobot; }
+		RobotJoints(uint8_t* data) : RobotState(data) { typeOfRobot = createUndefinedRobotType(); }
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);
@@ -167,6 +175,9 @@ namespace RobotArtists {
 		void setWristRotate(int a);
 		void setGripper(int distance);
 
+		void reportServoRegister(unsigned char command, int id, int registerNumber, int length);
+		void setServoRegister(unsigned char command, int id, int registerNumber, int length, int data);
+
 		static void oneTimeSetup();
 
 		bool inRange(robotArmJointType type, int value);
@@ -177,7 +188,6 @@ namespace RobotArtists {
 		int getMin(robotArmJointType type);
 		int getMax(robotArmJointType type);
 		int getMid(robotArmJointType type);
-		int getDeltaDefault() { return deltaDefault; }
 		bool isCartesion() { return (typeOfRobot.first == IKM_IK3D_CARTESIAN || typeOfRobot.first == IKM_IK3D_CARTESIAN_90); }
 		bool isCylindrical() { return (typeOfRobot.first == IKM_CYLINDRICAL || typeOfRobot.first == IKM_CYLINDRICAL_90); }
 		int addMagicNumber() { return isCylindrical() ? 0 : 512; }
@@ -194,12 +204,15 @@ namespace RobotArtists {
 		// user defined ranges
 		static RobotValueRanges hardwareRanges;
 		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr;
-		int deltaDefault = 255;
 
 		static void set(SpecificJoint type, int min, int max, int defaultvalue);
 		robotType typeOfRobot;// required
 		void virtfunction() {};
 
+		uint8_t registerHigh; //bugbug see arduiono code, it uses x,y,z as input, use base class to enforce valid ranges
+		uint8_t registerLow;
+
 	};
+
 
 }

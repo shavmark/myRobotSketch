@@ -338,7 +338,9 @@ namespace RobotArtists {
 			sendData(a);
 		}
 	}
-	void ofRobotCommands::sendToRobot(ofRobotSerial* serial) {
+
+
+	void ofRobotJoints::sendToRobot(ofRobotSerial* serial) {
 		echo();
 		if (serial) {
 			serial->write(getData(), count);
@@ -371,7 +373,7 @@ namespace RobotArtists {
 	}
 
 
-	ofRobotCommands::ofRobotCommands(ofRobot *robot) :RobotJoints(robot->data, robot->type) {
+	ofRobotCommands::ofRobotCommands(ofRobot *robot) :ofRobotJoints(robot->data, robot->type) {
 		this->robot = robot;
 		if (robot) {
 			//typedef pair<robotType, robotArmJointType> SpecificJoint
@@ -399,7 +401,7 @@ namespace RobotArtists {
 			float newX = r * cos(angle);
 			float newY = r * sin(angle);
 			ofRobotTrace() << newX << " " << newY << std::endl; 
-			ofRobotCommand cmd(RobotCommandData(ofRobotPosition(newX, newY), ofRobotState(), RobotJointsState::slowestDelta));
+			ofRobotCommand cmd(RobotCommandData(ofRobotPosition(newX, newY), ofRobotState(), RobotBaseClass::minDelta()));
 			add(cmd);
 			//add(ofRobotCommand(newX, newY)); // need to be percents!! bugbug make this a json player, then the creators of json are the engine
 		}
