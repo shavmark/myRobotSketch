@@ -23,6 +23,8 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
+	inline uint8_t maxDelta() { return 254; }
+
 	class ofRobotSerial : public ofSerial {
 	public:
 		ofRobotSerial() {}
@@ -58,10 +60,10 @@ namespace RobotArtists {
 #define NoRobotValue FLT_MAX
 		ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
 		void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
-		virtual void echo() const;
-		float getX() const { return x; }
-		float getY() const { return y; }
-		float getZ() const { return z; } // want to make sure we do not access data directly so we can range check
+		virtual void echo();
+		float getX() { return x; }
+		float getY() { return y; }
+		float getZ() { return z; } // want to make sure we do not access data directly so we can range check
 
 		bool set[3];
 
@@ -73,57 +75,78 @@ namespace RobotArtists {
 	public:
 		ofRobotState(float wristAngle = FLT_MAX, float wristRotate = FLT_MAX, float gripper = FLT_MAX) :ofRobotPosition(wristAngle, wristRotate, gripper) {  }
 
-		float getWristAngle()const { return getPtr()[0]; }
-		float getWristRotation() const { return getPtr()[1]; }
-		float getGripper() const { return getPtr()[2]; }
+		float getWristAngle() { return getPtr()[0]; }
+		float getWristRotation()  { return getPtr()[1]; }
+		float getGripper()  { return getPtr()[2]; }
 
-		void echo() const;
+		void echo();
 
 	};
 
+	enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, HighLevelTest, UserDefinded, Translate, Sleep, Circle };// command and basic commands.  Derive object or create functions to create more commands
+
+	class RobotCommandData {
+	public:
+		typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotArmCommandData;
+
+		RobotCommandData(const robotArmCommandData& data) { this->data = data; }
+		RobotCommandData(float float1 = 0.0f) {  this->float1 = float1; }
+		RobotCommandData(int int1 = 0) { this->int1 = int1; }
+	
+		RobotCommandData(ofRobotPosition pos, ofRobotState state, RobotArmDelta delta) {
+			data = robotArmCommandData(pos, state, delta);
+		}
+
+		ofRobotPosition& getPoint() { return std::get<0>(data); }
+		ofRobotState& getState() { return std::get<1>(data); }
+		RobotArmDelta& getDelta() { return std::get<2>(data); }
+
+		robotArmCommandData data;
+		
+		float float1;//bugbug abstract out type
+		int   int1;
+
+	};																												//pos, state, delta time 
+
 	class ofRobotCommand {
 	public:
-		//pos, state, sleep 
-		typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotCommandRequest;
-
-		enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, HighLevelTest, UserDefinded, Translate, Sleep, Circle };// command and basic commands.  Derive object or create functions to create more commands
-
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
-		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta delta = 255) {
-			add(setCommand(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent, delta));
-			type = UserDefinded;
+		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta delta = maxDelta()) {
+			add(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent, delta);
 		}
 		// object based
-		ofRobotCommand(const robotCommandRequest&state) {
-			add(state);
-			type = UserDefinded;
+		ofRobotCommand(const RobotCommandData&cmd) {
+			add(cmd);
 		}
-		ofRobotCommand(RobotCommand command) { type = command; }
-		ofRobotCommand(RobotCommand command, float f) { type = command; floatdata = f; }
-
-		void add(const robotCommandRequest& data) { vectorData.push_back(data); }
+		ofRobotCommand(const RobotCommand&cmd) {
+			this->cmd = cmd;
+		}
+		ofRobotCommand(const RobotCommand&cmd, int i) {
+			this->cmd = cmd;
+			add(RobotCommandData(i));
+		}
+		void add(const RobotCommandData& data) { vectorOfCommandData.push_back(data); }
 
 		void addSay(const string& say) { voice.add(say); }
 
 		void SetDeleteWhenDone(bool b = true) { deleteWhenDone = b; }
 		bool OKToDelete() { return deleteWhenDone; }
 
-		void echo() const;
-		static robotCommandRequest setCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta sleep = RobotJointsState::slowestDelta) {
-			return robotCommandRequest(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep);
+		void echo();
+	    void add(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, RobotArmDelta sleep = RobotJointsState::slowestDelta) {
+			add(RobotCommandData(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep));
 		}
-		static robotCommandRequest setCommand(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), RobotArmDelta sleep = RobotJointsState::slowestDelta) {
-			return robotCommandRequest(position, state, sleep);
+		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), RobotArmDelta delta = RobotJointsState::slowestDelta) {
+			add(RobotCommandData(position, state, delta));
 		}
-		vector<robotCommandRequest> vectorData;
-		RobotCommand commandType() { return type; }
-		void drawCircle();
-		float getFloatData() { return floatdata; }
+
+		// one command can have mulitiple data or 0 data
+		vector<RobotCommandData> vectorOfCommandData;		
+		RobotCommand cmd= UserDefinded;
 	private:
 		bool deleteWhenDone = true; // false to repeat command per every draw occurance
 		ofRobotVoice voice;
-		RobotCommand type= UserDefinded;
-		float floatdata=0.0f;
+		
 	};
 
 	class ofRobot;
@@ -134,21 +157,27 @@ namespace RobotArtists {
 	    // a robot is required for life of this object
 		ofRobotCommands(ofRobot *robot);
 
-		void echo() const; // echos positions
+		void echo(); 
 
-		void send(ofRobotSerial* serial);
-
+		void sendData(RobotCommandData&data);
+		void sendResults(vector<RobotCommandData>& results);
+		void sendResults() {
+			sendResults(results);
+		}
 		// put command data in a known state
 		void reset();
 
 		// move or draw based on the value in moveOrDraw
 		virtual void draw();
+		void update();
 		void setFillMode(int mode) { fillmode = mode; }
 		void add(const ofRobotCommand& cmd);
+		void add(RobotCommandData&data) { results.push_back(data); }
 		bool moveOrDraw = true; // false means draw
 		int fillmode = 0;
 		void sleep(int millisSleep) const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
-
+		void sanityTestHighLevel();
+		void drawCircle(float r);
 	protected:
 		void translate(float x, float y) {currentPosition.setPercents(x, y);}
 		void pushMatrix() { stack.push(currentPosition); }
@@ -163,18 +192,21 @@ namespace RobotArtists {
 		}
 		void setPoint(ofRobotPosition pt);
 		void setState(ofRobotState pt);
-		vector<ofRobotCommand> cmdVector; // one more more points
+		
 		ofRobot *robot = nullptr; // owner
 
 	private:
+		vector<RobotCommandData> results; // results of executing commands
+		vector<ofRobotCommand> vectorOfRobotCommands; // one more more points
+		void sendToRobot(ofRobotSerial* serial);
 		void testdata();
 		ofRobotPosition currentPosition; // default to 0,0,0
 		stack<ofRobotPosition> stack; // bugbug once working likely to include colors, brush size etc
 									  // built in commands
 		void sanityTestLowLevel();
-		void sanityTestHighLevel();
+
 		void move(const ofRobotPosition& pos);
-		void setTuple(ofRobotCommand::robotCommandRequest request);
+		void set(RobotCommandData& request);
 	};
 
 	// the robot itself

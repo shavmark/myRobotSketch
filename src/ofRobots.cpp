@@ -222,12 +222,12 @@ namespace RobotArtists {
 		readPose(); // how often are two sent?
 
 	}
-	void ofRobotState::echo() const {
+	void ofRobotState::echo() {
 		ofRobotTrace() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
 		ofRobotTrace() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
 		ofRobotTrace() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
 	}
-	void ofRobotPosition::echo() const {
+	void ofRobotPosition::echo()  {
 		ofRobotTrace() << "x=" << (set[0] ? ofToString(x) : "<not set>") << std::endl;
 		ofRobotTrace() << "y=" << (set[1] ? ofToString(y) : "<not set>") << std::endl;
 		ofRobotTrace() << "z=" << (set[2] ? ofToString(z) : "<not set>") << std::endl;
@@ -264,8 +264,8 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobotCommands::echo() const {
-		for (const auto& cmd : cmdVector) {
+	void ofRobotCommands::echo()  {
+		for ( auto& cmd : vectorOfRobotCommands) {
 			cmd.echo();
 		}
 	}
@@ -307,30 +307,38 @@ namespace RobotArtists {
 
 	// add ranges checking
 	void ofRobotCommands::add(const ofRobotCommand& cmd) {
-		cmdVector.push_back(cmd);
+		vectorOfRobotCommands.push_back(cmd);
 	}
 
 	void ofRobotCommands::sanityTestHighLevel() {
 		ofRobotTrace() << "high level sanityTest" << std::endl;
 		reset();
-
-		// add one command with main points/states using various techniques
 		ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
-		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f)));// need to be percents!!
-		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f)));// need to be percents!!
-		cmd.add(ofRobotCommand::setCommand(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f)));// need to be percents!!
+		// add one command with main points/states using various techniques
+		cmd.add(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f));// need to be percents!!
+		cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f));// need to be percents!!
+		cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f));// need to be percents!!
+		//typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotCommandRequest;
+
+		// add a new command, either way works
+		add(ofRobotCommand(Sleep, 1000)); // sleep
 
 		add(cmd);
 
-		// add a new command, either way works
-		add(ofRobotCommand(1000)); // sleep
-
-		setLowLevelCommand(NoArmCommand);
-		setDelta();
-		setButton();
+		///setLowLevelCommand(NoArmCommand);
+		//setDelta();
+		//setButton();
 	}
-	void ofRobotCommands::send(ofRobotSerial* serial) {
-
+	void ofRobotCommands::sendData(RobotCommandData&data) {
+		set(data);
+		sendToRobot(&robot->serial);
+	}
+	void ofRobotCommands::sendResults(vector<RobotCommandData>& results) {
+		for (auto& a : results) {
+			sendData(a);
+		}
+	}
+	void ofRobotCommands::sendToRobot(ofRobotSerial* serial) {
 		echo();
 		if (serial) {
 			serial->write(getData(), count);
@@ -341,7 +349,7 @@ namespace RobotArtists {
 	void ofRobotCommands::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
 		reset();
-		send(&robot->serial);
+		sendToRobot(&robot->serial);
 		setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
@@ -350,16 +358,16 @@ namespace RobotArtists {
 		//setWristRotate(120);
 		setGripper(10);
 		setButton();
-		send(&robot->serial);
+		sendToRobot(&robot->serial);
 		setGripper(100);
-		send(&robot->serial);
+		sendToRobot(&robot->serial);
 		setGripper(511);
-		send(&robot->serial);
+		sendToRobot(&robot->serial);
 		sleep(1000);
 		setX(200);
-		send(&robot->serial);
+		sendToRobot(&robot->serial);
 		setX(0);
-		send(&robot->serial);
+		sendToRobot(&robot->serial);
 	}
 
 
@@ -372,9 +380,9 @@ namespace RobotArtists {
 	}
 	void ofRobotCommands::reset() { // setup can be ignored for a reset is not required
 		setStartState();
-		send(&robot->serial); // send the mode, also resets the robot
+		sendToRobot(&robot->serial); // send the mode, also resets the robot
 		setDefaultState();
-		clear(cmdVector);
+		clear(vectorOfRobotCommands);
 	}
 
 	//ofPushMatrix();
@@ -382,16 +390,17 @@ namespace RobotArtists {
 	//ofPopMatrix();
 
 	// draw circle at current positon
-	void ofRobotCommand::drawCircle()
+	void ofRobotCommands::drawCircle(float r)
 	{
 		// do a move like OF does so drawing always starts at current
 		float slice = 2 * M_PI / 10;
 		for (int i = 0; i < 10; i++) {
 			float angle = slice * i;
-			float newX = floatdata * cos(angle);
-			float newY = floatdata * sin(angle);
+			float newX = r * cos(angle);
+			float newY = r * sin(angle);
 			ofRobotTrace() << newX << " " << newY << std::endl; 
-			add(setCommand(ofRobotPosition(newX, newY), RobotJointsState::slowestDelta)); 
+			ofRobotCommand cmd(RobotCommandData(ofRobotPosition(newX, newY), ofRobotState(), RobotJointsState::slowestDelta));
+			add(cmd);
 			//add(ofRobotCommand(newX, newY)); // need to be percents!! bugbug make this a json player, then the creators of json are the engine
 		}
 		int i = 0;
@@ -413,10 +422,10 @@ namespace RobotArtists {
 		pushMatrix();
 		ofRobotPosition newPos = pos;
 		newPos.setPercents(NoRobotValue, NoRobotValue, getMin(Z));
-		send(&robot->serial);
+		sendToRobot(&robot->serial);
 		popMatrix();
 
-		send(&robot->serial); // restore to normal z
+		sendToRobot(&robot->serial); // restore to normal z
 
 	}
 	void ofRobotCommands::testdata() {
@@ -424,58 +433,61 @@ namespace RobotArtists {
 		echoRawData();
 		echo(); // echo object data
 	}
-	void ofRobotCommands::setTuple(ofRobotCommand::robotCommandRequest request) {
-		setPoint(std::get<0>(request));
-		setState(std::get<1>(request));
-		setDelta(std::get<2>(request));
+	void ofRobotCommands::set(RobotCommandData& request) {
+		setPoint(request.getPoint());
+		setState(request.getState());
+		setDelta(request.getDelta());
 	}
 
+	void ofRobotCommands::update() {
+		
+		
+	}
+
+	// drawing occurs here as its tied to the robot directly
 	void ofRobotCommands::draw() {
 
 		if (robot) {
 			
-			vector< ofRobotCommand >::iterator it = cmdVector.begin();
-			while (it != cmdVector.end()) {
-				switch (it->commandType()) {
-				case ofRobotCommand::HighLevelTest:
-					it->sanityTestHighLevel(); // populates cmdVector
+			vector< ofRobotCommand >::iterator it = vectorOfRobotCommands.begin();
+			// for all commands
+			while (it != vectorOfRobotCommands.end()) {
+				clear(results);
+				switch (it->cmd) {
+				case HighLevelTest:
+					sanityTestHighLevel(); 
 					break;
-				case ofRobotCommand::LowLevelTest:
+				case LowLevelTest:
 					sanityTestLowLevel();
-					return; // low level, nothing else to do
-				case ofRobotCommand::Push:
+					break;
+				case UserDefinded:
+					// no processing needed, just send it on
+					sendResults(it->vectorOfCommandData);
+					break;
+				case Circle:
+					for (auto& a : it->vectorOfCommandData) {
+						drawCircle(a.float1); // populates vectorData
+					}
+					break;
+				case Sleep:
+					for (auto& a : it->vectorOfCommandData) {
+						sleep(a.int1); // populates vectorData
+					}
+					break;
+				case Translate:
+					sendResults(it->vectorOfCommandData);
+					break;
+				case Push:
 					pushMatrix();
 					break;
-				case ofRobotCommand::Pop:
+				case Pop:
 					popMatrix();
 					break;
-				case ofRobotCommand::Circle:
-					it->drawCircle(); // populates vectorData
-					break;
-				case ofRobotCommand::Sleep:
-					sleep(it->getFloatData()); // sleep at command level
-					break;
-				case ofRobotCommand::Translate:
-					if (it->vectorData.size() == 0) {
-						ofRobotTrace(ErrorLog) << "ofRobotCommand::Translate requires data" << std::endl;
-					}
-					else {
-						move(std::get<0>(it->vectorData[0])); // Translate requires data
-															  //bugbug test before sending
-															  //testdata();
-					}
-					break;
 				}
-
-				// draw out all the points & states, sleeping as needed
-				for (const auto& a : it->vectorData) {
-					setTuple(a);
-					//bugbug test before sending 
-					//testdata();
-					send(&robot->serial);
-				}
+				
+				sendResults(results);
 				if (it->OKToDelete()) {
-					it = cmdVector.erase(it);
+					it = vectorOfRobotCommands.erase(it);
 				}
 				else {
 					++it;
@@ -484,10 +496,10 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobotCommand::echo() const {
-		for (const auto& a : vectorData) {
-			std::get<0>(a).echo();
-			std::get<1>(a).echo();
+	void ofRobotCommand::echo()  {
+		for ( auto& a : vectorOfCommandData) {
+			a.getPoint().echo();
+			a.getState().echo();
 		}
 	}
 
