@@ -67,14 +67,12 @@ namespace RobotArtists {
 		setArmBackhoeJointAndGoHome = 64, IDPacket = 80, getServoRegister = 129, setServoRegister = 130,analogRead=200
 	};
 
-
 	// tracing helper
 	inline std::string echoJointType(SpecificJoint joint) {
 		std::stringstream buffer;
 		buffer << "SpecificJoint<robotType, robotArmJointType> = " << joint.first.first << ", " << joint.first.second << ", " << joint.second;
 		return buffer.str();
 	}
-
 
 	// initial attempt at a generic robot definition, bugbug once understood move to the right object location
 	class RobotBaseClass  {
@@ -160,9 +158,9 @@ namespace RobotArtists {
 		void clearSerial() { flush(); }
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
-		void readRobot();
+		int readLine(uint8_t* bytes, int bytesMax = 100);
 		void write(uint8_t* data, int count);
-		robotType waitForRobot(int retries);
+		robotType waitForRobot(string& name, int retries);
 		vector <ofSerialDeviceInfo>& getDevices() {
 			buildDeviceList();
 			return devices;

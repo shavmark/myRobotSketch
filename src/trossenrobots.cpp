@@ -23,17 +23,13 @@ namespace RobotArtists {
 
 	RobotValueRanges RobotJoints::hardwareRanges; // just need to set once
 
-												  // get pose data from serial port bugbug decode this
-	void ofRobotSerial::readRobot() {
-		if (available() == 0) {
-			return;
+	int ofRobotSerial::readLine(uint8_t* bytes, int bytesMax)	{
+		if (!bytes) {
+			return 0;
 		}
 
-		ofRobotTrace()<< "RobotSerial::readRobot" << std::endl;
-
-		uint8_t *bytes = new uint8_t[1000];//bugbug clean this up
 		int i = 0;
-		for (; i < 1000; ++i) {
+		for (; i < bytesMax; ++i) {
 			if (readBytesInOneShot(&bytes[i], 1) == 1) {
 				if (bytes[i] == '\r') {
 					i++;
@@ -46,20 +42,8 @@ namespace RobotArtists {
 				break; // data is messed up, try to move on
 			}
 		}
-		bytes[i] = 0;
-		if (i == 5) { // input data is fixed size format etc, just trace stuff
-			ArmIDResponsePacket(bytes, 5);
-		}
-		else if (i == 10) {
-			echoRawBytes(bytes, 10);
-			ArmIDResponsePacket(bytes, 10); // 2 signs ons come back some times, likely a timing issue?
-			ArmIDResponsePacket(bytes, 10); // first 2 bytes are sign on type
-		}
-		else {
-			ofRobotTrace() << bytes << std::endl;
-		}
-		delete bytes;
-
+		bytes[min(bytesMax-1, i)] = 0;
+		return i;
 	}
 	int ofRobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
 		int result = 0;
@@ -176,14 +160,14 @@ namespace RobotArtists {
 	}
 
 
-	robotType ofRobotSerial::waitForRobot(int retries) {
+	robotType ofRobotSerial::waitForRobot(string& name, int retries) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
 
 		robotType type = createUndefinedRobotType();
+		uint8_t bytes[31];
 
 		if (waitForSerial(retries)) {
 			// somethis is out there, see if we can ID it
-			uint8_t bytes[31];
 
 			int readin = readBytesInOneShot(bytes, 5);
 			if (readin == 5) {
@@ -201,9 +185,16 @@ namespace RobotArtists {
 			}
 
 			// get sign on echo from device
-			readin = readBytesInOneShot(bytes, 30);
-			bytes[readin] = 0;
+			readin = readLine(bytes, sizeof bytes);
 			ofRobotTrace() << bytes << std::endl;
+
+			readin = readLine(bytes, sizeof bytes); // make this the name
+
+			name.reserve(readin); // skip end of line markers
+			for (int i = 0; i < readin-2; ++i) {
+				name += bytes[i];
+			}
+			ofRobotTrace() << "robot name " << name << std::endl;
 
 			getPose(); // see if a pose is out there bugbug clean all this pose junk up
 
@@ -228,29 +219,16 @@ namespace RobotArtists {
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;
 
-		readRobot(); // pose is sent all the time bugbug move these out of write, or make wrapper for those that need it here, too low level here
-		readRobot(); // how often are two sent?
+		getPose(); // pose is sent all the time  by the micro code
 
 	}
 
 	// read pose from robot after every move and setup, just report on it or ignore it
 	void ofRobotSerial::getPose() {
-		uint8_t data[1000];
-		int len = strlen("Pose Reads : ");
-		if (len == readAllBytes(data, len)) {
-			uint8_t size; //bugbug go to one byte reads and look for end of line markers in data, then note that Pose gets return at setup and after every cmd
-			uint8_t poseSize = readAllBytes(&size, sizeof size); // pose size
-			// each pose is not of fixed size, just meant to dump I guess or read in stream fasion, for now just echo size
-			int count = size - '0'; // from char to int
-			ofRobotTrace() << "servo count = " << count << std::endl;
-			len = readAllBytes(data, count*3);
-			flush();
-			data[len] = 0;
-			ofRobotTrace() << "vals = " << data << std::endl;
-			//for (int i = 0; i < data[0]; i++) {
-			//
-			//}
-		}
+		uint8_t data[100];
+		readLine(data, sizeof data);
+		flush(); // could be a few of these out there
+		ofRobotTrace() << "vals = " << data << std::endl;
 
 		/* source
 		bool BioloidController::readPose(){
@@ -316,7 +294,7 @@ namespace RobotArtists {
 		interface.setLowLevelZ(length);
 		flush();   // reset
 		int sent = writeBytes(interface.getPose(), RobotState::count);
-		ofSleepMillis(2000);
+		ofSleepMillis(33);
 		uint8_t data[5];
 		int readin = readAllBytes(data, 5);
 		if (readin == 5 && data[0] == 255 && data[1] == getServoRegister) {
@@ -327,7 +305,6 @@ namespace RobotArtists {
 			if (chk == interface.calcChkSum(data, 1, 3)) {
 				uint16_t val = bytes_to_u16(high, low);
 				ofRobotTrace() << "servo " << id << " registerNumber " << registerNumber << " value " << val << std::endl;
-				chk = 0;
 			}
 		}
 		// from arduino code:  

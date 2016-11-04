@@ -396,7 +396,7 @@ namespace RobotArtists {
 			if (device.getDeviceID() == 0) {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
-			ofLogNotice("FindAllRobots") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
+			ofRobotTrace("FindAllRobots") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
 			ofRobotSerial testSerial;// need to close this and free port once set up
 			if (!testSerial.setup(device.getDeviceName(), 38400)) {
 				ofRobotTrace(FatalErrorLog) << "FindAllRobots" << std::endl;
@@ -406,30 +406,30 @@ namespace RobotArtists {
 			// start with default mode
 			uint64_t t1 = ofGetElapsedTimeMillis();
 			robotType robotType;
-			if (!robotTypeIsError(robotType = testSerial.waitForRobot(25))) {
+			string robotName;
+			if (!robotTypeIsError(robotType = testSerial.waitForRobot(robotName, 25))) {
 				uint64_t t2 = ofGetElapsedTimeMillis();
 				int gone = t2 - t1;
 
 				// one of InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType 
-				std::ostringstream name;
 				switch (robotType.second) {
 				case InterbotiXPhantomXReactorArm:
 					// add robot here
-					name << "Reactor on " << device.getDeviceName();
+					ofRobotTrace() << "Reactor, " << robotName << " on " << device.getDeviceName();
 					break;
 				case InterbotiXPhantomXPincherArm:
-					name << "Pincher on " << device.getDeviceName();
+					ofRobotTrace() << "Pincher, " << robotName << " on " << device.getDeviceName();
 					break;
 				case unknownRobotType:
 					ofRobotTrace() << "unknown robot type " << std::endl;
 					return;
 				}
 				testSerial.close();
-				shared_ptr<ofRobot> robot = make_shared<ofRobot>(name.str(), robotType);
+				shared_ptr<ofRobot> robot = make_shared<ofRobot>(robotName, robotType);
 				if (robot) {
 					robot->setup(device.getDeviceID());
 					robots.push_back(robot);
-					ofRobotTrace() << "install duration in milliseconds " << gone << " for " << name.str() << std::endl;
+					ofRobotTrace() << "install duration in milliseconds " << gone << " for " << robotName << std::endl;
 				}
 			}
 			else {
