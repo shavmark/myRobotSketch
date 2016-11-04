@@ -23,26 +23,6 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
-	class ofRobotSerial : public ofSerial {
-	public:
-		ofRobotSerial() {}
-
-		bool waitForSerial(int retries);
-		void clearSerial() { flush(); }
-		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
-		int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
-		void readPose();
-		void write(uint8_t* data, int count);
-		robotType waitForRobot(int retries);
-		vector <ofSerialDeviceInfo>& getDevices() {
-			buildDeviceList();
-			return devices;
-		}
-	protected:
-		void echoRawBytes(uint8_t *bytes, int count);
-		robotType ArmIDResponsePacket(uint8_t *bytes);
-	};
-
 	class ofRobotVoice {
 	public:
 		void draw() {}//bugbug enumerate and say, bring in SAPI 11 or such
@@ -150,10 +130,10 @@ namespace RobotArtists {
 	//bugbug work on naming, "of" vs. "Trossen" or maybe tr and of?
 	class ofRobotJoints : public RobotJoints {
 	public:
-		ofRobotJoints(uint8_t *data) : RobotJoints(data) {}
+		ofRobotJoints(uint8_t *pose) : RobotJoints(pose) {}
 		ofRobotJoints() : RobotJoints(nullptr) {}
 		ofRobotJoints(const robotType& typeOfRobot) : RobotJoints(nullptr, typeOfRobot) { };
-		ofRobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotJoints(data, typeOfRobot) {  }
+		ofRobotJoints(uint8_t* pose, const robotType& typeOfRobot) : RobotJoints(pose, typeOfRobot) {  }
 
 		virtual void echo() {};
 		void sendToRobot(ofRobotSerial* serial);
@@ -246,7 +226,7 @@ namespace RobotArtists {
 
 	private:
 		ofRobotSerial serial; // talking to the robots
-		uint8_t data[RobotState::count];// one data instance per robot
+		uint8_t pose[RobotState::count];// bugbug needs to be enabled: can have any  number of these instances
 		robotType type;
 		bool pause = false;
 		string name;

@@ -83,6 +83,7 @@ namespace RobotArtists {
 	// supports openframeworks so TraceBaseClass can be used w/o down the road, enabling all objects to use the same logging object (w or w/o of)
 	class ofRobotTrace : public TraceBaseClass {
 	public:
+		ofRobotTrace(const string &msg) :TraceBaseClass(msg) {};
 		ofRobotTrace(TraceType type = TraceLog) : TraceBaseClass(type) {}
 		virtual void sendline() {
 			switch (type) {

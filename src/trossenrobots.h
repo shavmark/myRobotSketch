@@ -61,8 +61,10 @@ namespace RobotArtists {
 	}
 	// low level commands
 	enum robotLowLevelCommand : uint8_t {
-		unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, setArm3DCylindricalStraightWristAndGoHome = 48,
-		setArm3DCartesian90DegreeWristAndGoHome = 40, setArm3DCartesianStraightWristAndGoHome = 32, setArm3DCylindrical90DegreeWristAndGoHome = 56, setArmBackhoeJointAndGoHome = 64
+		unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, 
+		setArm3DCylindricalStraightWristAndGoHome = 48,		setArm3DCartesian90DegreeWristAndGoHome = 40, 
+		setArm3DCartesianStraightWristAndGoHome = 32, 	setArm3DCylindrical90DegreeWristAndGoHome = 56, 
+		setArmBackhoeJointAndGoHome = 64, IDPacket = 80, getServoRegister = 129, setServoRegister = 130,analogRead=200
 	};
 
 
@@ -73,8 +75,9 @@ namespace RobotArtists {
 		return buffer.str();
 	}
 
+
 	// initial attempt at a generic robot definition, bugbug once understood move to the right object location
-	class RobotBaseClass {
+	class RobotBaseClass  {
 	public:
 		static uint8_t minDelta() { return 0; }
 		static uint8_t maxDelta() { return 254; }
@@ -86,23 +89,19 @@ namespace RobotArtists {
 	// low level, missing things like range checking
 	class RobotState : public RobotBaseClass {
 	public:
-
 		static const uint16_t count = 17;
 		robotLowLevelCommand getStartCommand(robotType type);
 
-	protected:
-
-		RobotState(uint8_t *data) { setData(data); }
+		RobotState(uint8_t *pose) { setPose(pose); }
 
 		virtual void virtfunction() = 0;
-		void setData(uint8_t *data) { this->data = data; }
+		void setPose(uint8_t *pose) { this->pose = pose; }
 		void echoRawData();
 		void set(uint16_t offset, uint8_t b);
-		void setLowLevelCommand(robotLowLevelCommand cmd) { set(extValBytesOffset, cmd); };
 		void setDelta(uint8_t value = 128) { if (value > maxDelta()) value = maxDelta(); set(deltaValBytesOffset, value); }
 		void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
-
-		void setLowLevelX(int x, int magicNumer) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
+		void setLowLevelCommand(uint8_t cmd = 0) { set(extValBytesOffset, cmd); }
+		void setLowLevelX(int x, int magicNumer=0) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
 		void setLowLevelY(int y) { set(yHighByteOffset, yLowByteOffset, y); }
 		void setLowLevelZ(int z) { if (z > 250) z = 250; set(zHighByteOffset, zLowByteOffset, z); }
 		void setLowLevelWristAngle(int a) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a + 90); };
@@ -116,9 +115,8 @@ namespace RobotArtists {
 		int getWristRotate() { return get(wristRotateHighByteOffset, wristRotateLowByteOffset); }
 		int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
 
-		uint8_t *getData();
+		uint8_t *getPose();
 
-	private:
 		void set(uint16_t high, uint16_t low, int val);
 		int get(uint16_t high, uint16_t low);
 		static const uint16_t headerByteOffset = 0;
@@ -138,13 +136,47 @@ namespace RobotArtists {
 		static const uint16_t buttonByteOffset = 14;//bugbug not supported
 		static const uint16_t extValBytesOffset = 15;
 		static const uint16_t checksum = 16;
-
+		uint8_t RobotState::calcChkSum(uint8_t *pose, int start, int end);
 		uint8_t getChkSum(); // hide to prevent using data out side of this object as much as possible
 
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-		uint8_t *data = nullptr; // data to send
+		uint8_t *pose = nullptr; // data to send
 	};
+
+	class RobotCommandInterface : public RobotState {
+	public:
+		RobotCommandInterface(uint8_t *pose) : RobotState(pose) {  }
+	private:
+		virtual void virtfunction() {};
+	};
+
+	//bugbug at some point this needs to be moved out of a trossen specific file as its OF depdenent
+	class ofRobotSerial : public ofSerial {
+	public:
+		ofRobotSerial() {}
+
+		bool waitForSerial(int retries);
+		void clearSerial() { flush(); }
+		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
+		int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
+		void readRobot();
+		void write(uint8_t* data, int count);
+		robotType waitForRobot(int retries);
+		vector <ofSerialDeviceInfo>& getDevices() {
+			buildDeviceList();
+			return devices;
+		}
+
+		void reportServoRegister(int id, int registerNumber, int length);
+		void setServoRegister(unsigned char command, int id, int registerNumber, int length, int data);
+		void getPose();
+	protected:
+		void echoRawBytes(uint8_t *bytes, int count);
+		bool idPacket(uint8_t *bytes, int size);
+		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
+	};
+
 
 
 	class RobotValueRanges {
@@ -161,8 +193,8 @@ namespace RobotArtists {
 		// constructor required
 		RobotJoints() : RobotState(nullptr) {}
 		RobotJoints(const robotType& typeOfRobot) : RobotState(nullptr) { this->typeOfRobot = typeOfRobot; };
-		RobotJoints(uint8_t* data, const robotType& typeOfRobot) : RobotState(data) { this->typeOfRobot = typeOfRobot; }
-		RobotJoints(uint8_t* data) : RobotState(data) { typeOfRobot = createUndefinedRobotType(); }
+		RobotJoints(uint8_t* pose, const robotType& typeOfRobot) : RobotState(pose) { this->typeOfRobot = typeOfRobot; }
+		RobotJoints(uint8_t* pose) : RobotState(pose) { typeOfRobot = createUndefinedRobotType(); }
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);
@@ -174,9 +206,6 @@ namespace RobotArtists {
 		void setWristAngle(int a);
 		void setWristRotate(int a);
 		void setGripper(int distance);
-
-		void reportServoRegister(unsigned char command, int id, int registerNumber, int length);
-		void setServoRegister(unsigned char command, int id, int registerNumber, int length, int data);
 
 		static void oneTimeSetup();
 

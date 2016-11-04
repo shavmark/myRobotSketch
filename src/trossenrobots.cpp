@@ -18,12 +18,318 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 #include "ofApp.h"
 #include "ofutils.h"
 #include "trossenrobots.h"
-
+//http://biorobots.case.edu/wp-content/uploads/2014/12/IntroductiontoDynamixelMotorControlUsingtheArbotiX20141112-1.pdf
 namespace RobotArtists {
 
 	RobotValueRanges RobotJoints::hardwareRanges; // just need to set once
 
-	void RobotJoints::reportServoRegister(unsigned char command, int id, int registerNumber, int length) {
+												  // get pose data from serial port bugbug decode this
+	void ofRobotSerial::readRobot() {
+		if (available() == 0) {
+			return;
+		}
+
+		ofRobotTrace()<< "RobotSerial::readRobot" << std::endl;
+
+		uint8_t *bytes = new uint8_t[1000];//bugbug clean this up
+		int i = 0;
+		for (; i < 1000; ++i) {
+			if (readBytesInOneShot(&bytes[i], 1) == 1) {
+				if (bytes[i] == '\r') {
+					i++;
+					readBytesInOneShot(&bytes[i], 1);// get other eol marker
+					i++;
+					break;
+				}
+			}
+			else {
+				break; // data is messed up, try to move on
+			}
+		}
+		bytes[i] = 0;
+		if (i == 5) { // input data is fixed size format etc, just trace stuff
+			ArmIDResponsePacket(bytes, 5);
+		}
+		else if (i == 10) {
+			echoRawBytes(bytes, 10);
+			ArmIDResponsePacket(bytes, 10); // 2 signs ons come back some times, likely a timing issue?
+			ArmIDResponsePacket(bytes, 10); // first 2 bytes are sign on type
+		}
+		else {
+			ofRobotTrace() << bytes << std::endl;
+		}
+		delete bytes;
+
+	}
+	int ofRobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
+		int result = 0;
+		if (available() > 0) {
+			if ((result = readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
+				ofRobotTrace(ErrorLog) << "serial failed" << std::endl;
+				return 0;
+			}
+			while (result == OF_SERIAL_NO_DATA) {
+				result = readBytes(bytes, bytesMax);
+				if (result == OF_SERIAL_ERROR) {
+					ofRobotTrace(ErrorLog) << "serial failed" << std::endl;
+					return 0;
+				}
+				if (result != OF_SERIAL_NO_DATA) {
+					return result;
+				}
+			}
+		}
+		return result;
+	}
+	int ofRobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
+		int readIn = 0;
+		if (bytes) {
+			*bytes = 0;// null out to show data read
+			int bytesRemaining = bytesRequired;
+			// loop until we've read everything
+			while (bytesRemaining > 0) {
+				// check for data
+				if (available() > 0) {
+					// try to read - note offset into the bytes[] array, this is so
+					// that we don't overwrite the bytes we already have
+					int bytesArrayOffset = bytesRequired - bytesRemaining;
+					int result = readBytes(&bytes[bytesArrayOffset], bytesRemaining);
+
+					// check for error code
+					if (result == OF_SERIAL_ERROR) {
+						// something bad happened
+						ofRobotTrace(ErrorLog) << "unrecoverable error reading from serial" << std::endl;
+						// bail out
+						break;
+					}
+					else if (result == OF_SERIAL_NO_DATA) {
+						// nothing was read, try again
+					}
+					else {
+						// we read some data!
+						readIn += result;
+						bytesRemaining -= result;
+					}
+				}
+			}
+		}
+		return readIn;
+	}
+
+	// return true if ID packet is value
+	bool ofRobotSerial::idPacket(uint8_t *bytes, int size) {
+		if (size == 5 && bytes[3] == 0) {
+			uint8_t chksum = (unsigned char)(255 - (bytes[1] + bytes[2] + 0) % 256);
+			return chksum == bytes[4];
+		}
+		return false;
+		/* from device:
+		void IDPacket() {
+			Serial.write(0xFF);
+			Serial.write((unsigned char)ARMID);
+			Serial.write((unsigned char)g_bIKMode);
+			Serial.write((unsigned char)0);
+			Serial.write((unsigned char)(255 - (ARMID + g_bIKMode + 0) % 256));
+
+		}
+		*/
+	}
+
+	// bool readOnly -- just read serial do not send request
+	robotType ofRobotSerial::ArmIDResponsePacket(uint8_t *bytes, int count) {
+		if (!idPacket(bytes, count)) {
+			return robotType(IKM_NOT_DEFINED, unknownRobotType);
+		}
+		if (bytes != nullptr) {
+			robotArmMode armMode = (robotArmMode)bytes[2];
+			switch (armMode) {
+			case IKM_IK3D_CARTESIAN:
+				ofRobotTrace() << "arm mode IKM_IK3D_CARTESIAN" << std::endl;
+				break;
+			case IKM_IK3D_CARTESIAN_90:
+				ofRobotTrace() << "arm mode IKM_IK3D_CARTESIAN_90" << std::endl;
+				break;
+			case IKM_CYLINDRICAL:
+				ofRobotTrace() << "arm mode IKM_CYLINDRICAL" << std::endl;
+				break;
+			case IKM_CYLINDRICAL_90:
+				ofRobotTrace() << "arm mode IKM_CYLINDRICAL_90" << std::endl;
+				break;
+			default:
+				ofRobotTrace() << "arm mode IKM_BACKHOE mode?" << std::endl;
+				break;
+			}
+			RobotTypeID id = unknownRobotType;
+			switch (bytes[1]) {
+			case 1:
+				id = InterbotiXPhantomXPincherArm;
+				ofRobotTrace() << "InterbotiXPhantomXPincherArm" << std::endl;
+				break;
+			case 2:
+				id = InterbotiXPhantomXReactorArm;
+				ofRobotTrace() << "InterbotiXPhantomXReactorArm" << std::endl;
+				break;
+			}
+			return robotType(armMode, id);
+		}
+		return robotType(IKM_NOT_DEFINED, unknownRobotType);
+	}
+
+
+	robotType ofRobotSerial::waitForRobot(int retries) {
+		ofRobotTrace() << "wait for mr robot ... " << std::endl;
+
+		robotType type = createUndefinedRobotType();
+
+		if (waitForSerial(retries)) {
+			// somethis is out there, see if we can ID it
+			uint8_t bytes[31];
+
+			int readin = readBytesInOneShot(bytes, 5);
+			if (readin == 5) {
+				type = ArmIDResponsePacket(bytes, 5);
+				if (type.first == IKM_NOT_DEFINED) {
+					ofRobotTrace(ErrorLog) << "invalid robot type" << std::endl;
+					return type;
+				}
+			}
+			else {
+				bytes[readin] = 0;
+				uint16_t i = *bytes;
+				ofRobotTrace(ErrorLog) << "invalid robot sign on:" << i << std::endl;
+				return type;
+			}
+
+			// get sign on echo from device
+			readin = readBytesInOneShot(bytes, 30);
+			bytes[readin] = 0;
+			ofRobotTrace() << bytes << std::endl;
+
+			getPose(); // see if a pose is out there bugbug clean all this pose junk up
+
+			// bugbug testing
+#define AX_PRESENT_POSITION_L 36 //bugbug get from ax12.h
+			reportServoRegister(1, AX_PRESENT_POSITION_L, 2);
+			reportServoRegister(2, AX_PRESENT_POSITION_L, 2);
+			reportServoRegister(3, AX_PRESENT_POSITION_L, 2);
+			//
+		}
+		return type;
+	}
+
+	void ofRobotSerial::write(uint8_t* data, int count) {
+		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
+
+		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
+		// no need to hurry packets so just want the minimum amount no matter what
+		ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
+		echoRawBytes(data, count);
+		int sent = writeBytes(data, count);
+
+		ofRobotTrace() << "write sent = " << sent << std::endl;
+
+		readRobot(); // pose is sent all the time bugbug move these out of write, or make wrapper for those that need it here, too low level here
+		readRobot(); // how often are two sent?
+
+	}
+
+	// read pose from robot after every move and setup, just report on it or ignore it
+	void ofRobotSerial::getPose() {
+		uint8_t data[1000];
+		int len = strlen("Pose Reads : ");
+		if (len == readAllBytes(data, len)) {
+			uint8_t size; //bugbug go to one byte reads and look for end of line markers in data, then note that Pose gets return at setup and after every cmd
+			uint8_t poseSize = readAllBytes(&size, sizeof size); // pose size
+			// each pose is not of fixed size, just meant to dump I guess or read in stream fasion, for now just echo size
+			int count = size - '0'; // from char to int
+			ofRobotTrace() << "servo count = " << count << std::endl;
+			len = readAllBytes(data, count*3);
+			flush();
+			data[len] = 0;
+			ofRobotTrace() << "vals = " << data << std::endl;
+			//for (int i = 0; i < data[0]; i++) {
+			//
+			//}
+		}
+
+		/* source
+		bool BioloidController::readPose(){
+		bool errorFound = false;
+		Serial.print("Pose Reads:");
+		Serial.print(poseSize);
+		for(int i=0;i<poseSize;i++)
+		{
+
+		int temp = ax12GetRegister(id_[i],AX_PRESENT_POSITION_L,2);
+		if(temp < 0 || temp > 4096)
+		{
+			Serial.print("BAD 1:");
+			Serial.print(temp);
+			delay(33);
+			temp = ax12GetRegister(id_[i],AX_PRESENT_POSITION_L,2);
+
+			if(temp < 0 || temp > 4096)
+			{
+			Serial.print("BAD 2:");
+			Serial.print(temp);
+			delay(33);
+			temp = ax12GetRegister(id_[i],AX_PRESENT_POSITION_L,2);
+			}
+		}
+
+		if(temp >= 0 && temp <= 4096)
+		{
+		pose_[i] = temp << BIOLOID_SHIFT;
+		Serial.print(" ");
+		Serial.print(temp);
+
+
+		}
+		else
+		{
+
+		Serial.print("BAD 3:");
+		Serial.print(temp);
+
+		Serial.print(" ");
+		Serial.print(temp);
+
+		errorFound = true;
+		}
+
+		}
+
+		delay(25);
+		Serial.println(" ");
+
+		*/
+	}
+
+	void ofRobotSerial::reportServoRegister(int id, int registerNumber, int length) {
+		// send and read data
+		uint8_t pose[RobotState::count];
+		memset(pose, 0, sizeof pose);
+		RobotCommandInterface interface(pose);
+		interface.setLowLevelCommand(getServoRegister);
+		interface.setLowLevelX(id); // servo 
+		interface.setLowLevelY(registerNumber);
+		interface.setLowLevelZ(length);
+		flush();   // reset
+		int sent = writeBytes(interface.getPose(), RobotState::count);
+		ofSleepMillis(2000);
+		uint8_t data[5];
+		int readin = readAllBytes(data, 5);
+		if (readin == 5 && data[0] == 255 && data[1] == getServoRegister) {
+			uint8_t high = data[2];
+			uint8_t low = data[3];
+			uint8_t chk = data[4];
+			uint8_t test = interface.calcChkSum(data, 1, 3);
+			if (chk == interface.calcChkSum(data, 1, 3)) {
+				uint16_t val = bytes_to_u16(high, low);
+				ofRobotTrace() << "servo " << id << " registerNumber " << registerNumber << " value " << val << std::endl;
+				chk = 0;
+			}
+		}
 		// from arduino code:  
 		//else if (armlink.ext == 0x81) {  //129
 			//ReportServoRegister(armlink.ext, armlink.Xaxis, armlink.Yaxis, armlink.Zaxis);
@@ -46,7 +352,7 @@ namespace RobotArtists {
 		//uint8_t registerHigh;
 		//uint8_t registerLow;
 	}
-	void RobotJoints::setServoRegister(unsigned char command, int id, int registerNumber, int length, int data) {
+	void ofRobotSerial::setServoRegister(unsigned char command, int id, int registerNumber, int length, int data) {
 		 //else if (armlink.ext == 0x82) {  //130
 			// SetServoRegister(armlink.ext, armlink.Xaxis, armlink.Yaxis, armlink.Zaxis, armlink.W_ang);
 		 //}
@@ -87,8 +393,8 @@ namespace RobotArtists {
 
 	int RobotState::get(uint16_t high, uint16_t low) {
 		int number = -1;
-		if (data) {
-			int number = bytes_to_u16(data[high], data[low]);
+		if (pose) {
+			int number = bytes_to_u16(pose[high], pose[low]);
 		}
 		return number;
 	}
@@ -155,10 +461,10 @@ namespace RobotArtists {
 		}
 	}
 	// return core data making sure its set properly
-	uint8_t *RobotState::getData() {
+	uint8_t *RobotState::getPose() {
 		set(headerByteOffset, 255);
 		getChkSum();
-		return data;
+		return pose;
 	}
 	int RobotJoints::getMin(robotArmJointType type) {
 		if (userDefinedRanges && userDefinedRanges->minValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->minValue.end()) {
@@ -280,8 +586,8 @@ namespace RobotArtists {
 	}
 	void RobotState::set(uint16_t offset, uint8_t b) {
 		ofRobotTrace() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
-		if (data) {
-			data[offset] = b;
+		if (pose) {
+			pose[offset] = b;
 		}
 	}
 	// "home" and set data matching state
@@ -305,11 +611,11 @@ namespace RobotArtists {
 	}
 
 	void RobotState::echoRawData() {
-		if (!data) {
-			ofRobotTrace() << "no data to echo" << std::endl;
+		if (!pose) {
+			ofRobotTrace() << "no pose to echo" << std::endl;
 			return;
 		}
-#define ECHO(a)ofRobotTrace() << "echo[" << a << "] = "  << std::hex << (unsigned int)data[a] << "h "  <<  std::dec <<(unsigned int)data[a] << "d "<< #a << std::endl;
+#define ECHO(a)ofRobotTrace() << "echo[" << a << "] = "  << std::hex << (unsigned int)pose[a] << "h "  <<  std::dec <<(unsigned int)pose[a] << "d "<< #a << std::endl;
 
 		ECHO(headerByteOffset)
 			ECHO(xLowByteOffset)
@@ -328,17 +634,28 @@ namespace RobotArtists {
 			ECHO(extValBytesOffset)
 			ECHO(checksum)
 	}
-
-	uint8_t RobotState::getChkSum() {
-		if (data) {
+	uint8_t RobotState::calcChkSum(uint8_t *pose, int start, int end) {
+		if (pose) {
 			uint16_t sum = 0;
-			for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
-				sum += data[i];
+			for (int i = start; i <= end; ++i) {
+				sum += pose[i];
 			}
 			uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
 
-			data[checksum] = 255 - invertedChecksum; //invert value to get file checksum
-			return data[checksum];
+			return 255 - invertedChecksum; //invert value to get file checksum
+		}
+		return 0;
+	}
+	uint8_t RobotState::getChkSum() {
+		if (pose) {
+			uint16_t sum = 0;
+			for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
+				sum += pose[i];
+			}
+			uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
+
+			pose[checksum] = 255 - invertedChecksum; //invert value to get file checksum
+			return pose[checksum];
 
 		}
 		return 0;
