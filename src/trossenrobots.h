@@ -27,6 +27,34 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
+	/* RAM REGISTER ADDRESSES */
+#define AX_TORQUE_ENABLE            24
+#define AX_LED                      25
+#define AX_CW_COMPLIANCE_MARGIN     26
+#define AX_CCW_COMPLIANCE_MARGIN    27
+#define AX_CW_COMPLIANCE_SLOPE      28
+#define AX_CCW_COMPLIANCE_SLOPE     29
+#define AX_GOAL_POSITION_L          30
+#define AX_GOAL_POSITION_H          31
+#define AX_GOAL_SPEED_L             32
+#define AX_GOAL_SPEED_H             33
+#define AX_TORQUE_LIMIT_L           34
+#define AX_TORQUE_LIMIT_H           35
+#define AX_PRESENT_POSITION_L       36
+#define AX_PRESENT_POSITION_H       37
+#define AX_PRESENT_SPEED_L          38
+#define AX_PRESENT_SPEED_H          39
+#define AX_PRESENT_LOAD_L           40
+#define AX_PRESENT_LOAD_H           41
+#define AX_PRESENT_VOLTAGE          42
+#define AX_PRESENT_TEMPERATURE      43
+#define AX_REGISTERED_INSTRUCTION   44
+#define AX_PAUSE_TIME               45
+#define AX_MOVING                   46
+#define AX_LOCK                     47
+#define AX_PUNCH_L                  48
+#define AX_PUNCH_H                  49
+
 	// OF Free, Trossen specific so it can be used w/o openframeworks
 
 	// lib is not dev'd or tested for multi threading yet
@@ -61,10 +89,10 @@ namespace RobotArtists {
 	}
 	// low level commands
 	enum robotLowLevelCommand : uint8_t {
-		unKnownCommand = 255, NoArmCommand = 0, EmergencyStop = 17, SleepArm = 96, HomeArm = 80, HomeArm90 = 88, 
-		setArm3DCylindricalStraightWristAndGoHome = 48,		setArm3DCartesian90DegreeWristAndGoHome = 40, 
-		setArm3DCartesianStraightWristAndGoHome = 32, 	setArm3DCylindrical90DegreeWristAndGoHome = 56, 
-		setArmBackhoeJointAndGoHome = 64, IDPacket = 80, getServoRegister = 129, setServoRegister = 130,analogRead=200
+		unKnownCommand = 255, NoArmCommand = 0, EmergencyStopCommand = 17, SleepArmCommand = 96, HomeArmCommand = 80, HomeArm90Command = 88,
+		setArm3DCylindricalStraightWristAndGoHomeCommand = 48,		setArm3DCartesian90DegreeWristAndGoHomeCommand = 40,
+		setArm3DCartesianStraightWristAndGoHomeCommand = 32, 	setArm3DCylindrical90DegreeWristAndGoHomeCommand = 56,
+		setArmBackhoeJointAndGoHomeCommand = 64, IDPacketCommand = 80, getServoRegisterCommand = 129, setServoRegisterCommand = 130,analogReadCommand =200
 	};
 
 	// tracing helper
@@ -102,7 +130,7 @@ namespace RobotArtists {
 		void setLowLevelX(int x, int magicNumer=0) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
 		void setLowLevelY(int y) { set(yHighByteOffset, yLowByteOffset, y); }
 		void setLowLevelZ(int z) { if (z > 250) z = 250; set(zHighByteOffset, zLowByteOffset, z); }
-		void setLowLevelWristAngle(int a) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a + 90); };
+		void setLowLevelWristAngle(int a, int magicNumer = 90) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a + magicNumer); };
 		void setLowLevelWristRotate(int a) { set(wristRotateHighByteOffset, wristRotateLowByteOffset, a); };
 		void setLowLevelGripper(int distance) { set(gripperHighByteOffset, gripperLowByteOffset, distance); };
 
@@ -155,7 +183,6 @@ namespace RobotArtists {
 		ofRobotSerial() {}
 
 		bool waitForSerial(int retries);
-		void clearSerial() { flush(); }
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
 		int readLine(uint8_t* bytes, int bytesMax = 100);
@@ -165,11 +192,15 @@ namespace RobotArtists {
 			buildDeviceList();
 			return devices;
 		}
+		//http://support.robotis.com/en/product/dynamixel/ax_series/dxl_ax_actuator.htm
+		int getPosition(int id) { return reportServoRegister(id, AX_PRESENT_POSITION_L, 2); }		void setPosition(int id, int value) { setServoRegister(id, AX_PRESENT_POSITION_L, 1, value); }		void setLED(int id, int value) { setServoRegister(id, AX_LED, 1, value); }
+		int  getLED(int id) { return reportServoRegister(id, AX_LED, 1); }
 
-		void reportServoRegister(int id, int registerNumber, int length);
-		void setServoRegister(unsigned char command, int id, int registerNumber, int length, int data);
 		void getPose();
+
 	protected:
+		int reportServoRegister(int id, int registerNumber, int length);
+		void setServoRegister(int id, int registerNumber, int length, int dataToSend);
 		void echoRawBytes(uint8_t *bytes, int count);
 		bool idPacket(uint8_t *bytes, int size);
 		robotType ArmIDResponsePacket(uint8_t *bytes, int count);

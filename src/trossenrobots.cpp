@@ -198,12 +198,19 @@ namespace RobotArtists {
 
 			getPose(); // see if a pose is out there bugbug clean all this pose junk up
 
-			// bugbug testing
-#define AX_PRESENT_POSITION_L 36 //bugbug get from ax12.h
-			reportServoRegister(1, AX_PRESENT_POSITION_L, 2);
-			reportServoRegister(2, AX_PRESENT_POSITION_L, 2);
-			reportServoRegister(3, AX_PRESENT_POSITION_L, 2);
-			//
+			for (int i = 0; i < 5; ++i) {
+				for (int j = 1; j <= 5; ++j) {
+					setLED(j, 1);
+					int led = getLED(j);
+					ofSleepMillis(100);
+					setLED(j, 0);
+					led = getLED(j);
+				}
+			}
+			// double check the 1st 5 servos bugbug get a servo count from the arm type?
+			for (int i = 0; i < 5; ++i) {
+				reportServoRegister(i+1, AX_PRESENT_POSITION_L, 2);
+			}
 		}
 		return type;
 	}
@@ -229,66 +236,14 @@ namespace RobotArtists {
 		readLine(data, sizeof data);
 		flush(); // could be a few of these out there
 		ofRobotTrace() << "vals = " << data << std::endl;
-
-		/* source
-		bool BioloidController::readPose(){
-		bool errorFound = false;
-		Serial.print("Pose Reads:");
-		Serial.print(poseSize);
-		for(int i=0;i<poseSize;i++)
-		{
-
-		int temp = ax12GetRegister(id_[i],AX_PRESENT_POSITION_L,2);
-		if(temp < 0 || temp > 4096)
-		{
-			Serial.print("BAD 1:");
-			Serial.print(temp);
-			delay(33);
-			temp = ax12GetRegister(id_[i],AX_PRESENT_POSITION_L,2);
-
-			if(temp < 0 || temp > 4096)
-			{
-			Serial.print("BAD 2:");
-			Serial.print(temp);
-			delay(33);
-			temp = ax12GetRegister(id_[i],AX_PRESENT_POSITION_L,2);
-			}
-		}
-
-		if(temp >= 0 && temp <= 4096)
-		{
-		pose_[i] = temp << BIOLOID_SHIFT;
-		Serial.print(" ");
-		Serial.print(temp);
-
-
-		}
-		else
-		{
-
-		Serial.print("BAD 3:");
-		Serial.print(temp);
-
-		Serial.print(" ");
-		Serial.print(temp);
-
-		errorFound = true;
-		}
-
-		}
-
-		delay(25);
-		Serial.println(" ");
-
-		*/
 	}
 
-	void ofRobotSerial::reportServoRegister(int id, int registerNumber, int length) {
+	int ofRobotSerial::reportServoRegister(int id, int registerNumber, int length) {
 		// send and read data
 		uint8_t pose[RobotState::count];
 		memset(pose, 0, sizeof pose);
 		RobotCommandInterface interface(pose);
-		interface.setLowLevelCommand(getServoRegister);
+		interface.setLowLevelCommand(getServoRegisterCommand);
 		interface.setLowLevelX(id); // servo 
 		interface.setLowLevelY(registerNumber);
 		interface.setLowLevelZ(length);
@@ -296,40 +251,51 @@ namespace RobotArtists {
 		int sent = writeBytes(interface.getPose(), RobotState::count);
 		ofSleepMillis(33);
 		uint8_t data[5];
+		uint16_t val = 0;
 		int readin = readAllBytes(data, 5);
-		if (readin == 5 && data[0] == 255 && data[1] == getServoRegister) {
+		if (readin == 5 && data[0] == 255 && data[1] == getServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
-			uint8_t chk = data[4];
-			uint8_t test = interface.calcChkSum(data, 1, 3);
-			if (chk == interface.calcChkSum(data, 1, 3)) {
-				uint16_t val = bytes_to_u16(high, low);
+			if (data[4] == interface.calcChkSum(data, 1, 3)) {
+				val = bytes_to_u16(high, low);
 				ofRobotTrace() << "servo " << id << " registerNumber " << registerNumber << " value " << val << std::endl;
+				return val;
 			}
 		}
-		// from arduino code:  
-		//else if (armlink.ext == 0x81) {  //129
-			//ReportServoRegister(armlink.ext, armlink.Xaxis, armlink.Yaxis, armlink.Zaxis);
-		//}
-		/*
-		int registerValue = ax12GetRegister(id, registerNumber, length);
-
-
-  unsigned char registerHigh;
-  unsigned char registerLow;
-  registerHigh = ((registerValue & 0xFF00) >> 8);
-  registerLow = (registerValue & 0x00FF);
-  Serial.write(0xff);
-  Serial.write(command);
-  Serial.write(registerHigh);
-  Serial.write(registerLow);
-  Serial.write((unsigned char)(255 - (command+registerHigh+registerLow)%256));
-*/
-		// set
-		//uint8_t registerHigh;
-		//uint8_t registerLow;
+		ofRobotTrace(ErrorLog) << "reportServoRegister fails" << std::endl;
+		return 0;
 	}
-	void ofRobotSerial::setServoRegister(unsigned char command, int id, int registerNumber, int length, int data) {
+	// length == 2 for ax12SetRegister2
+	void ofRobotSerial::setServoRegister(int id, int registerNumber, int length, int dataToSend) {
+		uint8_t pose[RobotState::count];
+		memset(pose, 0, sizeof pose);
+
+		RobotCommandInterface interface(pose);
+		interface.setLowLevelCommand(setServoRegisterCommand);
+		interface.setLowLevelX(id); // servo 
+		interface.setLowLevelY(registerNumber);
+		interface.setLowLevelZ(length);
+		interface.setLowLevelWristAngle(dataToSend, 0);
+		flush();   // reset
+		int sent = writeBytes(interface.getPose(), RobotState::count);
+		ofSleepMillis(33);
+		uint8_t data[5];
+		int readin = readAllBytes(data, 5);
+		if (readin == 5 && data[0] == 255 && data[1] == setServoRegisterCommand) {
+			uint8_t high = data[2];
+			uint8_t low = data[3];
+			if (data[4] == interface.calcChkSum(data, 1, 3)) {
+				uint16_t val = bytes_to_u16(high, low);
+				if (val == dataToSend){
+					ofRobotTrace() << "servo " << id << " registerNumber set " << registerNumber << " value " << val << std::endl;
+				}
+				else {
+					ofRobotTrace(ErrorLog) << "servo regiser send fails" << id << " registerNumber " << registerNumber << " value " << val << std::endl;
+				}
+			}
+		}
+
+
 		 //else if (armlink.ext == 0x82) {  //130
 			// SetServoRegister(armlink.ext, armlink.Xaxis, armlink.Yaxis, armlink.Zaxis, armlink.W_ang);
 		 //}
@@ -548,18 +514,18 @@ namespace RobotArtists {
 
 	robotLowLevelCommand RobotState::getStartCommand(robotType type) {
 		if (type.first == IKM_IK3D_CARTESIAN) {
-			return setArm3DCartesianStraightWristAndGoHome; // bugbug support all types once the basics are working
+			return setArm3DCartesianStraightWristAndGoHomeCommand; 
 		}
 		if (type.first == IKM_IK3D_CARTESIAN_90) {
-			return setArm3DCartesian90DegreeWristAndGoHome; // bugbug support all types once the basics are working
+			return setArm3DCartesian90DegreeWristAndGoHomeCommand; 
 		}
 		if (type.first == IKM_CYLINDRICAL_90) {
-			return setArm3DCylindrical90DegreeWristAndGoHome; // bugbug support all types once the basics are working
+			return setArm3DCylindrical90DegreeWristAndGoHomeCommand; 
 		}
 		if (type.first == IKM_CYLINDRICAL) {
-			return setArm3DCylindricalStraightWristAndGoHome; // bugbug support all types once the basics are working
+			return setArm3DCylindricalStraightWristAndGoHomeCommand;
 		}
-		return unKnownCommand;//bugbug support all types once the basics are working
+		return unKnownCommand;
 	}
 	void RobotState::set(uint16_t offset, uint8_t b) {
 		ofRobotTrace() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
