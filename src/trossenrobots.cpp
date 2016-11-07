@@ -31,10 +31,10 @@ namespace RobotArtists {
 		memset(bytes, 0, bytesMax);
 		int i = 0;
 		for (; i < bytesMax; ++i) {
-			if (readBytesInOneShot(&bytes[i], 1) == 1) {
+			if (readAllBytes(&bytes[i], 1) == 1) {
 				if (bytes[i] == '\r') {
 					i++;
-					readBytesInOneShot(&bytes[i], 1);// get other eol marker
+					readAllBytes(&bytes[i], 1);// get other eol marker
 					i++;
 					break;
 				}
@@ -46,7 +46,7 @@ namespace RobotArtists {
 		
 		return i;
 	}
-	int ofRobotSerial::readBytesInOneShot(uint8_t *bytes, int bytesMax) {
+	int ofRobotSerial::readBytesWIthoutWaitingForData(uint8_t *bytes, int bytesMax) {
 		int result = 0;
 		if (available() > 0) {
 			if ((result = readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
@@ -69,7 +69,7 @@ namespace RobotArtists {
 	int ofRobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
 		int readIn = 0;
 		if (bytes) {
-			*bytes = 0;// null out to show data read
+			memset(bytes, 0, bytesRequired); // keep data  clean
 			int bytesRemaining = bytesRequired;
 			// loop until we've read everything
 			while (bytesRemaining > 0) {
@@ -96,6 +96,7 @@ namespace RobotArtists {
 						bytesRemaining -= result;
 					}
 				}
+				ofSleepMillis(100);
 			}
 		}
 		return readIn;
@@ -170,12 +171,12 @@ namespace RobotArtists {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
 
 		robotType type = createUndefinedRobotType();
-		uint8_t bytes[31];
+		uint8_t bytes[500];
 
 		if (waitForSerial(retries)) {
 			// somethis is out there, see if we can ID it
 
-			int readin = readBytesInOneShot(bytes, 5);
+			int readin = readAllBytes(bytes, 5);
 			if (readin == 5) {
 				type = ArmIDResponsePacket(bytes, 5);
 				if (type.first == IKM_NOT_DEFINED) {
@@ -202,7 +203,8 @@ namespace RobotArtists {
 			}
 			ofRobotTrace() << "robot name " << name << std::endl;
 
-			getPose(); // see if a pose is out there bugbug clean all this pose junk up
+			getPose(); // pose for command and pose for start up must be read in
+
 		}
 		return type;
 	}
@@ -224,10 +226,9 @@ namespace RobotArtists {
 
 	// read pose from robot after every move and setup, just report on it or ignore it
 	void ofRobotSerial::getPose() {
-		uint8_t data[100];
+		uint8_t data[500];
 		readLine(data, sizeof data);
-		flush(); // could be a few of these out there
-		ofRobotTrace() << "vals = " << data << std::endl;
+		ofRobotTrace() << "current pos vals = " << data << std::endl;
 	}
 
 	int ofRobotSerial::getServoRegister(ServoIDs id, Registers registerNumber, int length) {
@@ -239,10 +240,12 @@ namespace RobotArtists {
 		interface.setLowLevelX(id); // servo 
 		interface.setLowLevelY(registerNumber);
 		interface.setLowLevelZ(length);
-		flush();   // reset
-		int sent = writeBytes(interface.getPose(), RobotState::count);
+		
+		int sent = writeBytes(interface.getPoseData(), RobotState::count);
 		ofSleepMillis(33);
-		uint8_t data[5];
+
+		uint8_t data[500]; // could be lots of sperius data out there, unlikely but if it occurs we want to echo it
+		memset(data, 0, sizeof data);
 		uint16_t val = 0;
 		int readin = readAllBytes(data, 5);
 		if (readin == 5 && data[0] == 255 && data[1] == getServoRegisterCommand) {
@@ -256,9 +259,8 @@ namespace RobotArtists {
 		}
 		ofRobotTrace(ErrorLog) << "reportServoRegister fails" << std::endl;
 		// see what data is out there
-		uint8_t moredata[500];
-		readLine(moredata, 500);
-		ofRobotTrace(ErrorLog) << "spurious data " << data << " ** and **" << moredata << std::endl;
+		readLine(&data[readin], sizeof data - readin);
+		ofRobotTrace(ErrorLog) << "spurious data " << data << std::endl;
 		return 0;
 	}
 	// length == 2 for ax12SetRegister2
@@ -273,7 +275,7 @@ namespace RobotArtists {
 		interface.setLowLevelZ(length);
 		interface.setLowLevelWristAngle(dataToSend, 0);
 		flush();   // reset
-		int sent = writeBytes(interface.getPose(), RobotState::count);
+		int sent = writeBytes(interface.getPoseData(), RobotState::count);
 		ofSleepMillis(33);
 		uint8_t data[5];
 		int readin = readAllBytes(data, 5);
@@ -400,7 +402,7 @@ namespace RobotArtists {
 		}
 	}
 	// return core data making sure its set properly
-	uint8_t *RobotState::getPose() {
+	uint8_t *RobotState::getPoseData() {
 		set(headerByteOffset, 255);
 		getChkSum();
 		return pose;

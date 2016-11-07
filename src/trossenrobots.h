@@ -134,7 +134,7 @@ namespace RobotArtists {
 		int getWristRotate() { return get(wristRotateHighByteOffset, wristRotateLowByteOffset); }
 		int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
 
-		uint8_t *getPose();
+		uint8_t *getPoseData();
 
 		void set(uint16_t high, uint16_t low, int val);
 		int get(uint16_t high, uint16_t low);
@@ -179,7 +179,7 @@ namespace RobotArtists {
 
 		bool waitForSerial(int retries);
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
-		int readBytesInOneShot(uint8_t* bytes, int bytesMax = 100);
+		int readBytesWIthoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
 		int readLine(uint8_t* bytes, int bytesMax = 100);
 		void write(uint8_t* data, int count);
 		robotType waitForRobot(string& name, int retries);
@@ -196,6 +196,8 @@ namespace RobotArtists {
 		int  getVoltage(ServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
 
 		void getPose();
+
+		string deviceName;
 
 	protected:
 		int getServoRegister(ServoIDs id, Registers registerNumber, int length);

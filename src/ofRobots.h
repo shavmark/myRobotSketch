@@ -203,13 +203,13 @@ namespace RobotArtists {
 	public:
 		
 		friend class ofRobotCommands;
-
+		ofRobot() {}
 		ofRobot(const string& name, robotType type) { 
 			this->name = name;  
 			this->type = type; 
 		}
 
-		void setup(int deviceID);
+		void setup();
 		void update();
 		void draw();
 		void echo(); // echos positions
@@ -218,17 +218,18 @@ namespace RobotArtists {
 		shared_ptr<ofRobotCommands> commands=nullptr;
 
 		void setName(const string&name) { this->name = name; }
-		string&getName() { return name; }
+		string& getName() { return name; }
 
 		//InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes
 		RobotTypeID getTypeID() { return type.second; }
+		void setType(robotType type) { this->type = type; }
 
 		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
 
 		void validate();
+		ofRobotSerial serial; // talking to the robots
 
 	private:
-		ofRobotSerial serial; // talking to the robots
 		uint8_t pose[RobotState::count];// bugbug needs to be enabled: can have any  number of these instances
 		robotType type;
 		int servorCount;

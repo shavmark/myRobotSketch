@@ -165,7 +165,7 @@ namespace RobotArtists {
 	void ofRobotJoints::sendToRobot(ofRobotSerial* serial) {
 		echo();
 		if (serial) {
-			serial->write(getPose(), count);
+			serial->write(getPoseData(), count);
 		}
 	}
 
@@ -253,7 +253,7 @@ namespace RobotArtists {
 
 	}
 	void ofRobotCommands::testdata() {
-		getPose(); // do check sum
+		getPoseData(); // do check sum
 		echoRawData();
 		echo(); // echo object data
 	}
@@ -362,29 +362,29 @@ namespace RobotArtists {
 		
 	}
 
-	void ofRobot::setup(int deviceID) {
+	void ofRobot::setup() {
 		commands = make_shared<ofRobotCommands>(this);
 		memset(pose, 0, sizeof(pose));
 		
-		if (!serial.setup(deviceID, 38400)) {
-			ofRobotTrace(FatalErrorLog) << "serial fails to setup" << std::endl;
-			return;
-		}
-
-		ofRobotTrace() << "setup robot" << std::endl;
+		ofRobotTrace() << "setup robot " << name << " type ";
 
 		// setup the robot
 		switch (getTypeID()) {
 		case PhantomXReactorArm:
 			servorCount = REACTOR_SERVO_COUNT;
+			ofRobotTrace() << "Reactor";
 			break;
 		case PhantomXPincherArm:
 			servorCount = PINCHER_SERVO_COUNT;
+			ofRobotTrace() << "Pincher";
 			break;
 		case WidowX:
 			servorCount = WIDOWX_SERVO_COUNT;
+			ofRobotTrace() << "WidowX";
 			break;
 		}
+
+		ofRobotTrace() << " on " << serial.deviceName << std::endl;
 
 		validate(); // validate roboth
 
@@ -450,42 +450,31 @@ namespace RobotArtists {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
 			ofRobotTrace("FindAllRobots") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
-			ofRobotSerial testSerial;// need to close this and free port once set up
-			if (!testSerial.setup(device.getDeviceName(), 38400)) {
+			shared_ptr<ofRobot> robot = make_shared<ofRobot>();
+			if (!robot) {
+				return; // something is really wrong
+			}
+			if (!robot->serial.setup(device.getDeviceName(), 38400)) {
 				ofRobotTrace(FatalErrorLog) << "FindAllRobots" << std::endl;
 				return;
 			}
+			robot->serial.deviceName = device.getDeviceName();
 			// port found, see what may be on it
 			// start with default mode
 			uint64_t t1 = ofGetElapsedTimeMillis();
 			robotType robotType;
 			string robotName;
-			if (!robotTypeIsError(robotType = testSerial.waitForRobot(robotName, 25))) {
+			if (!robotTypeIsError(robotType = robot->serial.waitForRobot(robotName, 25))) {
 				uint64_t t2 = ofGetElapsedTimeMillis();
 				int gone = t2 - t1;
-
-				// one of InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType 
-				switch (robotType.second) {
-				case PhantomXReactorArm:
-					// add robot here
-					ofRobotTrace() << "Reactor, " << robotName << " on " << device.getDeviceName();
-					break;
-				case PhantomXPincherArm:
-					ofRobotTrace() << "Pincher, " << robotName << " on " << device.getDeviceName();
-					break;
-				case unknownRobotType:
-					ofRobotTrace() << "unknown robot type " << std::endl;
-					return;
-				}
-				testSerial.close();
-				shared_ptr<ofRobot> robot = make_shared<ofRobot>(robotName, robotType);
-				if (robot) {
-					robot->setup(device.getDeviceID());
-					robots.push_back(robot);
-					ofRobotTrace() << "install duration in milliseconds " << gone << " for " << robotName << std::endl;
-				}
+				robot->setName(robotName);
+				robot->setType(robotType);
+				robot->setup();
+				robots.push_back(robot);
+				ofRobotTrace() << "install duration in milliseconds " << gone << " for " << robotName << std::endl;
 			}
 			else {
+				// robot object will delete itself if no robot is found
 				ofRobotTrace() << "no robot at " << device.getDeviceName() << std::endl;
 			}
 		}
