@@ -327,13 +327,66 @@ namespace RobotArtists {
 		}
 	}
 
+	void ofRobot::validate() {
+
+		ofRobotTrace() << "valiate robot" << std::endl;
+		
+		for (int i = FIRST_SERVO; i < servorCount; ++i) {
+			for (int j = 1; j <= 5; ++j) { // flash a bit
+				serial.setLED(static_cast<ServoIDs>(i), 1);
+				int led = serial.getLED(static_cast<ServoIDs>(i));
+				if (led != 1) {
+					ofRobotTrace(WarningLog) << "reg set fails" << std::endl; // may occur during startup
+				}
+				ofSleepMillis(100);
+				serial.setLED(static_cast<ServoIDs>(i), 0);
+				led = serial.getLED(static_cast<ServoIDs>(i));
+				if (led != 0) {
+					ofRobotTrace(WarningLog) << "reg set fails" << std::endl;
+				}
+			}
+			for (int i = FIRST_SERVO; i < servorCount; ++i) {
+				ofRobotTrace() << "servo " << i;
+
+				int pos = serial.getPosition(static_cast<ServoIDs>(i));
+				ofRobotTrace() << " pos " << pos;
+
+				int tmp = serial.getTempature(static_cast<ServoIDs>(i));
+				ofRobotTrace() << " temp. " << tmp;
+
+				float v = serial.getVoltage(static_cast<ServoIDs>(i))/10;
+				ofRobotTrace() << " voltage " << v << std::endl;
+			}
+		}
+		
+		
+	}
+
 	void ofRobot::setup(int deviceID) {
 		commands = make_shared<ofRobotCommands>(this);
 		memset(pose, 0, sizeof(pose));
 		
 		if (!serial.setup(deviceID, 38400)) {
 			ofRobotTrace(FatalErrorLog) << "serial fails to setup" << std::endl;
+			return;
 		}
+
+		ofRobotTrace() << "setup robot" << std::endl;
+
+		// setup the robot
+		switch (getTypeID()) {
+		case PhantomXReactorArm:
+			servorCount = REACTOR_SERVO_COUNT;
+			break;
+		case PhantomXPincherArm:
+			servorCount = PINCHER_SERVO_COUNT;
+			break;
+		case WidowX:
+			servorCount = WIDOWX_SERVO_COUNT;
+			break;
+		}
+
+		validate(); // validate roboth
 
 	}
 	void ofRobot::update() {
@@ -413,11 +466,11 @@ namespace RobotArtists {
 
 				// one of InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType 
 				switch (robotType.second) {
-				case InterbotiXPhantomXReactorArm:
+				case PhantomXReactorArm:
 					// add robot here
 					ofRobotTrace() << "Reactor, " << robotName << " on " << device.getDeviceName();
 					break;
-				case InterbotiXPhantomXPincherArm:
+				case PhantomXPincherArm:
 					ofRobotTrace() << "Pincher, " << robotName << " on " << device.getDeviceName();
 					break;
 				case unknownRobotType:

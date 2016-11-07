@@ -27,33 +27,33 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
+	// from GlobalArm.h
+
 	/* RAM REGISTER ADDRESSES */
-#define AX_TORQUE_ENABLE            24
-#define AX_LED                      25
-#define AX_CW_COMPLIANCE_MARGIN     26
-#define AX_CCW_COMPLIANCE_MARGIN    27
-#define AX_CW_COMPLIANCE_SLOPE      28
-#define AX_CCW_COMPLIANCE_SLOPE     29
-#define AX_GOAL_POSITION_L          30
-#define AX_GOAL_POSITION_H          31
-#define AX_GOAL_SPEED_L             32
-#define AX_GOAL_SPEED_H             33
-#define AX_TORQUE_LIMIT_L           34
-#define AX_TORQUE_LIMIT_H           35
-#define AX_PRESENT_POSITION_L       36
-#define AX_PRESENT_POSITION_H       37
-#define AX_PRESENT_SPEED_L          38
-#define AX_PRESENT_SPEED_H          39
-#define AX_PRESENT_LOAD_L           40
-#define AX_PRESENT_LOAD_H           41
-#define AX_PRESENT_VOLTAGE          42
-#define AX_PRESENT_TEMPERATURE      43
-#define AX_REGISTERED_INSTRUCTION   44
-#define AX_PAUSE_TIME               45
-#define AX_MOVING                   46
-#define AX_LOCK                     47
-#define AX_PUNCH_L                  48
-#define AX_PUNCH_H                  49
+	enum Registers {
+		AX_TORQUE_ENABLE = 24, AX_LED, AX_CW_COMPLIANCE_MARGIN, AX_CCW_COMPLIANCE_MARGIN, AX_CW_COMPLIANCE_SLOPE, AX_CCW_COMPLIANCE_SLOPE,
+		AX_GOAL_POSITION_L, AX_GOAL_POSITION_H, AX_GOAL_SPEED_L, AX_GOAL_SPEED_H, AX_TORQUE_LIMIT_L, AX_TORQUE_LIMIT_H, AX_PRESENT_POSITION_L, AX_PRESENT_POSITION_H,
+		AX_PRESENT_SPEED_L, AX_PRESENT_SPEED_H, AX_PRESENT_LOAD_L, AX_PRESENT_LOAD_H, AX_PRESENT_VOLTAGE, AX_PRESENT_TEMPERATURE, AX_REGISTERED_INSTRUCTION,
+		AX_PAUSE_TIME, AX_MOVING, AX_LOCK, AX_PUNCH_L, AX_PUNCH_H
+	};
+
+	enum ArmIDs {	PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX};
+
+	enum ArmServoCounts {	PINCHER_SERVO_COUNT=5, REACTOR_SERVO_COUNT=8, WIDOWX_SERVO_COUNT = 6};
+
+	enum ServoIDs {	FIRST_SERVO=1,
+		WIDOWX_SID_BASE = FIRST_SERVO, WIDOWX_SID_SHOULDER, WIDOWX_SID_ELBOW, WIDOWX_SID_WRIST, WIDOWX_SID_WRISTROT, WIDOWX_SID_GRIP,
+		REACTOR_SID_BASE = FIRST_SERVO, REACTOR_SID_RSHOULDER, REACTOR_SID_LSHOULDER, REACTOR_SID_RELBOW, REACTOR_SID_LELBOW, REACTOR_SID_WRIST, REACTOR_SID_WRISTROT, REACTOR_SID_GRIP,
+		PINCHER_SID_BASE = FIRST_SERVO, PINCHER_SID_SHOULDER, PINCHER_SID_ELBOW, PINCHER_SID_WRIST, PINCHER_SID_GRIP
+	};
+
+	// low level commands
+	enum robotLowLevelCommand : uint8_t {
+		unKnownCommand = 255, NoArmCommand = 0, EmergencyStopCommand = 17, SleepArmCommand = 96, HomeArmCommand = 80, HomeArm90Command = 88,
+		setArm3DCylindricalStraightWristAndGoHomeCommand = 48, setArm3DCartesian90DegreeWristAndGoHomeCommand = 40,
+		setArm3DCartesianStraightWristAndGoHomeCommand = 32, setArm3DCylindrical90DegreeWristAndGoHomeCommand = 56,
+		setArmBackhoeJointAndGoHomeCommand = 64, IDPacketCommand = 80, getServoRegisterCommand = 129, setServoRegisterCommand = 130, analogReadCommand = 200
+	};
 
 	// OF Free, Trossen specific so it can be used w/o openframeworks
 
@@ -66,8 +66,9 @@ namespace RobotArtists {
 	enum robotArmMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED };
 
 	enum robotArmJointType { X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined };
+
 	// only 1 supported
-	enum RobotTypeID { InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, unknownRobotType, AllRobotTypes };
+	enum RobotTypeID { PhantomXReactorArm, PhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes };
 
 	typedef std::pair<robotArmMode, RobotTypeID> robotType;
 	typedef std::pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets different handling, see is spec. Its not fully supported here
@@ -87,13 +88,6 @@ namespace RobotArtists {
 	inline SpecificJoint createJoint(robotArmJointType joint, robotArmMode mode, RobotTypeID id) {
 		return SpecificJoint(createRobotType(mode, id), joint);
 	}
-	// low level commands
-	enum robotLowLevelCommand : uint8_t {
-		unKnownCommand = 255, NoArmCommand = 0, EmergencyStopCommand = 17, SleepArmCommand = 96, HomeArmCommand = 80, HomeArm90Command = 88,
-		setArm3DCylindricalStraightWristAndGoHomeCommand = 48,		setArm3DCartesian90DegreeWristAndGoHomeCommand = 40,
-		setArm3DCartesianStraightWristAndGoHomeCommand = 32, 	setArm3DCylindrical90DegreeWristAndGoHomeCommand = 56,
-		setArmBackhoeJointAndGoHomeCommand = 64, IDPacketCommand = 80, getServoRegisterCommand = 129, setServoRegisterCommand = 130,analogReadCommand =200
-	};
 
 	// tracing helper
 	inline std::string echoJointType(SpecificJoint joint) {
@@ -107,7 +101,6 @@ namespace RobotArtists {
 	public:
 		static uint8_t minDelta() { return 0; }
 		static uint8_t maxDelta() { return 254; }
-
 	};
 
 	// pure virtual base class, low level data without range checking so only use derived classes
@@ -177,7 +170,9 @@ namespace RobotArtists {
 		virtual void virtfunction() {};
 	};
 
-	//bugbug at some point this needs to be moved out of a trossen specific file as its OF depdenent
+	//bugbug at some point this needs to be moved out of a trossen specific file as its OF dependent
+
+	// works for any trossen robot
 	class ofRobotSerial : public ofSerial {
 	public:
 		ofRobotSerial() {}
@@ -193,20 +188,22 @@ namespace RobotArtists {
 			return devices;
 		}
 		//http://support.robotis.com/en/product/dynamixel/ax_series/dxl_ax_actuator.htm
-		int getPosition(int id) { return reportServoRegister(id, AX_PRESENT_POSITION_L, 2); }		void setPosition(int id, int value) { setServoRegister(id, AX_PRESENT_POSITION_L, 1, value); }		void setLED(int id, int value) { setServoRegister(id, AX_LED, 1, value); }
-		int  getLED(int id) { return reportServoRegister(id, AX_LED, 1); }
+		int getPosition(ServoIDs id) { return getServoRegister(id, AX_PRESENT_POSITION_L, 2); }
+		void setPosition(ServoIDs id, int value) { setServoRegister(id, AX_PRESENT_POSITION_L, 1, value); }
+		void setLED(ServoIDs id, int value) { setServoRegister(id, AX_LED, 1, value); }
+		int  getLED(ServoIDs id) { return getServoRegister(id, AX_LED, 1); }
+		int  getTempature(ServoIDs id) { return getServoRegister(id, AX_PRESENT_TEMPERATURE, 1); }
+		int  getVoltage(ServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
 
 		void getPose();
 
 	protected:
-		int reportServoRegister(int id, int registerNumber, int length);
-		void setServoRegister(int id, int registerNumber, int length, int dataToSend);
+		int getServoRegister(ServoIDs id, Registers registerNumber, int length);
+		void setServoRegister(ServoIDs id, Registers registerNumber, int length, int dataToSend);
 		void echoRawBytes(uint8_t *bytes, int count);
 		bool idPacket(uint8_t *bytes, int size);
 		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
 	};
-
-
 
 	class RobotValueRanges {
 	public:
@@ -249,13 +246,13 @@ namespace RobotArtists {
 		bool isCartesion() { return (typeOfRobot.first == IKM_IK3D_CARTESIAN || typeOfRobot.first == IKM_IK3D_CARTESIAN_90); }
 		bool isCylindrical() { return (typeOfRobot.first == IKM_CYLINDRICAL || typeOfRobot.first == IKM_CYLINDRICAL_90); }
 		int addMagicNumber() { return isCylindrical() ? 0 : 512; }
-		bool is90() { return typeOfRobot.first == IKM_IK3D_CARTESIAN_90 || typeOfRobot.first == IKM_CYLINDRICAL_90; }
 
 		//Set 3D Cartesian mode / straight wrist and go to home etc
 		robotType setStartState();
 		robotType getRobotType() { return typeOfRobot; }
 		void setDefaultState();
 		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
+
 	protected:
 
 	private:
@@ -266,11 +263,5 @@ namespace RobotArtists {
 		static void set(SpecificJoint type, int min, int max, int defaultvalue);
 		robotType typeOfRobot;// required
 		void virtfunction() {};
-
-		uint8_t registerHigh; //bugbug see arduiono code, it uses x,y,z as input, use base class to enforce valid ranges
-		uint8_t registerLow;
-
 	};
-
-
 }

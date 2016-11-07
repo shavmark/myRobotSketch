@@ -220,14 +220,18 @@ namespace RobotArtists {
 		void setName(const string&name) { this->name = name; }
 		string&getName() { return name; }
 
+		//InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes
 		RobotTypeID getTypeID() { return type.second; }
 
 		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
+
+		void validate();
 
 	private:
 		ofRobotSerial serial; // talking to the robots
 		uint8_t pose[RobotState::count];// bugbug needs to be enabled: can have any  number of these instances
 		robotType type;
+		int servorCount;
 		bool pause = false;
 		string name;
 	};
