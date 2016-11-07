@@ -109,7 +109,7 @@ namespace RobotArtists {
 	class RobotState : public RobotBaseClass {
 	public:
 		static const uint16_t count = 17;
-		robotLowLevelCommand getStartCommand(robotType type);
+		robotLowLevelCommand getStartCommand(robotArmMode mode);
 
 		RobotState(uint8_t *pose) { setPose(pose); }
 
@@ -138,23 +138,12 @@ namespace RobotArtists {
 
 		void set(uint16_t high, uint16_t low, int val);
 		int get(uint16_t high, uint16_t low);
-		static const uint16_t headerByteOffset = 0;
-		static const uint16_t xHighByteOffset = 1;
-		static const uint16_t xLowByteOffset = 2;
-		static const uint16_t yHighByteOffset = 3;
-		static const uint16_t yLowByteOffset = 4;
-		static const uint16_t zHighByteOffset = 5;
-		static const uint16_t zLowByteOffset = 6;
-		static const uint16_t wristAngleHighByteOffset = 7;
-		static const uint16_t wristAngleLowByteOffset = 8;
-		static const uint16_t wristRotateHighByteOffset = 9;
-		static const uint16_t wristRotateLowByteOffset = 10;
-		static const uint16_t gripperHighByteOffset = 11;
-		static const uint16_t gripperLowByteOffset = 12;
-		static const uint16_t deltaValBytesOffset = 13;
-		static const uint16_t buttonByteOffset = 14;//bugbug not supported
-		static const uint16_t extValBytesOffset = 15;
-		static const uint16_t checksum = 16;
+		enum CommandIndexes : uint16_t {
+			headerByteOffset = 0, xHighByteOffset, xLowByteOffset, yHighByteOffset, yLowByteOffset,
+			zHighByteOffset, zLowByteOffset, wristAngleHighByteOffset, wristAngleLowByteOffset, wristRotateHighByteOffset,
+			wristRotateLowByteOffset, gripperHighByteOffset, gripperLowByteOffset, deltaValBytesOffset, buttonByteOffset, 
+			extValBytesOffset, checksum
+		};
 		uint8_t RobotState::calcChkSum(uint8_t *pose, int start, int end);
 		uint8_t getChkSum(); // hide to prevent using data out side of this object as much as possible
 
@@ -205,6 +194,12 @@ namespace RobotArtists {
 		void echoRawBytes(uint8_t *bytes, int count);
 		bool idPacket(uint8_t *bytes, int size);
 		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
+
+	private:
+		int maxRetries = 10;
+		int waitsleeptime = 100;
+		const string dataName(int id);
+
 	};
 
 	class RobotValueRanges {
@@ -250,8 +245,13 @@ namespace RobotArtists {
 		int addMagicNumber() { return isCylindrical() ? 0 : 512; }
 
 		//Set 3D Cartesian mode / straight wrist and go to home etc
-		robotType setStartState();
+		robotType setStartState(robotArmMode mode);
 		robotType getRobotType() { return typeOfRobot; }
+		void setMode(robotArmMode mode);
+		robotArmMode getMode() { return typeOfRobot.first; }
+		RobotTypeID getType() { return typeOfRobot.second; }
+		void setType(RobotTypeID type) { typeOfRobot.second = type; }
+
 		void setDefaultState();
 		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
 

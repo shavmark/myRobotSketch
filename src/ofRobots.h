@@ -81,8 +81,8 @@ namespace RobotArtists {
 
 		robotArmCommandData data;
 		
-		float float1;//bugbug abstract out type
-		int   int1;
+		float float1=0.0f;//bugbug abstract out type
+		int   int1=0;
 
 	};																												//pos, state, delta time 
 
@@ -111,10 +111,10 @@ namespace RobotArtists {
 		bool OKToDelete() { return deleteWhenDone; }
 
 		void echo();
-	    void add(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, uint8_t sleep = RobotBaseClass::minDelta()) {
+	    void add(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, uint8_t sleep = RobotBaseClass::maxDelta()) {
 			add(RobotCommandData(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep));
 		}
-		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), uint8_t delta = RobotState::minDelta()) {
+		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), uint8_t delta = RobotState::maxDelta()) {
 			add(RobotCommandData(position, state, delta));
 		}
 
@@ -149,26 +149,23 @@ namespace RobotArtists {
 
 		void echo(); 
 
-		void sendData(RobotCommandData&data);
-		void sendResults(vector<RobotCommandData>& results);
-		void sendResults() {
-			sendResults(results);
-		}
 		// put command data in a known state
-		void reset();
+		void reset(robotArmMode);
 
 		// move or draw based on the value in moveOrDraw
 		virtual void draw();
 		void update();
-		void setFillMode(int mode) { fillmode = mode; }
 		void add(const ofRobotCommand& cmd);
-		void add(RobotCommandData&data) { results.push_back(data); }
+		void setFillMode(int mode) { fillmode = mode; }
 		bool moveOrDraw = true; // false means draw
 		int fillmode = 0;
 		void sleep(int millisSleep) const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
-		void sanityTestHighLevel();
-		void drawCircle(float r);
+		void sanityTestHighLevel(vector<ofRobotCommand>&commands);
+		void drawCircle(vector<ofRobotCommand>&commands, float r);
+		ofRobotCommand addSleep(int duration) { return ofRobotCommand(Sleep, duration); }
+
 	protected:
+
 		void translate(float x, float y) {currentPosition.setPercents(x, y);}
 		void pushMatrix() { stack.push(currentPosition); }
 		void popMatrix() { 
@@ -186,14 +183,14 @@ namespace RobotArtists {
 		ofRobot *robot = nullptr; // owner
 
 	private:
-		vector<RobotCommandData> results; // results of executing commands
 		vector<ofRobotCommand> vectorOfRobotCommands; // one more more points
 		void testdata();
 		ofRobotPosition currentPosition; // default to 0,0,0
 		stack<ofRobotPosition> stack; // bugbug once working likely to include colors, brush size etc
 									  // built in commands
 		void sanityTestLowLevel();
-
+		void sendData(vector<RobotCommandData>&data);
+		void sendResults(vector<ofRobotCommand>& results);
 		void move(const ofRobotPosition& pos);
 		void set(RobotCommandData& request);
 	};

@@ -68,8 +68,10 @@ namespace RobotArtists {
 	}
 	int ofRobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
 		int readIn = 0;
+
 		if (bytes) {
 			memset(bytes, 0, bytesRequired); // keep data  clean
+			int tries = 0;
 			int bytesRemaining = bytesRequired;
 			// loop until we've read everything
 			while (bytesRemaining > 0) {
@@ -96,7 +98,11 @@ namespace RobotArtists {
 						bytesRemaining -= result;
 					}
 				}
-				ofSleepMillis(100);
+				if (tries++ > maxRetries) {
+					ofRobotTrace() << "data not found" << std::endl;
+					break;
+				}
+				ofSleepMillis(waitsleeptime); // else wait a bit more
 			}
 		}
 		return readIn;
@@ -109,16 +115,6 @@ namespace RobotArtists {
 			return chksum == bytes[4];
 		}
 		return false;
-		/* from device:
-		void IDPacket() {
-			Serial.write(0xFF);
-			Serial.write((unsigned char)ARMID);
-			Serial.write((unsigned char)g_bIKMode);
-			Serial.write((unsigned char)0);
-			Serial.write((unsigned char)(255 - (ARMID + g_bIKMode + 0) % 256));
-
-		}
-		*/
 	}
 
 	// bool readOnly -- just read serial do not send request
@@ -166,6 +162,19 @@ namespace RobotArtists {
 		return robotType(IKM_NOT_DEFINED, unknownRobotType);
 	}
 
+	bool ofRobotSerial::waitForSerial(int retries) {
+		for (int i = 0; i < retries; ++i) {
+			ofRobotTrace() << "check serial data (try #/) = " << i << "/" << retries << std::endl;
+			if (available() > 0) {
+				ofRobotTrace() << "data found" << std::endl;
+				return true;
+			}
+			ofSleepMillis(1000);
+		}
+		return false;
+	}
+
+
 
 	robotType ofRobotSerial::waitForRobot(string& name, int retries) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
@@ -208,6 +217,54 @@ namespace RobotArtists {
 		}
 		return type;
 	}
+	// echo, ignoring null bytes
+	const string ofRobotSerial::dataName(int id) {
+		switch (id) {
+		case RobotState::headerByteOffset:
+			return " headerByteOffset";
+		case RobotState::xHighByteOffset:
+			return " xHighByteOffset";
+		case RobotState::xLowByteOffset:
+			return " xLowByteOffset";
+		case RobotState::yHighByteOffset:
+			return " yHighByteOffset";
+		case RobotState::yLowByteOffset:
+			return " yLowByteOffset";
+		case RobotState::zHighByteOffset:
+			return " zHighByteOffset";
+		case RobotState::zLowByteOffset:
+			return " zLowByteOffset";
+		case RobotState::wristAngleHighByteOffset:
+			return " wristAngleHighByteOffset";
+		case RobotState::wristAngleLowByteOffset:
+			return " wristAngleLowByteOffset";
+		case RobotState::wristRotateHighByteOffset:
+			return " wristRotateHighByteOffset";
+		case RobotState::wristRotateLowByteOffset:
+			return " wristRotateLowByteOffset";
+		case RobotState::gripperHighByteOffset:
+			return " gripperHighByteOffset";
+		case RobotState::gripperLowByteOffset:
+			return " gripperLowByteOffset";
+		case RobotState::deltaValBytesOffset:
+			return " deltaValBytesOffset";
+		case RobotState::buttonByteOffset:
+			return " buttonByteOffset";
+		case RobotState::extValBytesOffset:
+			return " extValBytesOffset";
+		case RobotState::checksum:
+			return " checksum";
+		}
+		return "???";
+	}
+	void ofRobotSerial::echoRawBytes(uint8_t *bytes, int count) {
+		std::stringstream buffer;
+		for (int i = 0; i < count; ++i) {
+			buffer << " bytes[" << i << "] = " << (int)bytes[i] << dataName(i) << std::endl; // echo in one line
+		}
+		ofRobotTrace() << buffer.str() << std::endl;
+	}
+
 
 	void ofRobotSerial::write(uint8_t* data, int count) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
@@ -227,8 +284,9 @@ namespace RobotArtists {
 	// read pose from robot after every move and setup, just report on it or ignore it
 	void ofRobotSerial::getPose() {
 		uint8_t data[500];
-		readLine(data, sizeof data);
-		ofRobotTrace() << "current pos vals = " << data << std::endl;
+		if (readLine(data, sizeof data) > 0) {
+			ofRobotTrace() << "current pos vals = " << data << std::endl;
+		}
 	}
 
 	int ofRobotSerial::getServoRegister(ServoIDs id, Registers registerNumber, int length) {
@@ -292,43 +350,6 @@ namespace RobotArtists {
 				}
 			}
 		}
-
-
-		 //else if (armlink.ext == 0x82) {  //130
-			// SetServoRegister(armlink.ext, armlink.Xaxis, armlink.Yaxis, armlink.Zaxis, armlink.W_ang);
-		 //}
-		/*
-		void SetServoRegister(unsigned char command, int id, int registerNumber, int length, int data)
-{
-
-  unsigned char registerHigh;
-  unsigned char registerLow;
-  
-  if(length == 1)
-  {
-    ax12SetRegister(id, registerNumber, data);
-  }
-  else if (length == 2)
-  {
-    ax12SetRegister2(id, registerNumber, data);
-  }
-  
-
-
-  registerHigh = ((data & 0xFF00) >> 8);
-  registerLow = (data & 0x00FF);
-  Serial.write(0xff);
-  Serial.write(command); // should this be an error bit?
-  Serial.write(registerHigh);
-  Serial.write(registerLow);
-  Serial.write((unsigned char)(255 - (command+registerHigh+registerLow)%256));
-
-}
-
-*/
-		// write
-		//uint8_t registerHigh;
-		//uint8_t registerLow;
 	}
 
 
@@ -510,17 +531,17 @@ namespace RobotArtists {
 
 	}
 
-	robotLowLevelCommand RobotState::getStartCommand(robotType type) {
-		if (type.first == IKM_IK3D_CARTESIAN) {
+	robotLowLevelCommand RobotState::getStartCommand(robotArmMode mode) {
+		if (mode == IKM_IK3D_CARTESIAN) {
 			return setArm3DCartesianStraightWristAndGoHomeCommand; 
 		}
-		if (type.first == IKM_IK3D_CARTESIAN_90) {
+		if (mode == IKM_IK3D_CARTESIAN_90) {
 			return setArm3DCartesian90DegreeWristAndGoHomeCommand; 
 		}
-		if (type.first == IKM_CYLINDRICAL_90) {
+		if (mode == IKM_CYLINDRICAL_90) {
 			return setArm3DCylindrical90DegreeWristAndGoHomeCommand; 
 		}
-		if (type.first == IKM_CYLINDRICAL) {
+		if (mode == IKM_CYLINDRICAL) {
 			return setArm3DCylindricalStraightWristAndGoHomeCommand;
 		}
 		return unKnownCommand;
@@ -544,10 +565,14 @@ namespace RobotArtists {
 		setLowLevelCommand(NoArmCommand);
 		setButton();
 	}
+	void RobotJoints::setMode(robotArmMode mode) {
+		typeOfRobot.first = mode;
+	}
 	// will block until arm is ready
-	robotType RobotJoints::setStartState() {
-		ofRobotTrace() << "setStartState " << typeOfRobot.first << " " << typeOfRobot.second << std::endl;
-		setLowLevelCommand(getStartCommand(typeOfRobot));
+	robotType RobotJoints::setStartState(robotArmMode mode) {
+		setMode(mode);
+		ofRobotTrace() << "setStartState(mode, type) " << getMode() << " " << getType() << std::endl;
+		setLowLevelCommand(getStartCommand(getMode()));
 		return typeOfRobot;
 	}
 
