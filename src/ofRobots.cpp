@@ -24,14 +24,14 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 namespace RobotArtists {
 
 	void ofRobotState::echo() {
-		ofRobotTrace() << "WristAngle=" << (set[0] ? ofToString(getWristAngle()) : "<not set>") << std::endl;
-		ofRobotTrace() << "WristRotatation=" << (set[1] ? ofToString(getWristRotation()) : "<not set>") << std::endl;
-		ofRobotTrace() << "Gripper=" << (set[2] ? ofToString(getGripper()) : "<not set>") << std::endl;
+		ofRobotTrace() << "WristAngle=" << (valueIsSet(getWristAngle()) ? ofToString(getWristAngle()) : "<not set>") << std::endl;
+		ofRobotTrace() << "WristRotatation=" << (valueIsSet(getWristRotation()) ? ofToString(getWristRotation()) : "<not set>") << std::endl;
+		ofRobotTrace() << "Gripper=" << (valueIsSet(getGripper()) ? ofToString(getGripper()) : "<not set>") << std::endl;
 	}
 	void ofRobotPosition::echo()  {
-		ofRobotTrace() << "x=" << (set[0] ? ofToString(x) : "<not set>") << std::endl;
-		ofRobotTrace() << "y=" << (set[1] ? ofToString(y) : "<not set>") << std::endl;
-		ofRobotTrace() << "z=" << (set[2] ? ofToString(z) : "<not set>") << std::endl;
+		ofRobotTrace() << "x=" << (valueIsSet(x) ? ofToString(x) : "<not set>") << std::endl;
+		ofRobotTrace() << "y=" << (valueIsSet(y) ? ofToString(y) : "<not set>") << std::endl;
+		ofRobotTrace() << "z=" << (valueIsSet(z) ? ofToString(z) : "<not set>") << std::endl;
 	}
 	// can be +//
 	bool ofRobotPosition::validRange(float f) {
@@ -42,26 +42,14 @@ namespace RobotArtists {
 	}
 
 	void ofRobotPosition::setPercents(float xPercent, float yPercent, float zPercent) {
-		if (xPercent != NoRobotValue && validRange(xPercent)) {
+		if (xPercent == NoRobotValue || validRange(xPercent)) {
 			x = xPercent;
-			set[0] = true;
 		}
-		else {
-			set[0] = false;
-		}
-		if (yPercent != NoRobotValue && validRange(yPercent)) {
+		if (yPercent == NoRobotValue || validRange(yPercent)) {
 			y = yPercent;
-			set[1] = true;
 		}
-		else {
-			set[1] = false;
-		}
-		if (zPercent != NoRobotValue && validRange(zPercent)) {
+		if (zPercent == NoRobotValue || validRange(zPercent)) {
 			z = zPercent;
-			set[2] = true;
-		}
-		else {
-			set[2] = false;
 		}
 	}
 
@@ -74,13 +62,13 @@ namespace RobotArtists {
 	// x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
 	void ofRobotCommands::setState(ofRobotState statePercent) {
 		if (isCylindrical()) {
-			if (statePercent.set[0]) {
+			if (valueIsSet(statePercent.getWristAngle())) {
 				setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
 			}
-			if (statePercent.set[1]) {
+			if (valueIsSet(statePercent.getWristRotation())) {
 				setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
 			}
-			if (statePercent.set[2]) {
+			if (valueIsSet(statePercent.getGripper())) {
 				setGripper(getMin(Gripper) + (statePercent.getGripper() * (getMax(Gripper) - getMin(Gripper))));
 			}
 		}
@@ -91,13 +79,13 @@ namespace RobotArtists {
 		// only Cylindrical supported by this function, mainly the setx one
 		if (isCylindrical()) {
 			//ofMap
-			if (ptPercent.set[0]) {
+			if (valueIsSet(ptPercent.getX())) {
 				setX(getMin(X) + (ptPercent.getX() * (getMax(X) - getMin(X))));
 			}
-			if (ptPercent.set[1]) {
+			if (valueIsSet(ptPercent.getY())) {
 				setY(getMin(Y) + (ptPercent.getY() * (getMax(Y) - getMin(Y))));
 			}
-			if (ptPercent.set[2]) {
+			if (valueIsSet(ptPercent.getZ())) {
 				setZ(getMin(Z) + (ptPercent.getZ() * (getMax(Z) - getMin(Z))));
 			}
 		}
@@ -106,10 +94,6 @@ namespace RobotArtists {
 		}
 	}
 
-	// add ranges checking
-	void ofRobotCommands::add(const ofRobotCommand& cmd) {
-		vectorOfRobotCommands.push_back(cmd);
-	}
 
 	// various tests
 	void ofRobotCommands::sanityTestHighLevel(vector<ofRobotCommand>&commands) {
@@ -186,11 +170,52 @@ namespace RobotArtists {
 	//ofPushMatrix();
 	//ofTranslate(400, 300);
 	//ofPopMatrix();
-
-	// draw optimized line
-	void ofRobotCommands::line(vector<ofRobotCommand>&commands, const ofRobotPosition& from, const ofRobotPosition& to)	{
-
+	void ofRobotCommands::penUp(vector<ofRobotCommand>&commands) {
+		ofRobotCommand cmd(UserDefinded);
+		cmd.addZ(currentPosition.z+0.1); // bugbug what if its max,I guess it just ignores the request
+		commands.push_back(cmd);
 	}
+	void ofRobotCommands::penDown(vector<ofRobotCommand>&commands) {
+		ofRobotCommand cmd(UserDefinded);
+		cmd.addZ(currentPosition.z - 0.1); 
+		commands.push_back(cmd);
+	}
+	// draw optimized line
+	void ofRobotCommands::line(vector<ofRobotCommand>&commands, const ofRobotPosition& to)	{
+		// drop pen and move
+		penDown(commands);
+		move(commands, to);
+		penUp(commands);
+		/*
+		float dx = to.x - currentPosition.x; // delta between x and y
+		float dy = to.x - currentPosition.y;
+		float c = sqrt(dx*dx + dy*dy); // a squared etc
+
+		dx /= c; // normalize
+		dy /= c;
+		float distance = 2; // min distance to move
+		int newx = (int)(currentPosition.x + dx * (c + distance));
+		int newy = (int)(currentPosition.y + dy * (c + distance));
+		*/
+	}
+	// move arm
+	void ofRobotCommands::move(vector<ofRobotCommand>&commands,  const ofRobotPosition& to) {
+		// lift and move bugbug code this
+		currentPosition = to;
+	}
+	ofRobotPosition& ofRobotPosition::operator=(const ofRobotPosition&newpos) {
+		if (valueIsSet(newpos.x)) {
+			x = newpos.x;
+		}
+		if (valueIsSet(newpos.y)) {
+			y = newpos.y;
+		}
+		if (valueIsSet(newpos.z)) {
+			z = newpos.z;
+		}
+		return *this;
+	}
+
 	// create circle data
 	void ofRobotCommands::circle(vector<ofRobotCommand>&commands, float r)
 	{
@@ -201,7 +226,7 @@ namespace RobotArtists {
 			float newX = r * cos(angle);
 			float newY = r * sin(angle);
 			ofRobotTrace() << newX << " " << newY << std::endl; 
-			ofRobotCommand cmd(RobotCommandData(ofRobotPosition(newX, newY), ofRobotState(), RobotBaseClass::maxDelta()));
+			ofRobotCommand cmd(RobotCommandData(ofRobotPosition(newX, newY)));
 			commands.push_back(cmd);
 		}
 	}
@@ -238,13 +263,13 @@ namespace RobotArtists {
 	// send and delete (if requested) commands created as a result of using built in functions such as drawCircle
 	void ofRobotCommands::sendExpandedResults(vector<ofRobotCommand>& results) {
 		for (auto& result : results) {
-			if (result.cmd == Sleep) {
-				for (auto& a : result.vectorOfCommandData) {
+			if (result.getCommand() == Sleep) {
+				for (auto& a : result.getVector()) {
 					ofSleepMillis(a.int1);
 				}
 			}
 			else {
-				sendData(result.vectorOfCommandData);
+				sendData(result.getVector());
 			}
 		}
 	}
@@ -255,13 +280,23 @@ namespace RobotArtists {
 
 		// expand data as needed by all commands
 		for (auto& cmd : vectorOfRobotCommands) {
-			switch (cmd.cmd) {
+			switch (cmd.getCommand()) {
 			case HighLevelTest:
 				sanityTestHighLevel(expandedResults);
 				break;
-			case Circle:
-				for (auto& a : cmd.vectorOfCommandData) {
-					circle(expandedResults, a.float1); // populates vectorData
+			case RobotCircle:
+				for (auto& a : cmd.getVector()) {
+					circle(expandedResults, a.float1); 
+				}
+				break;
+			case RobotLineTo:
+				for (auto& a : cmd.getVector()) {
+					line(expandedResults, a.position); 
+				}
+				break;
+			case RobotMoveTo:
+				for (auto& a : cmd.getVector()) {
+					move(expandedResults, a.position);
 				}
 				break;
 			}
@@ -277,16 +312,16 @@ namespace RobotArtists {
 			vector< ofRobotCommand >::iterator it = vectorOfRobotCommands.begin();
 			while (it != vectorOfRobotCommands.end()) {
 
-				switch (it->cmd) {
+				switch (it->getCommand()) {
 				case LowLevelTest:
 					sanityTestLowLevel(); // special case, does not use data or other objects, used to test/debug
 					break;
 				case UserDefinded:
 					// no processing needed, just send it on. Low level, no commands parsed such as sleep, assuming that is done else where
-					sendData(it->vectorOfCommandData);
+					sendData(it->getVector());
 					break;
 				case Translate://bugbug make a mov, ie that lifts the brush for example
-					sendData(it->vectorOfCommandData);
+					sendData(it->getVector());
 					break;
 				case Push:
 					pushMatrix();

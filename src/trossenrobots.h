@@ -97,10 +97,11 @@ namespace RobotArtists {
 	}
 
 	// initial attempt at a generic robot definition, bugbug once understood move to the right object location
+	inline uint8_t minDelta() { return 0; }
+	inline uint8_t maxDelta() { return 254; }
+
 	class RobotBaseClass  {
 	public:
-		static uint8_t minDelta() { return 0; }
-		static uint8_t maxDelta() { return 254; }
 	};
 
 	// pure virtual base class, low level data without range checking so only use derived classes
