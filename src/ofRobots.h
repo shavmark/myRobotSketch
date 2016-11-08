@@ -30,12 +30,13 @@ namespace RobotArtists {
 		vector<string> thingsToSay;
 	};
 
+	#define NoRobotValue FLT_MAX
+
 	// positions are defined as % change of all range of joint, from the current position
 	// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
 	class ofRobotPosition : public ofPoint {
 	public:
 		//=FLT_MAX means not set
-#define NoRobotValue FLT_MAX
 		ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
 		void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
 		virtual void echo();
@@ -51,7 +52,7 @@ namespace RobotArtists {
 
 	class ofRobotState : public ofRobotPosition {
 	public:
-		ofRobotState(float wristAngle = FLT_MAX, float wristRotate = FLT_MAX, float gripper = FLT_MAX) :ofRobotPosition(wristAngle, wristRotate, gripper) {  }
+		ofRobotState(float wristAngle = NoRobotValue, float wristRotate = NoRobotValue, float gripper = NoRobotValue) :ofRobotPosition(wristAngle, wristRotate, gripper) {  }
 
 		float getWristAngle() { return getPtr()[0]; }
 		float getWristRotation()  { return getPtr()[1]; }
@@ -71,7 +72,7 @@ namespace RobotArtists {
 		RobotCommandData(float float1 = 0.0f) {  this->float1 = float1; }
 		RobotCommandData(int int1 = 0) { this->int1 = int1; }
 	
-		RobotCommandData(ofRobotPosition pos, ofRobotState state, uint8_t delta) {
+		RobotCommandData(ofRobotPosition pos, const ofRobotState state, uint8_t delta) {
 			data = robotArmCommandData(pos, state, delta);
 		}
 
@@ -105,6 +106,8 @@ namespace RobotArtists {
 		}
 		void add(const RobotCommandData& data) { vectorOfCommandData.push_back(data); }
 
+		void reset() {	clear(vectorOfCommandData); cmd = UserDefinded;	}
+		
 		void addSay(const string& say) { voice.add(say); }
 
 		void SetDeleteWhenDone(bool b = true) { deleteWhenDone = b; }
@@ -116,6 +119,24 @@ namespace RobotArtists {
 		}
 		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), uint8_t delta = RobotState::maxDelta()) {
 			add(RobotCommandData(position, state, delta));
+		}
+		void addX(float x= NoRobotValue, uint8_t delta = RobotState::maxDelta()) {
+			add(RobotCommandData(ofRobotPosition(x), ofRobotState(), delta));
+		}
+		void addY(float y = NoRobotValue, uint8_t delta = RobotState::maxDelta()) {
+			add(RobotCommandData(ofRobotPosition(NoRobotValue, y), ofRobotState(), delta));
+		}
+		void addZ(float z = NoRobotValue, uint8_t delta = RobotState::maxDelta()) {
+			add(RobotCommandData(ofRobotPosition(NoRobotValue, NoRobotValue, z), ofRobotState(), delta));
+		}
+		void addGripper(float gripper = NoRobotValue, uint8_t delta = RobotState::maxDelta()) {
+			add(RobotCommandData(ofRobotPosition(), ofRobotState(NoRobotValue, NoRobotValue, gripper), delta));
+		}
+		void addWristRotate(float value = NoRobotValue, uint8_t delta = RobotState::maxDelta()) {
+			add(RobotCommandData(ofRobotPosition(), ofRobotState(NoRobotValue, value, NoRobotValue), delta));
+		}
+		void addWristAngle(float value = NoRobotValue, uint8_t delta = RobotState::maxDelta()) {
+			add(RobotCommandData(ofRobotPosition(), ofRobotState(value, NoRobotValue, NoRobotValue), delta));
 		}
 		static ofRobotCommand getSleep(int duration) { return ofRobotCommand(Sleep, duration); }
 
@@ -160,12 +181,12 @@ namespace RobotArtists {
 		void setFillMode(int mode) { fillmode = mode; }
 		bool moveOrDraw = true; // false means draw
 		int fillmode = 0;
-		void sleep(int millisSleep) const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
 
 	protected:
 
 		void sanityTestHighLevel(vector<ofRobotCommand>&commands);
-		void drawCircle(vector<ofRobotCommand>&commands, float r);
+		void circle(vector<ofRobotCommand>&commands, float r);
+		void line(vector<ofRobotCommand>&commands, const ofRobotPosition& from, const ofRobotPosition& to);
 		void translate(float x, float y) {currentPosition.setPercents(x, y);}
 		void pushMatrix() { stack.push(currentPosition); }
 		void popMatrix() { 

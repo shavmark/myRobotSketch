@@ -111,25 +111,28 @@ namespace RobotArtists {
 		vectorOfRobotCommands.push_back(cmd);
 	}
 
+	// various tests
 	void ofRobotCommands::sanityTestHighLevel(vector<ofRobotCommand>&commands) {
 		ofRobotTrace() << "high level sanityTest" << std::endl;
 		//IKM_CYLINDRICAL
 		reset(IKM_CYLINDRICAL);
 		//ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
 		ofRobotCommand cmd(0.0f);
+		cmd.addWristAngle(0.0f);
+		cmd.addWristAngle(1.0f);
+		commands.push_back(cmd); // saves a copy
+		cmd.reset();
 		cmd.add(1.0f);
-		// add one command with main points/states using various techniques
-		//cmd.add(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f));// need to be percents!!
-		//cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f));// need to be percents!!
-		//cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f));// need to be percents!!
-		//typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotCommandRequest;
-
 		// add a new command, either way works
 		commands.push_back(cmd);
 		commands.push_back(ofRobotCommand::getSleep(10000));
-		ofRobotCommand cmd2(NoRobotValue, 0.0f);
+		ofRobotCommand cmd2(NoRobotValue, 0.10f);
 		cmd2.add(NoRobotValue, 1.0f);
 		commands.push_back(cmd2);
+		commands.push_back(ofRobotCommand::getSleep(10000));
+		ofRobotCommand cmd3(NoRobotValue, NoRobotValue, 0.0f);
+		cmd3.add(NoRobotValue, NoRobotValue, 1.0f);
+		commands.push_back(cmd3);
 
 	}
 
@@ -158,7 +161,7 @@ namespace RobotArtists {
 		sendToRobot(&robot->serial);
 		setGripper(511);
 		sendToRobot(&robot->serial);
-		sleep(1000);
+		ofSleepMillis(1000);
 		setX(200);
 		sendToRobot(&robot->serial);
 		setX(0);
@@ -184,8 +187,12 @@ namespace RobotArtists {
 	//ofTranslate(400, 300);
 	//ofPopMatrix();
 
-	// draw circle at current positon
-	void ofRobotCommands::drawCircle(vector<ofRobotCommand>&commands, float r)
+	// draw optimized line
+	void ofRobotCommands::line(vector<ofRobotCommand>&commands, const ofRobotPosition& from, const ofRobotPosition& to)	{
+
+	}
+	// create circle data
+	void ofRobotCommands::circle(vector<ofRobotCommand>&commands, float r)
 	{
 		// do a move like OF does so drawing always starts at current
 		float slice = 2 * M_PI / 10;
@@ -233,7 +240,7 @@ namespace RobotArtists {
 		for (auto& result : results) {
 			if (result.cmd == Sleep) {
 				for (auto& a : result.vectorOfCommandData) {
-					sleep(a.int1);
+					ofSleepMillis(a.int1);
 				}
 			}
 			else {
@@ -254,7 +261,7 @@ namespace RobotArtists {
 				break;
 			case Circle:
 				for (auto& a : cmd.vectorOfCommandData) {
-					drawCircle(expandedResults, a.float1); // populates vectorData
+					circle(expandedResults, a.float1); // populates vectorData
 				}
 				break;
 			}
