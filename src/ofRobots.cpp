@@ -115,31 +115,22 @@ namespace RobotArtists {
 		ofRobotTrace() << "high level sanityTest" << std::endl;
 		//IKM_CYLINDRICAL
 		reset(IKM_CYLINDRICAL);
-		ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
+		//ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
+		ofRobotCommand cmd(0.0f);
+		cmd.add(1.0f);
 		// add one command with main points/states using various techniques
-		cmd.add(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f));// need to be percents!!
-		cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f));// need to be percents!!
-		cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f));// need to be percents!!
+		//cmd.add(ofRobotPosition(0.3f, 0.6f), ofRobotState(1.0f, -1.0f, 0.5f));// need to be percents!!
+		//cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 0.3f));// need to be percents!!
+		//cmd.add(ofRobotPosition(NoRobotValue, NoRobotValue, 1.0f));// need to be percents!!
 		//typedef std::tuple<ofRobotPosition, ofRobotState, RobotArmDelta> robotCommandRequest;
 
 		// add a new command, either way works
 		commands.push_back(cmd);
-		commands.push_back(addSleep(1000));
+		commands.push_back(ofRobotCommand::getSleep(10000));
+		ofRobotCommand cmd2(NoRobotValue, 0.0f);
+		cmd2.add(NoRobotValue, 1.0f);
+		commands.push_back(cmd2);
 
-		///setLowLevelCommand(NoArmCommand);
-		//setDelta();
-		//setButton();
-	}
-	void ofRobotCommands::sendData(vector<RobotCommandData>&data) {
-		for (auto& a : data) {
-			set(a);
-			sendToRobot(&robot->serial);
-		}
-	}
-	void ofRobotCommands::sendResults(vector<ofRobotCommand>& results) {
-		for (auto& a : results) {
-			sendData(a.vectorOfCommandData);
-		}
 	}
 
 	void ofRobotJoints::sendToRobot(ofRobotSerial* serial) {
@@ -231,9 +222,43 @@ namespace RobotArtists {
 		setState(request.getState());
 		setDelta(request.getDelta());
 	}
+	void ofRobotCommands::sendData(vector<RobotCommandData>&data) {
+		for (auto& a : data) {
+			set(a);
+			sendToRobot(&robot->serial);
+		}
+	}
+	// send and delete (if requested) commands created as a result of using built in functions such as drawCircle
+	void ofRobotCommands::sendExpandedResults(vector<ofRobotCommand>& results) {
+		for (auto& result : results) {
+			if (result.cmd == Sleep) {
+				for (auto& a : result.vectorOfCommandData) {
+					sleep(a.int1);
+				}
+			}
+			else {
+				sendData(result.vectorOfCommandData);
+			}
+		}
+	}
 
 	void ofRobotCommands::update() {
 		
+		clear(expandedResults);
+
+		// expand data as needed by all commands
+		for (auto& cmd : vectorOfRobotCommands) {
+			switch (cmd.cmd) {
+			case HighLevelTest:
+				sanityTestHighLevel(expandedResults);
+				break;
+			case Circle:
+				for (auto& a : cmd.vectorOfCommandData) {
+					drawCircle(expandedResults, a.float1); // populates vectorData
+				}
+				break;
+			}
+		}
 		
 	}
 
@@ -243,34 +268,17 @@ namespace RobotArtists {
 		if (robot) {
 			
 			vector< ofRobotCommand >::iterator it = vectorOfRobotCommands.begin();
-
-			// for all commands
 			while (it != vectorOfRobotCommands.end()) {
-				vector<ofRobotCommand> results; // results of executing commands
+
 				switch (it->cmd) {
-				case HighLevelTest:
-					sanityTestHighLevel(results);
-					sendResults(results);
-					break;
 				case LowLevelTest:
-					sanityTestLowLevel();
+					sanityTestLowLevel(); // special case, does not use data or other objects, used to test/debug
 					break;
 				case UserDefinded:
-					// no processing needed, just send it on
+					// no processing needed, just send it on. Low level, no commands parsed such as sleep, assuming that is done else where
 					sendData(it->vectorOfCommandData);
 					break;
-				case Circle:
-					for (auto& a : it->vectorOfCommandData) {
-						drawCircle(results, a.float1); // populates vectorData
-					}
-					sendResults(results);
-					break;
-				case Sleep:
-					for (auto& a : it->vectorOfCommandData) {
-						sleep(a.int1); // populates vectorData
-					}
-					break;
-				case Translate:
+				case Translate://bugbug make a mov, ie that lifts the brush for example
 					sendData(it->vectorOfCommandData);
 					break;
 				case Push:
@@ -280,7 +288,11 @@ namespace RobotArtists {
 					popMatrix();
 					break;
 				}
-				
+
+				if (expandedResults.size() > 0) {
+					sendExpandedResults(expandedResults);
+				}
+
 				if (it->OKToDelete()) {
 					it = vectorOfRobotCommands.erase(it);
 				}
@@ -362,6 +374,9 @@ namespace RobotArtists {
 
 	}
 	void ofRobot::update() {
+		if (commands) {
+			commands->update();
+		}
 	}
 
 	void ofRobot::echo() {

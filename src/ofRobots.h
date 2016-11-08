@@ -117,6 +117,7 @@ namespace RobotArtists {
 		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), uint8_t delta = RobotState::maxDelta()) {
 			add(RobotCommandData(position, state, delta));
 		}
+		static ofRobotCommand getSleep(int duration) { return ofRobotCommand(Sleep, duration); }
 
 		// one command can have mulitiple data or 0 data
 		vector<RobotCommandData> vectorOfCommandData;		
@@ -160,12 +161,11 @@ namespace RobotArtists {
 		bool moveOrDraw = true; // false means draw
 		int fillmode = 0;
 		void sleep(int millisSleep) const { if (millisSleep > -1) ofSleepMillis(millisSleep); }
-		void sanityTestHighLevel(vector<ofRobotCommand>&commands);
-		void drawCircle(vector<ofRobotCommand>&commands, float r);
-		ofRobotCommand addSleep(int duration) { return ofRobotCommand(Sleep, duration); }
 
 	protected:
 
+		void sanityTestHighLevel(vector<ofRobotCommand>&commands);
+		void drawCircle(vector<ofRobotCommand>&commands, float r);
 		void translate(float x, float y) {currentPosition.setPercents(x, y);}
 		void pushMatrix() { stack.push(currentPosition); }
 		void popMatrix() { 
@@ -183,6 +183,7 @@ namespace RobotArtists {
 		ofRobot *robot = nullptr; // owner
 
 	private:
+		vector<ofRobotCommand> expandedResults;
 		vector<ofRobotCommand> vectorOfRobotCommands; // one more more points
 		void testdata();
 		ofRobotPosition currentPosition; // default to 0,0,0
@@ -190,7 +191,7 @@ namespace RobotArtists {
 									  // built in commands
 		void sanityTestLowLevel();
 		void sendData(vector<RobotCommandData>&data);
-		void sendResults(vector<ofRobotCommand>& results);
+		void sendExpandedResults(vector<ofRobotCommand>& results);
 		void move(const ofRobotPosition& pos);
 		void set(RobotCommandData& request);
 	};

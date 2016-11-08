@@ -196,7 +196,7 @@ namespace RobotArtists {
 		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
 
 	private:
-		int maxRetries = 10;
+		int maxRetries = 25;
 		int waitsleeptime = 100;
 		const string dataName(int id);
 
