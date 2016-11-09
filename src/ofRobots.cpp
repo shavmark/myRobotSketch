@@ -113,7 +113,7 @@ namespace RobotArtists {
 		ofRobotCommand cmd2(NoRobotValue, 0.10f);
 		cmd2.add(NoRobotValue, 1.0f);
 		commands.push_back(cmd2);
-		commands.push_back(ofRobotCommand::getSleep(1000));
+		commands.push_back(ofRobotCommand::getSleep(1000)); 
 		ofRobotCommand cmd3(NoRobotValue, NoRobotValue, 0.0f);
 		cmd3.add(NoRobotValue, NoRobotValue, 1.0f);
 		commands.push_back(cmd3);
@@ -122,7 +122,7 @@ namespace RobotArtists {
 	void ofRobotJoints::sendToRobot(ofRobotSerial* serial) {
 		
 		if (serial) {
-			serial->write(getPoseData(), count);
+			serial->writePose(getPose());
 		}
 	}
 
@@ -151,21 +151,15 @@ namespace RobotArtists {
 	}
 
 
-	ofRobotCommands::ofRobotCommands(ofRobot *robot) :ofRobotJoints(robot->pose, robot->type) {
+	void ofRobotCommands::setup(ofRobot *robot, robotArmMode mode) { 
 		this->robot = robot;
-		if (robot) {
-			//typedef pair<robotType, robotArmJointType> SpecificJoint
-			setUserDefinedRanges(SpecificJoint(robot->type, X), robot->userDefinedRanges);
-		}
-	}
-
-	void ofRobotCommands::setup(robotArmMode mode) { // setup can be ignored for a reset is not required
 		setStartState(mode);
-		sendToRobot(&robot->serial); // send the mode, also resets the robot
+		if (robot) {
+			setRobotType(robot->getType());
+			setUserDefinedRanges(SpecificJoint(robot->getType(), X), robot->userDefinedRanges);
+			sendToRobot(&robot->serial); // send the mode, also resets the robot
+		}
 		setDefaultState();
-		// set a current state for ease of management
-		currentState.position.set(getX(), getY(), getZ());
-		currentState.state.set(getWristAngle(), getWristRotate(), getGripper());
 		clear(vectorOfRobotCommands);
 	}
 
@@ -176,13 +170,13 @@ namespace RobotArtists {
 	void ofRobotCommands::penUp(vector<ofRobotCommand>&commands) {
 		ofRobotCommand cmd(UserDefinded);
 		
-		cmd.addZ(currentState.position.z+0.1); // bugbug what if its max,I guess it just ignores the request
+		cmd.addZ(getZ()+0.1); // bugbug what if its max,I guess it just ignores the request
 		commands.push_back(cmd);
 	}
 
 	void ofRobotCommands::penDown(vector<ofRobotCommand>&commands) {
 		ofRobotCommand cmd(UserDefinded);
-		cmd.addZ(currentState.position.z - 0.1);
+		cmd.addZ(getZ() - 0.1);
 		commands.push_back(cmd);
 	}
 
@@ -208,7 +202,6 @@ namespace RobotArtists {
 	// move arm
 	void ofRobotCommands::move(vector<ofRobotCommand>&commands,  const ofRobotPosition& to) {
 		// move arm
-		currentState.position = to;
 		ofRobotCommand cmd(RobotMoveTo, RobotCommandData(to));
 		commands.push_back(cmd);
 	}
@@ -365,7 +358,7 @@ namespace RobotArtists {
 	}
 
 	void ofRobot::validate() {
-		return;// do not bother when debugging
+		//return;// do not bother when debugging
 
 		ofRobotTrace() << "valiate robot" << std::endl;
 		
@@ -399,55 +392,46 @@ namespace RobotArtists {
 	}
 
 	void ofRobot::setup() {
-		memset(pose, 0, sizeof(pose));
 
-		commands = make_shared<ofRobotCommands>(this);
-		if (commands) {
-			ofRobotTrace() << "setup robot " << name << " type ";
+		ofRobotTrace() << "setup robot " << name << " type ";
 
-			// setup the robot
-			switch (getTypeID()) {
-			case PhantomXReactorArm:
-				servoCount = REACTOR_SERVO_COUNT;
-				ofRobotTrace() << "Reactor";
-				break;
-			case PhantomXPincherArm:
-				servoCount = PINCHER_SERVO_COUNT;
-				ofRobotTrace() << "Pincher";
-				break;
-			case WidowX:
-				servoCount = WIDOWX_SERVO_COUNT;
-				ofRobotTrace() << "WidowX";
-				break;
-			}
+		commands.setup(this, IKM_CYLINDRICAL);
 
-			ofRobotTrace() << " on " << serial.deviceName << std::endl;
-
-			validate(); // validate robot
-
-			commands->setup(IKM_CYLINDRICAL);
+		// setup the robot
+		switch (getTypeID()) {
+		case PhantomXReactorArm:
+			servoCount = REACTOR_SERVO_COUNT;
+			ofRobotTrace() << "Reactor";
+			break;
+		case PhantomXPincherArm:
+			servoCount = PINCHER_SERVO_COUNT;
+			ofRobotTrace() << "Pincher";
+			break;
+		case WidowX:
+			servoCount = WIDOWX_SERVO_COUNT;
+			ofRobotTrace() << "WidowX";
+			break;
 		}
+
+		ofRobotTrace() << " on " << serial.deviceName << std::endl;
+
+		validate(); // validate robot
+
 	}
 
 	void ofRobot::update() {
-		if (commands) {
-			commands->update();
-		}
+		commands.update();
 	}
 
 	void ofRobot::echo() {
-		if (commands) {
-			commands->echo();
-		}
+		commands.echo();
 	}
 
 	void ofRobot::draw() {
 		if (pause) {
 			return;
 		}
-		if (commands) {
-			commands->draw();
-		}
+		commands.draw();
 	}
 
 	shared_ptr<ofRobot> ofRobotFamly::getRobot(int index, RobotTypeID id) {

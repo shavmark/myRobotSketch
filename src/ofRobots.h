@@ -68,6 +68,7 @@ namespace RobotArtists {
 
 	enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, HighLevelTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo};// command and basic commands.  Derive object or create functions to create more commands
 
+	// high level interface to robot data data
 	class RobotCommandData {
 	public:
 
@@ -166,13 +167,12 @@ namespace RobotArtists {
 	class ofRobotCommands : protected ofRobotJoints {
 	public:
 
-	    // a robot is required for life of this object
-		ofRobotCommands(ofRobot *robot);
 
 		void echo(); 
 
 		// put command data in a known state
-		void setup(robotArmMode);
+		// a robot is required for life of this object
+		void setup(ofRobot*, robotArmMode);
 
 		// move or draw based on the value in moveOrDraw
 		virtual void draw();
@@ -183,7 +183,6 @@ namespace RobotArtists {
 		}
 
 	protected:
-		RobotCommandData currentState;
 
 		void sanityTestHighLevel(vector<ofRobotCommand>&commands);
 		void circle(vector<ofRobotCommand>&commands, float r);
@@ -191,14 +190,14 @@ namespace RobotArtists {
 		void move(vector<ofRobotCommand>&commands, const ofRobotPosition& to);
 		void penUp(vector<ofRobotCommand>&commands);
 		void penDown(vector<ofRobotCommand>&commands);
-		void translate(float x, float y) { currentState.position.setPercents(x, y);}
-		void pushMatrix() { stack.push(currentState); }
+		//void translate(float x, float y) { getPose().position.setPercents(x, y);}
+		void pushMatrix() { stack.push(getPose()); }
 		void popMatrix() { 
 			if (stack.size() == 0) {
 				ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
 			}
 			else {
-				currentState = stack.top();
+				setPose(stack.top());
 				stack.pop();
 			}
 		}
@@ -211,7 +210,7 @@ namespace RobotArtists {
 		vector<ofRobotCommand> expandedResults;
 		vector<ofRobotCommand> vectorOfRobotCommands; // one more more points
 		void testdata();
-		stack<RobotCommandData> stack; // bugbug once working likely to include colors, brush size etc
+		stack<Pose> stack; // bugbug once working likely to include colors, brush size etc
 									  // built in commands
 		void sanityTestLowLevel();
 		void sendData(vector<RobotCommandData>&data);
@@ -237,7 +236,7 @@ namespace RobotArtists {
 		void echo(); // echos positions
 		void setPause(bool pause = true) { this->pause = pause; }//bugbug go to threads
 
-		shared_ptr<ofRobotCommands> commands=nullptr;
+		ofRobotCommands commands;
 
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
@@ -250,9 +249,8 @@ namespace RobotArtists {
 
 		void validate();
 		ofTrosseRobotSerial serial; // talking to the robots
-
+		robotType getType() { return type; }
 	private:
-		uint8_t pose[RobotState::count];// bugbug needs to be enabled: can have any  number of these instances
 		robotType type;
 		int servoCount;
 		bool pause = false;

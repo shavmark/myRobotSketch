@@ -19,9 +19,9 @@ void ofApp::update() {
 	shared_ptr<ofRobot> robot = family.getRobot(0, PhantomXPincherArm); // work with first pincher found
 	if (robot) {
 		ofRobotCommand cmd(RobotMoveTo, RobotCommandData(ofRobotPosition(0.0f)));
-		robot->commands->add(cmd);
+		robot->commands.add(cmd);
 		cmd.reset(RobotLineTo, RobotCommandData(ofRobotPosition(0.5f)));
-		robot->commands->add(cmd);
+		robot->commands.add(cmd);
 	}
 	family.update();
 

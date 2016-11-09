@@ -104,18 +104,25 @@ namespace RobotArtists {
 	public:
 	};
 
-	// pure virtual base class, low level data without range checking so only use derived classes
+	class Pose {
+	public:
+		Pose() { memset(get(), 0, size()); }
+		uint8_t operator[](int i) { return pose[i]; }
+		void set(int i, uint8_t val) { pose[i] = val; }
+		uint8_t* get() { return pose.data(); }
+		int size() const { return pose.size(); }
+	private:
+		std::array<uint8_t, 17> pose;
+	};
+
 	// the Interbotix software uses a block of memory to manage a robot arm.  This class manages that block of memory. its a pure virtual class as its too
 	// low level, missing things like range checking
 	class RobotState : public RobotBaseClass {
 	public:
-		static const uint16_t count = 17;
+
 		robotLowLevelCommandTrossen getStartCommand(robotArmMode mode);
 
-		RobotState(uint8_t *pose) { setPose(pose); }
-
-		virtual void virtfunction() = 0;
-		void setPose(uint8_t *pose) { this->pose = pose; }
+		void setPose(const Pose &pose) { this->pose = pose; }
 		void echoRawData();
 		void set(uint16_t offset, uint8_t b);
 		void setDelta(uint8_t value = 128) { if (value > maxDelta()) value = maxDelta(); set(deltaValBytesOffset, value); }
@@ -134,9 +141,10 @@ namespace RobotArtists {
 		int getWristAngle() { return get(wristAngleHighByteOffset, wristAngleLowByteOffset); }
 		int getWristRotate() { return get(wristRotateHighByteOffset, wristRotateLowByteOffset); }
 		int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
-
+		uint8_t getDelta() { return pose[deltaValBytesOffset]; }
 		uint8_t *getPoseData();
-
+		int getPoseSize() const { return pose.size(); }
+		Pose&getPose() { return pose; }
 		void set(uint16_t high, uint16_t low, int val);
 		int get(uint16_t high, uint16_t low);
 		enum CommandIndexes : uint16_t {
@@ -150,15 +158,11 @@ namespace RobotArtists {
 
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-		uint8_t *pose = nullptr; // data to send
+
+	private:
+		Pose pose; // data to send
 	};
 
-	class RobotCommandInterface : public RobotState {
-	public:
-		RobotCommandInterface(uint8_t *pose) : RobotState(pose) {  }
-	private:
-		virtual void virtfunction() {};
-	};
 
 	//bugbug at some point this needs to be moved out of a trossen specific file as its OF dependent
 
@@ -168,10 +172,10 @@ namespace RobotArtists {
 		ofRobotSerial() {}
 
 		bool waitForSerial(int retries);
+		int writePose(Pose&pose);
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
 		int readLine(uint8_t* bytes, int bytesMax = 100);
-		void write(uint8_t* data, int count);
 		vector <ofSerialDeviceInfo>& getDevices() {
 			buildDeviceList();
 			return devices;
@@ -184,6 +188,8 @@ namespace RobotArtists {
 		string deviceName;
 
 	protected:
+
+		int write(uint8_t* data, int count);
 
 	private:
 		int maxRetries = 25;
@@ -223,10 +229,8 @@ namespace RobotArtists {
 	class ofRobotJoints : public RobotState {
 	public:
 		// constructor required
-		ofRobotJoints() : RobotState(nullptr) {}
-		ofRobotJoints(const robotType& typeOfRobot) : RobotState(nullptr) { this->typeOfRobot = typeOfRobot; };
-		ofRobotJoints(uint8_t* pose, const robotType& typeOfRobot) : RobotState(pose) { this->typeOfRobot = typeOfRobot; }
-		ofRobotJoints(uint8_t* pose) : RobotState(pose) { typeOfRobot = createUndefinedRobotType(); }
+		ofRobotJoints(const robotType& typeOfRobot) : RobotState() { this->typeOfRobot = typeOfRobot; };
+		ofRobotJoints() : RobotState() {}
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);
@@ -259,8 +263,8 @@ namespace RobotArtists {
 		void setMode(robotArmMode mode);
 		robotArmMode getMode() { return typeOfRobot.first; }
 		RobotTypeID getType() { return typeOfRobot.second; }
-		void setType(RobotTypeID type) { typeOfRobot.second = type; }
-
+		void setTypeID(RobotTypeID type) { typeOfRobot.second = type; }
+		void setRobotType(robotType type) { typeOfRobot = type; }
 		void setDefaultState();
 		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
 

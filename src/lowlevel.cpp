@@ -266,7 +266,7 @@ namespace RobotArtists {
 	}
 
 
-	void ofRobotSerial::write(uint8_t* data, int count) {
+	int ofRobotSerial::write(uint8_t* data, int count) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 
 		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
@@ -278,6 +278,8 @@ namespace RobotArtists {
 		ofRobotTrace() << "write sent = " << sent << std::endl;
 
 		getPose(); // pose is sent all the time  by the micro code for at least trossen robots
+
+		return sent;
 
 	}
 
@@ -291,15 +293,13 @@ namespace RobotArtists {
 
 	int ofTrosseRobotSerial::getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length) {
 		// send and read data
-		uint8_t pose[RobotState::count];
-		memset(pose, 0, sizeof pose);
-		RobotCommandInterface interface(pose);
+		RobotState interface;
 		interface.setLowLevelCommand(getServoRegisterCommand);
 		interface.setLowLevelX(id); // servo 
 		interface.setLowLevelY(registerNumber);
 		interface.setLowLevelZ(length);
 		
-		int sent = writeBytes(interface.getPoseData(), RobotState::count);
+		int sent = writePose(interface.getPose());
 		ofSleepMillis(33);
 
 		uint8_t data[500]; // could be lots of sperius data out there, unlikely but if it occurs we want to echo it
@@ -321,19 +321,21 @@ namespace RobotArtists {
 		ofRobotTrace(ErrorLog) << "spurious data " << data << std::endl;
 		return 0;
 	}
+
+	int ofRobotSerial::writePose(Pose&pose) {
+		return write(pose.get(), pose.size());
+	}
+
 	// length == 2 for ax12SetRegister2
 	void ofTrosseRobotSerial::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
-		uint8_t pose[RobotState::count];
-		memset(pose, 0, sizeof pose);
-
-		RobotCommandInterface interface(pose);
+		RobotState interface;
 		interface.setLowLevelCommand(setServoRegisterCommand);
 		interface.setLowLevelX(id); // servo 
 		interface.setLowLevelY(registerNumber);
 		interface.setLowLevelZ(length);
 		interface.setLowLevelWristAngle(dataToSend, 0);
 		flush();   // reset
-		int sent = writeBytes(interface.getPoseData(), RobotState::count);
+		int sent = writePose(interface.getPose());
 		ofSleepMillis(33);
 		uint8_t data[5];
 		int readin = readAllBytes(data, 5);
@@ -352,13 +354,8 @@ namespace RobotArtists {
 		}
 	}
 
-
 	int RobotState::get(uint16_t high, uint16_t low) {
-		int number = -1;
-		if (pose) {
-			int number = bytes_to_u16(pose[high], pose[low]);
-		}
-		return number;
+		return bytes_to_u16(pose[high], pose[low]);
 	}
 
 	void RobotState::set(uint16_t high, uint16_t low, int val) {
@@ -426,7 +423,7 @@ namespace RobotArtists {
 	uint8_t *RobotState::getPoseData() {
 		set(headerByteOffset, 255);
 		getChkSum();
-		return pose;
+		return pose.get();
 	}
 	int ofRobotJoints::getMin(robotArmJointType type) {
 		if (userDefinedRanges && userDefinedRanges->minValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->minValue.end()) {
@@ -548,9 +545,7 @@ namespace RobotArtists {
 	}
 	void RobotState::set(uint16_t offset, uint8_t b) {
 		ofRobotTrace() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
-		if (pose) {
-			pose[offset] = b;
-		}
+		pose.set(offset, b);
 	}
 	// "home" and set data matching state
 	void ofRobotJoints::setDefaultState() {
@@ -577,10 +572,7 @@ namespace RobotArtists {
 	}
 
 	void RobotState::echoRawData() {
-		if (!pose) {
-			ofRobotTrace() << "no pose to echo" << std::endl;
-			return;
-		}
+
 #define ECHO(a)ofRobotTrace() << "echo[" << a << "] = "  << std::hex << (unsigned int)pose[a] << "h "  <<  std::dec <<(unsigned int)pose[a] << "d "<< #a << std::endl;
 
 		ECHO(headerByteOffset)
@@ -613,18 +605,14 @@ namespace RobotArtists {
 		return 0;
 	}
 	uint8_t RobotState::getChkSum() {
-		if (pose) {
-			uint16_t sum = 0;
-			for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
-				sum += pose[i];
-			}
-			uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
-
-			pose[checksum] = 255 - invertedChecksum; //invert value to get file checksum
-			return pose[checksum];
-
+		uint16_t sum = 0;
+		for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
+			sum += pose[i];
 		}
-		return 0;
+		uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
+
+		pose.set(checksum,  255 - invertedChecksum); //invert value to get file checksum
+		return pose[checksum];
 	}
 	// user defined can never be greater than hardware min/max
 	void ofRobotJoints::setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>) {
