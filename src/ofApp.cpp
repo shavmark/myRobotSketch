@@ -1,5 +1,5 @@
 #include "ofApp.h"
-#include "trossenrobots.h"
+#include "lowlevel.h"
 #include <algorithm> 
 
 
@@ -21,7 +21,7 @@ void ofApp::update() {
 		ofRobotCommand cmd(RobotMoveTo, RobotCommandData(ofRobotPosition(0.0f)));
 		robot->commands->add(cmd);
 		cmd.reset(RobotLineTo, RobotCommandData(ofRobotPosition(0.5f)));
-		robot->commands->add(cmd);//bugbug data is too bug, just testing getting data around
+		robot->commands->add(cmd);
 	}
 	family.update();
 

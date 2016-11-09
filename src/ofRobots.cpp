@@ -28,11 +28,13 @@ namespace RobotArtists {
 		ofRobotTrace() << "WristRotatation=" << (valueIsSet(getWristRotation()) ? ofToString(getWristRotation()) : "<not set>") << std::endl;
 		ofRobotTrace() << "Gripper=" << (valueIsSet(getGripper()) ? ofToString(getGripper()) : "<not set>") << std::endl;
 	}
+	
 	void ofRobotPosition::echo()  {
 		ofRobotTrace() << "x=" << (valueIsSet(x) ? ofToString(x) : "<not set>") << std::endl;
 		ofRobotTrace() << "y=" << (valueIsSet(y) ? ofToString(y) : "<not set>") << std::endl;
 		ofRobotTrace() << "z=" << (valueIsSet(z) ? ofToString(z) : "<not set>") << std::endl;
 	}
+
 	// can be +//
 	bool ofRobotPosition::validRange(float f) {
 		if (abs(f) >= 0.0f && abs(f) <= 1.0f) {
@@ -94,12 +96,10 @@ namespace RobotArtists {
 		}
 	}
 
-
 	// various tests
 	void ofRobotCommands::sanityTestHighLevel(vector<ofRobotCommand>&commands) {
 		ofRobotTrace() << "high level sanityTest" << std::endl;
-		//IKM_CYLINDRICAL
-		reset(IKM_CYLINDRICAL);
+
 		//ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
 		ofRobotCommand cmd(0.0f);
 		cmd.addWristAngle(0.0f);
@@ -109,19 +109,18 @@ namespace RobotArtists {
 		cmd.add(1.0f);
 		// add a new command, either way works
 		commands.push_back(cmd);
-		commands.push_back(ofRobotCommand::getSleep(10000));
+		commands.push_back(ofRobotCommand::getSleep(1000));
 		ofRobotCommand cmd2(NoRobotValue, 0.10f);
 		cmd2.add(NoRobotValue, 1.0f);
 		commands.push_back(cmd2);
-		commands.push_back(ofRobotCommand::getSleep(10000));
+		commands.push_back(ofRobotCommand::getSleep(1000));
 		ofRobotCommand cmd3(NoRobotValue, NoRobotValue, 0.0f);
 		cmd3.add(NoRobotValue, NoRobotValue, 1.0f);
 		commands.push_back(cmd3);
-
 	}
 
 	void ofRobotJoints::sendToRobot(ofRobotSerial* serial) {
-		echo();
+		
 		if (serial) {
 			serial->write(getPoseData(), count);
 		}
@@ -130,7 +129,6 @@ namespace RobotArtists {
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 	void ofRobotCommands::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
-		reset(IKM_CYLINDRICAL);
 		sendToRobot(&robot->serial);
 		setDelta(254);
 		setX(100); // absolution position vs. percentages
@@ -160,27 +158,35 @@ namespace RobotArtists {
 			setUserDefinedRanges(SpecificJoint(robot->type, X), robot->userDefinedRanges);
 		}
 	}
-	void ofRobotCommands::reset(robotArmMode mode) { // setup can be ignored for a reset is not required
+
+	void ofRobotCommands::setup(robotArmMode mode) { // setup can be ignored for a reset is not required
 		setStartState(mode);
 		sendToRobot(&robot->serial); // send the mode, also resets the robot
 		setDefaultState();
+		// set a current state for ease of management
+		currentState.position.set(getX(), getY(), getZ());
+		currentState.state.set(getWristAngle(), getWristRotate(), getGripper());
 		clear(vectorOfRobotCommands);
 	}
 
 	//ofPushMatrix();
 	//ofTranslate(400, 300);
 	//ofPopMatrix();
+
 	void ofRobotCommands::penUp(vector<ofRobotCommand>&commands) {
 		ofRobotCommand cmd(UserDefinded);
-		cmd.addZ(currentPosition.z+0.1); // bugbug what if its max,I guess it just ignores the request
+		
+		cmd.addZ(currentState.position.z+0.1); // bugbug what if its max,I guess it just ignores the request
 		commands.push_back(cmd);
 	}
+
 	void ofRobotCommands::penDown(vector<ofRobotCommand>&commands) {
 		ofRobotCommand cmd(UserDefinded);
-		cmd.addZ(currentPosition.z - 0.1); 
+		cmd.addZ(currentState.position.z - 0.1);
 		commands.push_back(cmd);
 	}
-	// draw optimized line
+
+	// draw optimized line from current location
 	void ofRobotCommands::line(vector<ofRobotCommand>&commands, const ofRobotPosition& to)	{
 		// drop pen and move
 		penDown(commands);
@@ -198,11 +204,15 @@ namespace RobotArtists {
 		int newy = (int)(currentPosition.y + dy * (c + distance));
 		*/
 	}
+
 	// move arm
 	void ofRobotCommands::move(vector<ofRobotCommand>&commands,  const ofRobotPosition& to) {
-		// lift and move bugbug code this
-		currentPosition = to;
+		// move arm
+		currentState.position = to;
+		ofRobotCommand cmd(RobotMoveTo, RobotCommandData(to));
+		commands.push_back(cmd);
 	}
+	
 	ofRobotPosition& ofRobotPosition::operator=(const ofRobotPosition&newpos) {
 		if (valueIsSet(newpos.x)) {
 			x = newpos.x;
@@ -242,24 +252,27 @@ namespace RobotArtists {
 		popMatrix();
 
 		sendToRobot(&robot->serial); // restore to normal z
-
 	}
+
 	void ofRobotCommands::testdata() {
 		getPoseData(); // do check sum
 		echoRawData();
 		echo(); // echo object data
 	}
+
 	void ofRobotCommands::set(RobotCommandData& request) {
 		setPoint(request.getPoint());
 		setState(request.getState());
 		setDelta(request.getDelta());
 	}
+
 	void ofRobotCommands::sendData(vector<RobotCommandData>&data) {
 		for (auto& a : data) {
 			set(a);
 			sendToRobot(&robot->serial);
 		}
 	}
+
 	// send and delete (if requested) commands created as a result of using built in functions such as drawCircle
 	void ofRobotCommands::sendExpandedResults(vector<ofRobotCommand>& results) {
 		for (auto& result : results) {
@@ -301,7 +314,6 @@ namespace RobotArtists {
 				break;
 			}
 		}
-		
 	}
 
 	// drawing occurs here as its tied to the robot directly
@@ -357,64 +369,66 @@ namespace RobotArtists {
 
 		ofRobotTrace() << "valiate robot" << std::endl;
 		
-		for (int i = FIRST_SERVO; i < servorCount; ++i) {
+		for (int i = FIRST_SERVO; i < servoCount; ++i) {
 			for (int j = 1; j <= 5; ++j) { // flash a bit
-				serial.setLED(static_cast<ServoIDs>(i), 1);
-				int led = serial.getLED(static_cast<ServoIDs>(i));
+				serial.setLED(static_cast<TrossenServoIDs>(i), 1);
+				int led = serial.getLED(static_cast<TrossenServoIDs>(i));
 				if (led != 1) {
 					ofRobotTrace(WarningLog) << "reg set fails" << std::endl; // may occur during startup
 				}
 				ofSleepMillis(100);
-				serial.setLED(static_cast<ServoIDs>(i), 0);
-				led = serial.getLED(static_cast<ServoIDs>(i));
+				serial.setLED(static_cast<TrossenServoIDs>(i), 0);
+				led = serial.getLED(static_cast<TrossenServoIDs>(i));
 				if (led != 0) {
 					ofRobotTrace(WarningLog) << "reg set fails" << std::endl;
 				}
 			}
-			for (int i = FIRST_SERVO; i < servorCount; ++i) {
+			for (int i = FIRST_SERVO; i < servoCount; ++i) {
 				ofRobotTrace() << "servo " << i;
 
-				int pos = serial.getPosition(static_cast<ServoIDs>(i));
+				int pos = serial.getPosition(static_cast<TrossenServoIDs>(i));
 				ofRobotTrace() << " pos " << pos;
 
-				int tmp = serial.getTempature(static_cast<ServoIDs>(i));
+				int tmp = serial.getTempature(static_cast<TrossenServoIDs>(i));
 				ofRobotTrace() << " temp. " << tmp;
 
-				float v = serial.getVoltage(static_cast<ServoIDs>(i))/10;
+				float v = serial.getVoltage(static_cast<TrossenServoIDs>(i))/10;
 				ofRobotTrace() << " voltage " << v << std::endl;
 			}
 		}
-		
-		
 	}
 
 	void ofRobot::setup() {
-		commands = make_shared<ofRobotCommands>(this);
 		memset(pose, 0, sizeof(pose));
-		
-		ofRobotTrace() << "setup robot " << name << " type ";
 
-		// setup the robot
-		switch (getTypeID()) {
-		case PhantomXReactorArm:
-			servorCount = REACTOR_SERVO_COUNT;
-			ofRobotTrace() << "Reactor";
-			break;
-		case PhantomXPincherArm:
-			servorCount = PINCHER_SERVO_COUNT;
-			ofRobotTrace() << "Pincher";
-			break;
-		case WidowX:
-			servorCount = WIDOWX_SERVO_COUNT;
-			ofRobotTrace() << "WidowX";
-			break;
+		commands = make_shared<ofRobotCommands>(this);
+		if (commands) {
+			ofRobotTrace() << "setup robot " << name << " type ";
+
+			// setup the robot
+			switch (getTypeID()) {
+			case PhantomXReactorArm:
+				servoCount = REACTOR_SERVO_COUNT;
+				ofRobotTrace() << "Reactor";
+				break;
+			case PhantomXPincherArm:
+				servoCount = PINCHER_SERVO_COUNT;
+				ofRobotTrace() << "Pincher";
+				break;
+			case WidowX:
+				servoCount = WIDOWX_SERVO_COUNT;
+				ofRobotTrace() << "WidowX";
+				break;
+			}
+
+			ofRobotTrace() << " on " << serial.deviceName << std::endl;
+
+			validate(); // validate robot
+
+			commands->setup(IKM_CYLINDRICAL);
 		}
-
-		ofRobotTrace() << " on " << serial.deviceName << std::endl;
-
-		validate(); // validate roboth
-
 	}
+
 	void ofRobot::update() {
 		if (commands) {
 			commands->update();
@@ -435,6 +449,7 @@ namespace RobotArtists {
 			commands->draw();
 		}
 	}
+
 	shared_ptr<ofRobot> ofRobotFamly::getRobot(int index, RobotTypeID id) {
 		ofRobotTrace() << "getRobot" << std::endl;
 		int count = 0;
@@ -448,6 +463,7 @@ namespace RobotArtists {
 		}
 		return nullptr;
 	}
+
 	void ofRobotFamly::update() {
 		if (robots.size() == 0) {
 			ofRobotTrace() << "update robots no data" << std::endl;
@@ -475,7 +491,7 @@ namespace RobotArtists {
 	void ofRobotFamly::setup() {
 
 		// do one time setup
-		RobotJoints::oneTimeSetup(); // do one time setup of static data
+		ofRobotJoints::oneTimeSetup(); // do one time setup of static data
 
 		ofRobotSerial serial;
 		serial.listDevices(); // let viewer see thats out there
@@ -513,7 +529,5 @@ namespace RobotArtists {
 				ofRobotTrace() << "no robot at " << device.getDeviceName() << std::endl;
 			}
 		}
-
 	}
-
 }

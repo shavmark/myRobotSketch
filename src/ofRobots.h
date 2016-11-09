@@ -66,19 +66,6 @@ namespace RobotArtists {
 
 	};
 
-	//bugbug work on naming, "of" vs. "Trossen" or maybe tr and of?
-	class ofRobotJoints : public RobotJoints {
-	public:
-		ofRobotJoints(uint8_t *pose) : RobotJoints(pose) {}
-		ofRobotJoints() : RobotJoints(nullptr) {}
-		ofRobotJoints(const robotType& typeOfRobot) : RobotJoints(nullptr, typeOfRobot) { };
-		ofRobotJoints(uint8_t* pose, const robotType& typeOfRobot) : RobotJoints(pose, typeOfRobot) {  }
-
-		virtual void echo() {};
-		void sendToRobot(ofRobotSerial* serial);
-	};
-
-
 	enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, HighLevelTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo};// command and basic commands.  Derive object or create functions to create more commands
 
 	class RobotCommandData {
@@ -165,13 +152,13 @@ namespace RobotArtists {
 		void set(const RobotCommand& cmd) { this->cmd = cmd; }
 		const RobotCommand&getCommand() { return cmd; }
 		vector<RobotCommandData>&getVector() {	return vectorOfCommandData;	}
+
 	private:
 		// one command can have mulitiple data or 0 data
 		vector<RobotCommandData> vectorOfCommandData;
 		RobotCommand cmd = UserDefinded;
 		bool deleteWhenDone = true; // false to repeat command per every draw occurance
 		ofRobotVoice voice;
-		
 	};
 
 	class ofRobot;
@@ -185,20 +172,18 @@ namespace RobotArtists {
 		void echo(); 
 
 		// put command data in a known state
-		void reset(robotArmMode);
+		void setup(robotArmMode);
 
 		// move or draw based on the value in moveOrDraw
 		virtual void draw();
 		void update();
+
 		void add(const ofRobotCommand& cmd) {
 			vectorOfRobotCommands.push_back(cmd);
 		}
 
-		void setFillMode(int mode) { fillmode = mode; }
-		bool moveOrDraw = true; // false means draw
-		int fillmode = 0;
-
 	protected:
+		RobotCommandData currentState;
 
 		void sanityTestHighLevel(vector<ofRobotCommand>&commands);
 		void circle(vector<ofRobotCommand>&commands, float r);
@@ -206,14 +191,14 @@ namespace RobotArtists {
 		void move(vector<ofRobotCommand>&commands, const ofRobotPosition& to);
 		void penUp(vector<ofRobotCommand>&commands);
 		void penDown(vector<ofRobotCommand>&commands);
-		void translate(float x, float y) {currentPosition.setPercents(x, y);}
-		void pushMatrix() { stack.push(currentPosition); }
+		void translate(float x, float y) { currentState.position.setPercents(x, y);}
+		void pushMatrix() { stack.push(currentState); }
 		void popMatrix() { 
 			if (stack.size() == 0) {
 				ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
 			}
 			else {
-				currentPosition = stack.top();
+				currentState = stack.top();
 				stack.pop();
 			}
 		}
@@ -226,8 +211,7 @@ namespace RobotArtists {
 		vector<ofRobotCommand> expandedResults;
 		vector<ofRobotCommand> vectorOfRobotCommands; // one more more points
 		void testdata();
-		ofRobotPosition currentPosition; // default to 0,0,0
-		stack<ofRobotPosition> stack; // bugbug once working likely to include colors, brush size etc
+		stack<RobotCommandData> stack; // bugbug once working likely to include colors, brush size etc
 									  // built in commands
 		void sanityTestLowLevel();
 		void sendData(vector<RobotCommandData>&data);
@@ -265,12 +249,12 @@ namespace RobotArtists {
 		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
 
 		void validate();
-		ofRobotSerial serial; // talking to the robots
+		ofTrosseRobotSerial serial; // talking to the robots
 
 	private:
 		uint8_t pose[RobotState::count];// bugbug needs to be enabled: can have any  number of these instances
 		robotType type;
-		int servorCount;
+		int servoCount;
 		bool pause = false;
 		string name;
 	};
