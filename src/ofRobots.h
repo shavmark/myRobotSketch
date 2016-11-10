@@ -166,8 +166,6 @@ namespace RobotArtists {
 
 	class ofRobotCommands : protected ofRobotJoints {
 	public:
-
-
 		void echo(); 
 
 		// put command data in a known state
@@ -191,7 +189,7 @@ namespace RobotArtists {
 		void penUp(vector<ofRobotCommand>&commands);
 		void penDown(vector<ofRobotCommand>&commands);
 		//void translate(float x, float y) { getPose().position.setPercents(x, y);}
-		void pushMatrix() { stack.push(getPose()); }
+		void pushMatrix() { stack.push(pose); }
 		void popMatrix() { 
 			if (stack.size() == 0) {
 				ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
@@ -227,7 +225,7 @@ namespace RobotArtists {
 		ofRobot() {}
 		ofRobot(const string& name, robotType type) { 
 			this->name = name;  
-			this->type = type; 
+			this->info = type;
 		}
 
 		void setup();
@@ -241,17 +239,14 @@ namespace RobotArtists {
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
 
-		//InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes
-		RobotTypeID getTypeID() { return type.second; }
-		void setType(robotType type) { this->type = type; }
-
 		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
 
 		void validate();
 		ofTrosseRobotSerial serial; // talking to the robots
-		robotType getType() { return type; }
+		ArmInfo info;
+
 	private:
-		robotType type;
+		
 		int servoCount;
 		bool pause = false;
 		string name;

@@ -23,6 +23,47 @@ namespace RobotArtists {
 
 	RobotValueRanges ofRobotJoints::hardwareRanges; // just need to set once
 
+													
+	const string Pose::dataName(int id) {
+		switch (id) {
+		case headerByteOffset:
+			return " headerByteOffset";
+		case xHighByteOffset:
+			return " xHighByteOffset";
+		case xLowByteOffset:
+			return " xLowByteOffset";
+		case yHighByteOffset:
+			return " yHighByteOffset";
+		case yLowByteOffset:
+			return " yLowByteOffset";
+		case zHighByteOffset:
+			return " zHighByteOffset";
+		case zLowByteOffset:
+			return " zLowByteOffset";
+		case wristAngleHighByteOffset:
+			return " wristAngleHighByteOffset";
+		case wristAngleLowByteOffset:
+			return " wristAngleLowByteOffset";
+		case wristRotateHighByteOffset:
+			return " wristRotateHighByteOffset";
+		case wristRotateLowByteOffset:
+			return " wristRotateLowByteOffset";
+		case gripperHighByteOffset:
+			return " gripperHighByteOffset";
+		case gripperLowByteOffset:
+			return " gripperLowByteOffset";
+		case deltaValBytesOffset:
+			return " deltaValBytesOffset";
+		case buttonByteOffset:
+			return " buttonByteOffset";
+		case extValBytesOffset:
+			return " extValBytesOffset";
+		case trChecksum:
+			return " checksum";
+		}
+		return "???";
+	}
+
 	int ofRobotSerial::readLine(uint8_t* bytes, int bytesMax)	{
 		if (!bytes) {
 			return 0;
@@ -212,55 +253,15 @@ namespace RobotArtists {
 			}
 			ofRobotTrace() << "robot name " << name << std::endl;
 
-			getPose(); // pose for command and pose for start up must be read in
+			readPose(); // pose for command and pose for start up must be read in
 
 		}
 		return type;
 	}
-	// echo, ignoring null bytes
-	const string ofTrosseRobotSerial::dataName(int id) {
-		switch (id) {
-		case RobotState::headerByteOffset:
-			return " headerByteOffset";
-		case RobotState::xHighByteOffset:
-			return " xHighByteOffset";
-		case RobotState::xLowByteOffset:
-			return " xLowByteOffset";
-		case RobotState::yHighByteOffset:
-			return " yHighByteOffset";
-		case RobotState::yLowByteOffset:
-			return " yLowByteOffset";
-		case RobotState::zHighByteOffset:
-			return " zHighByteOffset";
-		case RobotState::zLowByteOffset:
-			return " zLowByteOffset";
-		case RobotState::wristAngleHighByteOffset:
-			return " wristAngleHighByteOffset";
-		case RobotState::wristAngleLowByteOffset:
-			return " wristAngleLowByteOffset";
-		case RobotState::wristRotateHighByteOffset:
-			return " wristRotateHighByteOffset";
-		case RobotState::wristRotateLowByteOffset:
-			return " wristRotateLowByteOffset";
-		case RobotState::gripperHighByteOffset:
-			return " gripperHighByteOffset";
-		case RobotState::gripperLowByteOffset:
-			return " gripperLowByteOffset";
-		case RobotState::deltaValBytesOffset:
-			return " deltaValBytesOffset";
-		case RobotState::buttonByteOffset:
-			return " buttonByteOffset";
-		case RobotState::extValBytesOffset:
-			return " extValBytesOffset";
-		case RobotState::checksum:
-			return " checksum";
-		}
-		return "???";
-	}
 	void ofTrosseRobotSerial::echoRawBytes(uint8_t *bytes, int count) {
 		std::stringstream buffer;
 		for (int i = 0; i < count; ++i) {
-			buffer << " bytes[" << i << "] = " << (int)bytes[i] << dataName(i) << std::endl; // echo in one line
+			buffer << " bytes[" << i << "] = " << (int)bytes[i] << Pose::dataName(i) << std::endl; // echo in one line
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
@@ -277,14 +278,15 @@ namespace RobotArtists {
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;
 
-		getPose(); // pose is sent all the time  by the micro code for at least trossen robots
+		readPose(); // pose is sent all the time  by the micro code for at least trossen robots
 
 		return sent;
 
 	}
 
 	// read pose from robot after every move and setup, just report on it or ignore it
-	void ofTrosseRobotSerial::getPose() {
+	void ofTrosseRobotSerial::readPose() {
+		ofRobotTrace() << "read pose " << std::endl;
 		uint8_t data[500];
 		if (readLine(data, sizeof data) > 0) {
 			ofRobotTrace() << "current pos vals = " << data << std::endl;
@@ -293,13 +295,13 @@ namespace RobotArtists {
 
 	int ofTrosseRobotSerial::getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length) {
 		// send and read data
-		RobotState interface;
-		interface.setLowLevelCommand(getServoRegisterCommand);
-		interface.setLowLevelX(id); // servo 
-		interface.setLowLevelY(registerNumber);
-		interface.setLowLevelZ(length);
+		Pose pose;
+		pose.setLowLevelCommand(getServoRegisterCommand);
+		pose.setLowLevelX(id); // servo 
+		pose.setLowLevelY(registerNumber);
+		pose.setLowLevelZ(length);
 		
-		int sent = writePose(interface.getPose());
+		int sent = writePose(&pose);
 		ofSleepMillis(33);
 
 		uint8_t data[500]; // could be lots of sperius data out there, unlikely but if it occurs we want to echo it
@@ -309,7 +311,7 @@ namespace RobotArtists {
 		if (readin == 5 && data[0] == 255 && data[1] == getServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
-			if (data[4] == interface.calcChkSum(data, 1, 3)) {
+			if (data[4] == pose.getChkSum(data, 1, 3)) {
 				val = bytes_to_u16(high, low);
 				ofRobotTrace() << "servo " << id << " registerNumber " << registerNumber << " value " << val << std::endl;
 				return val;
@@ -322,27 +324,32 @@ namespace RobotArtists {
 		return 0;
 	}
 
-	int ofRobotSerial::writePose(Pose&pose) {
-		return write(pose.get(), pose.size());
+	int ofRobotSerial::writePose(Pose*pose) {
+		if (pose) {
+			pose->update();
+			return write(pose->get(), pose->size());
+		}
+		return 0;
 	}
 
 	// length == 2 for ax12SetRegister2
 	void ofTrosseRobotSerial::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
-		RobotState interface;
-		interface.setLowLevelCommand(setServoRegisterCommand);
-		interface.setLowLevelX(id); // servo 
-		interface.setLowLevelY(registerNumber);
-		interface.setLowLevelZ(length);
-		interface.setLowLevelWristAngle(dataToSend, 0);
+		Pose pose;
+		pose.setLowLevelCommand(setServoRegisterCommand);
+		pose.setLowLevelX(id); // servo 
+		pose.setLowLevelY(registerNumber);
+		pose.setLowLevelZ(length);
+		pose.setLowLevelWristAngle(dataToSend, 0);
+		
 		flush();   // reset
-		int sent = writePose(interface.getPose());
+		int sent = writePose(&pose);
 		ofSleepMillis(33);
 		uint8_t data[5];
 		int readin = readAllBytes(data, 5);
 		if (readin == 5 && data[0] == 255 && data[1] == setServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
-			if (data[4] == interface.calcChkSum(data, 1, 3)) {
+			if (data[4] == pose.getChkSum(data, 1, 3)) {
 				uint16_t val = bytes_to_u16(high, low);
 				if (val == dataToSend){
 					ofRobotTrace() << "servo " << id << " registerNumber set " << registerNumber << " value " << val << std::endl;
@@ -354,11 +361,11 @@ namespace RobotArtists {
 		}
 	}
 
-	int RobotState::get(uint16_t high, uint16_t low) {
+	int Pose::get(uint16_t high, uint16_t low) {
 		return bytes_to_u16(pose[high], pose[low]);
 	}
 
-	void RobotState::set(uint16_t high, uint16_t low, int val) {
+	void Pose::set(uint16_t high, uint16_t low, int val) {
 		ofRobotTrace() << "set " << val << std::endl;
 		set(high, highByte(val));
 		set(low, lowByte(val));
@@ -366,37 +373,37 @@ namespace RobotArtists {
 	void ofRobotJoints::setX(int x) {
 		ofRobotTrace() << "try to set x=" << x << std::endl;
 		if (inRange(X, x)) {
-			setLowLevelX(x, addMagicNumber());
+			pose.setLowLevelX(x, addMagicNumber());
 		}
 	}
 	void ofRobotJoints::setY(int y) {
 		ofRobotTrace() << "try to set y=" << y << std::endl;
 		if (inRange(Y, y)) {
-			setLowLevelY(y);
+			pose.setLowLevelY(y);
 		}
 	}
 	void ofRobotJoints::setZ(int z) {
 		ofRobotTrace() << "try to set z=" << z << std::endl;
 		if (inRange(Z, z)) {
-			setLowLevelZ(z);
+			pose.setLowLevelZ(z);
 		}
 	}
 	void ofRobotJoints::setWristAngle(int a) {
 		ofRobotTrace() << "try to set setWristAngle=" << a << std::endl;
 		if (inRange(wristAngle, a)) {
-			setLowLevelWristAngle(a);
+			pose.setLowLevelWristAngle(a);
 		}
 	}
 	void ofRobotJoints::setWristRotate(int a) {
 		ofRobotTrace() << "try to set setWristRotate=" << a << std::endl;
 		if (inRange(wristRotate, a)) {
-			setLowLevelWristRotate(a);
+			pose.setLowLevelWristRotate(a);
 		}
 	}
 	void ofRobotJoints::setGripper(int distance) {
 		ofRobotTrace() << "try to set setGripper=" << distance << std::endl;
 		if (inRange(Gripper, distance)) {
-			setLowLevelGripper(distance);
+			pose.setLowLevelGripper(distance);
 		}
 	}
 	void ofRobotJoints::setMin(SpecificJoint joint, int value) {
@@ -419,27 +426,21 @@ namespace RobotArtists {
 			}
 		}
 	}
-	// return core data making sure its set properly
-	uint8_t *RobotState::getPoseData() {
-		set(headerByteOffset, 255);
-		getChkSum();
-		return pose.get();
-	}
 	int ofRobotJoints::getMin(robotArmJointType type) {
-		if (userDefinedRanges && userDefinedRanges->minValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->minValue.end()) {
-			return userDefinedRanges->minValue[SpecificJoint(typeOfRobot, type)];
+		if (userDefinedRanges && userDefinedRanges->minValue.find(SpecificJoint(info.getType(), type)) != userDefinedRanges->minValue.end()) {
+			return userDefinedRanges->minValue[SpecificJoint(info.getType(), type)];
 		}
-		return hardwareRanges.minValue[SpecificJoint(typeOfRobot, type)];
+		return hardwareRanges.minValue[SpecificJoint(info.getType(), type)];
 	}
 	int ofRobotJoints::getMid(robotArmJointType type) {
 		return (getMax(type) - getMin(type)) / 2; //bugbug works for robot types? 
 	}
 
 	int ofRobotJoints::getMax(robotArmJointType type) {
-		if (userDefinedRanges && userDefinedRanges->maxValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->maxValue.end()) {
-			return userDefinedRanges->maxValue[SpecificJoint(typeOfRobot, type)];
+		if (userDefinedRanges && userDefinedRanges->maxValue.find(SpecificJoint(info.getType(), type)) != userDefinedRanges->maxValue.end()) {
+			return userDefinedRanges->maxValue[SpecificJoint(info.getType(), type)];
 		}
-		return hardwareRanges.maxValue[SpecificJoint(typeOfRobot, type)];
+		return hardwareRanges.maxValue[SpecificJoint(info.getType(), type)];
 	}
 
 	bool ofRobotJoints::inRange(robotArmJointType type, int value) {
@@ -528,7 +529,7 @@ namespace RobotArtists {
 
 	}
 
-	robotLowLevelCommandTrossen RobotState::getStartCommand(robotArmMode mode) {
+	robotLowLevelCommandTrossen getStartCommand(robotArmMode mode) {
 		if (mode == IKM_IK3D_CARTESIAN) {
 			return setArm3DCartesianStraightWristAndGoHomeCommand; 
 		}
@@ -543,10 +544,17 @@ namespace RobotArtists {
 		}
 		return unKnownCommand;
 	}
-	void RobotState::set(uint16_t offset, uint8_t b) {
+	void Pose::set(uint16_t offset, uint8_t b) {
 		ofRobotTrace() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
-		pose.set(offset, b);
+		pose[offset] = b;
 	}
+
+	const string ArmInfo::trace() {
+		std::ostringstream message;
+		message << "ArmInfo(mode, type) " << getMode() << " " << getTypeID();
+		return message.str();
+	}
+
 	// "home" and set data matching state
 	void ofRobotJoints::setDefaultState() {
 		ofRobotTrace() << "setDefaults";
@@ -556,22 +564,19 @@ namespace RobotArtists {
 		setWristAngle(getDefaultValue(wristAngle));
 		setWristRotate(getDefaultValue(wristRotate));
 		setGripper(getDefaultValue(Gripper));
-		setDelta();
-		setLowLevelCommand(NoArmCommand);
-		setButton();
-	}
-	void ofRobotJoints::setMode(robotArmMode mode) {
-		typeOfRobot.first = mode;
+		pose.setDelta();
+		pose.setLowLevelCommand(NoArmCommand);
+		pose.setButton();
 	}
 	// will block until arm is ready
 	robotType ofRobotJoints::setStartState(robotArmMode mode) {
-		setMode(mode);
-		ofRobotTrace() << "setStartState(mode, type) " << getMode() << " " << getType() << std::endl;
-		setLowLevelCommand(getStartCommand(getMode()));
-		return typeOfRobot;
+		info.setMode(mode);
+		ofRobotTrace() << "setStartState(mode, type) " << info.trace() << std::endl;
+		pose.setLowLevelCommand(getStartCommand(info.getMode()));
+		return info.getType();
 	}
 
-	void RobotState::echoRawData() {
+	void Pose::trace() {
 
 #define ECHO(a)ofRobotTrace() << "echo[" << a << "] = "  << std::hex << (unsigned int)pose[a] << "h "  <<  std::dec <<(unsigned int)pose[a] << "d "<< #a << std::endl;
 
@@ -590,29 +595,20 @@ namespace RobotArtists {
 			ECHO(deltaValBytesOffset)
 			ECHO(buttonByteOffset)
 			ECHO(extValBytesOffset)
-			ECHO(checksum)
+			ECHO(trChecksum)
 	}
-	uint8_t RobotState::calcChkSum(uint8_t *pose, int start, int end) {
-		if (pose) {
-			uint16_t sum = 0;
-			for (int i = start; i <= end; ++i) {
-				sum += pose[i];
-			}
-			uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
-
-			return 255 - invertedChecksum; //invert value to get file checksum
-		}
-		return 0;
-	}
-	uint8_t RobotState::getChkSum() {
+	
+	uint8_t Pose::getChkSum(uint8_t*data, int start, int end) {
 		uint16_t sum = 0;
-		for (int i = xHighByteOffset; i <= extValBytesOffset; ++i) {
-			sum += pose[i];
+		for (int i = start; i <= end; ++i) {
+			sum += data[i];
 		}
 		uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
-
-		pose.set(checksum,  255 - invertedChecksum); //invert value to get file checksum
-		return pose[checksum];
+		uint8_t cksum = 255 - invertedChecksum;
+		return cksum;
+	}
+	void Pose::setChkSum() {
+		pose[trChecksum] = getChkSum(pose.data());
 	}
 	// user defined can never be greater than hardware min/max
 	void ofRobotJoints::setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>) {
@@ -635,10 +631,10 @@ namespace RobotArtists {
 	}
 
 	int ofRobotJoints::getDefaultValue(robotArmJointType type) {
-		if (userDefinedRanges && userDefinedRanges->defaultValue.find(SpecificJoint(typeOfRobot, type)) != userDefinedRanges->defaultValue.end()) {
-			return userDefinedRanges->defaultValue[SpecificJoint(typeOfRobot, type)];
+		if (userDefinedRanges && userDefinedRanges->defaultValue.find(SpecificJoint(info.getType(), type)) != userDefinedRanges->defaultValue.end()) {
+			return userDefinedRanges->defaultValue[SpecificJoint(info.getType(), type)];
 		}
-		return  hardwareRanges.defaultValue[SpecificJoint(typeOfRobot, type)];
+		return  hardwareRanges.defaultValue[SpecificJoint(info.getType(), type)];
 	}
 	void ofRobotJoints::setDefault(SpecificJoint joint, int value) {
 		if (userDefinedRanges) {

@@ -100,35 +100,28 @@ namespace RobotArtists {
 	inline uint8_t minDelta() { return 0; }
 	inline uint8_t maxDelta() { return 254; }
 
-	class RobotBaseClass  {
-	public:
+	enum TrossenPoseIndexes : uint16_t {
+		headerByteOffset = 0, xHighByteOffset, xLowByteOffset, yHighByteOffset, yLowByteOffset,
+		zHighByteOffset, zLowByteOffset, wristAngleHighByteOffset, wristAngleLowByteOffset, wristRotateHighByteOffset,
+		wristRotateLowByteOffset, gripperHighByteOffset, gripperLowByteOffset, deltaValBytesOffset, buttonByteOffset,
+		extValBytesOffset, trChecksum
 	};
 
+	//bugbug as we go beyond trossen this will need to change
 	class Pose {
 	public:
-		Pose() { memset(get(), 0, size()); }
-		uint8_t operator[](int i) { return pose[i]; }
-		void set(int i, uint8_t val) { pose[i] = val; }
-		uint8_t* get() { return pose.data(); }
-		int size() const { return pose.size(); }
-	private:
-		std::array<uint8_t, 17> pose;
-	};
+		Pose() { setup(); }
 
-	// the Interbotix software uses a block of memory to manage a robot arm.  This class manages that block of memory. its a pure virtual class as its too
-	// low level, missing things like range checking
-	class RobotState : public RobotBaseClass {
-	public:
-
-		robotLowLevelCommandTrossen getStartCommand(robotArmMode mode);
-
-		void setPose(const Pose &pose) { this->pose = pose; }
-		void echoRawData();
+		void setup() {
+			memset(get(), 0, size());
+			set(headerByteOffset, 255);
+		}
+		void update() {	setChkSum();}
 		void set(uint16_t offset, uint8_t b);
 		void setDelta(uint8_t value = 128) { if (value > maxDelta()) value = maxDelta(); set(deltaValBytesOffset, value); }
 		void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 		void setLowLevelCommand(uint8_t cmd = 0) { set(extValBytesOffset, cmd); }
-		void setLowLevelX(int x, int magicNumer=0) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
+		void setLowLevelX(int x, int magicNumer = 0) { set(xHighByteOffset, xLowByteOffset, x + magicNumer); } // no validation at this level use with care
 		void setLowLevelY(int y) { set(yHighByteOffset, yLowByteOffset, y); }
 		void setLowLevelZ(int z) { if (z > 250) z = 250; set(zHighByteOffset, zLowByteOffset, z); }
 		void setLowLevelWristAngle(int a, int magicNumer = 90) { set(wristAngleHighByteOffset, wristAngleLowByteOffset, a + magicNumer); };
@@ -142,27 +135,26 @@ namespace RobotArtists {
 		int getWristRotate() { return get(wristRotateHighByteOffset, wristRotateLowByteOffset); }
 		int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
 		uint8_t getDelta() { return pose[deltaValBytesOffset]; }
-		uint8_t *getPoseData();
-		int getPoseSize() const { return pose.size(); }
-		Pose&getPose() { return pose; }
+
+		uint8_t operator[](int i) { return pose[i]; }
+		uint8_t* get() { return pose.data(); }
+		int size() const { return pose.size(); }
+		const string trace();
+
 		void set(uint16_t high, uint16_t low, int val);
 		int get(uint16_t high, uint16_t low);
-		enum CommandIndexes : uint16_t {
-			headerByteOffset = 0, xHighByteOffset, xLowByteOffset, yHighByteOffset, yLowByteOffset,
-			zHighByteOffset, zLowByteOffset, wristAngleHighByteOffset, wristAngleLowByteOffset, wristRotateHighByteOffset,
-			wristRotateLowByteOffset, gripperHighByteOffset, gripperLowByteOffset, deltaValBytesOffset, buttonByteOffset, 
-			extValBytesOffset, checksum
-		};
-		uint8_t RobotState::calcChkSum(uint8_t *pose, int start, int end);
-		uint8_t getChkSum(); // hide to prevent using data out side of this object as much as possible
 
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
+		uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
+		static const string dataName(int id);
 
 	private:
-		Pose pose; // data to send
+		std::array<uint8_t, 17> pose;
+		void setChkSum();
 	};
 
+	robotLowLevelCommandTrossen getStartCommand(robotArmMode mode);
 
 	//bugbug at some point this needs to be moved out of a trossen specific file as its OF dependent
 
@@ -172,7 +164,7 @@ namespace RobotArtists {
 		ofRobotSerial() {}
 
 		bool waitForSerial(int retries);
-		int writePose(Pose&pose);
+		int writePose(Pose *pose); // allow for derviced versions of Pose
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
 		int readLine(uint8_t* bytes, int bytesMax = 100);
@@ -183,7 +175,7 @@ namespace RobotArtists {
 
 		virtual robotType waitForRobot(string& name, int retries) { return createUndefinedRobotType(); };
 		virtual void echoRawBytes(uint8_t *bytes, int count) {};
-		virtual void getPose() {};
+		virtual void readPose() {};
 
 		string deviceName;
 
@@ -210,10 +202,9 @@ namespace RobotArtists {
 		void echoRawBytes(uint8_t *bytes, int count);
 		bool idPacket(uint8_t *bytes, int size);
 		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
-		void getPose();
+		void readPose();
 		robotType waitForRobot(string& name, int retries);
 	private:
-		const string dataName(int id);
 
 	};
 
@@ -225,12 +216,36 @@ namespace RobotArtists {
 		std::map<SpecificJoint, int> defaultValue;
 	};
 
+	//InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes
+
+	class ArmInfo {
+	public:
+		ArmInfo(robotType type) { this->type = type; }
+		ArmInfo() { this->type = createUndefinedRobotType(); }
+
+		const string trace();
+
+		RobotTypeID getTypeID() { return type.second; }
+		robotType getType() { return type; }
+		void setType(robotType type) { this->type = type; }
+
+		void setMode(robotArmMode mode) { this->type.first = mode; }
+		robotArmMode getMode() { return type.first; }
+
+		bool isCartesion() { return (getMode() == IKM_IK3D_CARTESIAN || getMode() == IKM_IK3D_CARTESIAN_90); }
+		bool isCylindrical() { return (getMode() == IKM_CYLINDRICAL || getMode() == IKM_CYLINDRICAL_90); }
+
+	private:
+		robotType type;// required
+
+	};
+
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
-	class ofRobotJoints : public RobotState {
+	class ofRobotJoints  {
 	public:
 		// constructor required
-		ofRobotJoints(const robotType& typeOfRobot) : RobotState() { this->typeOfRobot = typeOfRobot; };
-		ofRobotJoints() : RobotState() {}
+		ofRobotJoints(const robotType& typeOfRobot)  { this->info = typeOfRobot; };
+		ofRobotJoints() {}
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);
@@ -253,25 +268,20 @@ namespace RobotArtists {
 		int getMin(robotArmJointType type);
 		int getMax(robotArmJointType type);
 		int getMid(robotArmJointType type);
-		bool isCartesion() { return (typeOfRobot.first == IKM_IK3D_CARTESIAN || typeOfRobot.first == IKM_IK3D_CARTESIAN_90); }
-		bool isCylindrical() { return (typeOfRobot.first == IKM_CYLINDRICAL || typeOfRobot.first == IKM_CYLINDRICAL_90); }
-		int addMagicNumber() { return isCylindrical() ? 0 : 512; }
+		int addMagicNumber() { return info.isCylindrical() ? 0 : 512; }
 
 		//Set 3D Cartesian mode / straight wrist and go to home etc
 		robotType setStartState(robotArmMode mode);
-		robotType getRobotType() { return typeOfRobot; }
-		void setMode(robotArmMode mode);
-		robotArmMode getMode() { return typeOfRobot.first; }
-		RobotTypeID getType() { return typeOfRobot.second; }
-		void setTypeID(RobotTypeID type) { typeOfRobot.second = type; }
-		void setRobotType(robotType type) { typeOfRobot = type; }
 		void setDefaultState();
 		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
 
+		void setPose(const Pose&pose) { this->pose = pose; }
 
 	protected:
 
 		void sendToRobot(ofRobotSerial* serial);
+		Pose pose;
+		ArmInfo info;
 
 	private:
 		// user defined ranges
@@ -279,8 +289,6 @@ namespace RobotArtists {
 		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr;
 
 		static void set(SpecificJoint type, int min, int max, int defaultvalue);
-		robotType typeOfRobot;// required
-		void virtfunction() {};
 	};
 
 

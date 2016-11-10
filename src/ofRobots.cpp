@@ -63,23 +63,21 @@ namespace RobotArtists {
 
 	// x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
 	void ofRobotCommands::setState(ofRobotState statePercent) {
-		if (isCylindrical()) {
-			if (valueIsSet(statePercent.getWristAngle())) {
-				setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
-			}
-			if (valueIsSet(statePercent.getWristRotation())) {
-				setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
-			}
-			if (valueIsSet(statePercent.getGripper())) {
-				setGripper(getMin(Gripper) + (statePercent.getGripper() * (getMax(Gripper) - getMin(Gripper))));
-			}
+		if (valueIsSet(statePercent.getWristAngle())) {
+			setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
+		}
+		if (valueIsSet(statePercent.getWristRotation())) {
+			setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
+		}
+		if (valueIsSet(statePercent.getGripper())) {
+			setGripper(getMin(Gripper) + (statePercent.getGripper() * (getMax(Gripper) - getMin(Gripper))));
 		}
 	}
 
 	//+/- 0 to 1.000
 	void ofRobotCommands::setPoint(ofRobotPosition ptPercent) {
 		// only Cylindrical supported by this function, mainly the setx one
-		if (isCylindrical()) {
+		if (info.isCylindrical()) {
 			//ofMap
 			if (valueIsSet(ptPercent.getX())) {
 				setX(getMin(X) + (ptPercent.getX() * (getMax(X) - getMin(X))));
@@ -92,7 +90,7 @@ namespace RobotArtists {
 			}
 		}
 		else {
-			ofRobotTrace(ErrorLog) << "setPoint not supported" << std::endl;
+			ofRobotTrace(ErrorLog) << "setPoint not supported for non Cylindrical" << std::endl;
 		}
 	}
 
@@ -122,7 +120,7 @@ namespace RobotArtists {
 	void ofRobotJoints::sendToRobot(ofRobotSerial* serial) {
 		
 		if (serial) {
-			serial->writePose(getPose());
+			serial->writePose(&pose);
 		}
 	}
 
@@ -130,14 +128,14 @@ namespace RobotArtists {
 	void ofRobotCommands::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
 		sendToRobot(&robot->serial);
-		setDelta(254);
+		pose.setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
 		//setZ(50);
 		setWristAngle(30);
 		//setWristRotate(120);
 		setGripper(10);
-		setButton();
+		pose.setButton();
 		sendToRobot(&robot->serial);
 		setGripper(100);
 		sendToRobot(&robot->serial);
@@ -155,8 +153,8 @@ namespace RobotArtists {
 		this->robot = robot;
 		setStartState(mode);
 		if (robot) {
-			setRobotType(robot->getType());
-			setUserDefinedRanges(SpecificJoint(robot->getType(), X), robot->userDefinedRanges);
+			info.setType(robot->info.getType());
+			setUserDefinedRanges(SpecificJoint(robot->info.getType(), X), robot->userDefinedRanges);
 			sendToRobot(&robot->serial); // send the mode, also resets the robot
 		}
 		setDefaultState();
@@ -170,13 +168,13 @@ namespace RobotArtists {
 	void ofRobotCommands::penUp(vector<ofRobotCommand>&commands) {
 		ofRobotCommand cmd(UserDefinded);
 		
-		cmd.addZ(getZ()+0.1); // bugbug what if its max,I guess it just ignores the request
+		cmd.addZ(pose.getZ()+0.1); // bugbug what if its max,I guess it just ignores the request
 		commands.push_back(cmd);
 	}
 
 	void ofRobotCommands::penDown(vector<ofRobotCommand>&commands) {
 		ofRobotCommand cmd(UserDefinded);
-		cmd.addZ(getZ() - 0.1);
+		cmd.addZ(pose.getZ() - 0.1);
 		commands.push_back(cmd);
 	}
 
@@ -248,15 +246,14 @@ namespace RobotArtists {
 	}
 
 	void ofRobotCommands::testdata() {
-		getPoseData(); // do check sum
-		echoRawData();
+		pose.trace();
 		echo(); // echo object data
 	}
 
 	void ofRobotCommands::set(RobotCommandData& request) {
 		setPoint(request.getPoint());
 		setState(request.getState());
-		setDelta(request.getDelta());
+		pose.setDelta(request.getDelta());
 	}
 
 	void ofRobotCommands::sendData(vector<RobotCommandData>&data) {
@@ -358,7 +355,7 @@ namespace RobotArtists {
 	}
 
 	void ofRobot::validate() {
-		//return;// do not bother when debugging
+		return;// do not bother when debugging
 
 		ofRobotTrace() << "valiate robot" << std::endl;
 		
@@ -395,10 +392,11 @@ namespace RobotArtists {
 
 		ofRobotTrace() << "setup robot " << name << " type ";
 
+		info.setMode(IKM_CYLINDRICAL);
 		commands.setup(this, IKM_CYLINDRICAL);
 
 		// setup the robot
-		switch (getTypeID()) {
+		switch (info.getTypeID()) {
 		case PhantomXReactorArm:
 			servoCount = REACTOR_SERVO_COUNT;
 			ofRobotTrace() << "Reactor";
@@ -438,7 +436,7 @@ namespace RobotArtists {
 		ofRobotTrace() << "getRobot" << std::endl;
 		int count = 0;
 		for (int i = 0; i < robots.size(); ++i) {
-			if (id == AllRobotTypes || id == robots[i]->getTypeID()) {
+			if (id == AllRobotTypes || id == robots[i]->info.getTypeID()) {
 				if (count == index) {
 					return robots[i];
 				}
@@ -457,7 +455,7 @@ namespace RobotArtists {
 			ofRobotTrace() << "update robots" << std::endl;
 		}
 		for (const auto robot : robots) {
-			if (idToUse == AllRobotTypes || idToUse == robot->getTypeID()) {
+			if (idToUse == AllRobotTypes || idToUse == robot->info.getTypeID()) {
 				robot->update();
 			}
 		}
@@ -466,7 +464,7 @@ namespace RobotArtists {
 	void ofRobotFamly::draw() {
 		ofRobotTrace() << "draw robots" << std::endl;
 		for (const auto robot : robots) {
-			if (idToUse == AllRobotTypes || idToUse == robot->getTypeID()) {
+			if (idToUse == AllRobotTypes || idToUse == robot->info.getTypeID()) {
 				robot->draw();
 			}
 		}
@@ -503,7 +501,7 @@ namespace RobotArtists {
 				uint64_t t2 = ofGetElapsedTimeMillis();
 				int gone = t2 - t1;
 				robot->setName(robotName);
-				robot->setType(robotType);
+				robot->info.setType(robotType);
 				robot->setup();
 				robots.push_back(robot);
 				ofRobotTrace() << "install duration in milliseconds " << gone << " for " << robotName << std::endl;
