@@ -100,21 +100,23 @@ namespace RobotArtists {
 
 		//ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
 		ofRobotArmCommand cmd(0.0f);
-		cmd.addWristAngle(0.0f);
-		cmd.addWristAngle(1.0f);
+		//cmd.addWristAngle(0.0f);
+		//cmd.addWristAngle(1.0f);
 		commands.push_back(cmd); // saves a copy
-		cmd.reset();
-		cmd.add(1.0f);
-		// add a new command, either way works
+		ofRobotArmCommand cmd2(1.0f);
+		commands.push_back(cmd2);
+		return;
+		/* add a new command, either way works
 		commands.push_back(cmd);
 		commands.push_back(ofRobotArmCommand::getSleep(1000));
-		ofRobotArmCommand cmd2(NoRobotValue, 0.10f);
-		cmd2.add(NoRobotValue, 1.0f);
-		commands.push_back(cmd2);
+		ofRobotArmCommand cmd3(NoRobotValue, 0.10f);
+		cmd3.add(NoRobotValue, 1.0f);
+		commands.push_back(cmd3);
 		commands.push_back(ofRobotArmCommand::getSleep(1000)); 
 		ofRobotArmCommand cmd3(NoRobotValue, NoRobotValue, 0.0f);
 		cmd3.add(NoRobotValue, NoRobotValue, 1.0f);
 		commands.push_back(cmd3);
+		*/
 	}
 
 	void ofTrRobotArmInternals::sendToRobot(ofRobotSerial* serial) {
@@ -148,7 +150,15 @@ namespace RobotArtists {
 		sendToRobot(&serial);
 	}
 
-
+	void ofTrRobotArm::popMatrix() {
+		if (stack.size() == 0) {
+			ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
+		}
+		else {
+			setPose(stack.top());
+			stack.pop();
+		}
+	}
 	void ofTrRobotArm::setup(robotArmMode mode) { 
 		ofRobotTrace() << "setup ofTrRobotArm " << name << " type " << info.trace();
 		
@@ -185,25 +195,25 @@ namespace RobotArtists {
 	//ofTranslate(400, 300);
 	//ofPopMatrix();
 
-	void ofTrRobotArm::penUp(vector<ofRobotArmCommand>&commands) {
+	void ofTrRobotArm::penUpMacro(vector<ofRobotArmCommand>&commands) {
 		ofRobotArmCommand cmd(UserDefinded);
 		
 		cmd.addZ(pose.getZ()+0.1); // bugbug what if its max,I guess it just ignores the request
 		commands.push_back(cmd);
 	}
 
-	void ofTrRobotArm::penDown(vector<ofRobotArmCommand>&commands) {
+	void ofTrRobotArm::penDownMacro(vector<ofRobotArmCommand>&commands) {
 		ofRobotArmCommand cmd(UserDefinded);
 		cmd.addZ(pose.getZ() - 0.1);
 		commands.push_back(cmd);
 	}
 
 	// draw optimized line from current location
-	void ofTrRobotArm::line(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to)	{
+	void ofTrRobotArm::lineMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to)	{
 		// drop pen and move
-		penDown(commands);
-		move(commands, to);
-		penUp(commands);
+		penDownMacro(commands);
+		moveMacro(commands, to);
+		penUpMacro(commands);
 		/*
 		float dx = to.x - currentPosition.x; // delta between x and y
 		float dy = to.x - currentPosition.y;
@@ -218,7 +228,7 @@ namespace RobotArtists {
 	}
 
 	// move arm
-	void ofTrRobotArm::move(vector<ofRobotArmCommand>&commands,  const ofRobotPosition& to) {
+	void ofTrRobotArm::moveMacro(vector<ofRobotArmCommand>&commands,  const ofRobotPosition& to) {
 		// move arm
 		ofRobotArmCommand cmd(RobotMoveTo, RobotArmCommandData(to));
 		commands.push_back(cmd);
@@ -238,7 +248,7 @@ namespace RobotArtists {
 	}
 
 	// create circle data
-	void ofTrRobotArm::circle(vector<ofRobotArmCommand>&commands, float r)
+	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, float r)
 	{
 		// do a move like OF does so drawing always starts at current
 		float slice = 2 * M_PI / 10;
@@ -250,19 +260,6 @@ namespace RobotArtists {
 			ofRobotArmCommand cmd(RobotArmCommandData(ofRobotPosition(newX, newY)));
 			commands.push_back(cmd);
 		}
-	}
-
-	void ofTrRobotArm::move(const ofRobotPosition& pos) {
-		setPoint(pos);
-		
-		// set Z to max, then restore z
-		pushMatrix();
-		ofRobotPosition newPos = pos;
-		newPos.setPercents(NoRobotValue, NoRobotValue, getMin(Z));
-		sendToRobot(&serial);
-		popMatrix();
-
-		sendToRobot(&serial); // restore to normal z
 	}
 
 	void ofTrRobotArm::testdata() {
@@ -287,43 +284,18 @@ namespace RobotArtists {
 	void ofTrRobotArm::sendExpandedResults(vector<ofRobotArmCommand>& results) {
 		for (auto& result : results) {
 			if (result.getCommand() == Sleep) {
-				for (auto& a : result.getVector()) {
+				for (auto& a : result.getVectorOfParameters()) {
 					ofSleepMillis(a.int1);
 				}
 			}
 			else {
-				sendData(result.getVector());
+				sendData(result.getVectorOfParameters());
 			}
 		}
 	}
 
 	void ofTrRobotArm::update() {
 		
-		clear(expandedResults);
-
-		// expand data as needed by all commands
-		for (auto& cmd : vectorOfCommands) {
-			switch (cmd.getCommand()) {
-			case RegressionTest:
-				sanityTestHighLevel(expandedResults);
-				break;
-			case RobotCircle:
-				for (auto& a : cmd.getVector()) {
-					circle(expandedResults, a.float1); 
-				}
-				break;
-			case RobotLineTo:
-				for (auto& a : cmd.getVector()) {
-					line(expandedResults, a.position); 
-				}
-				break;
-			case RobotMoveTo:
-				for (auto& a : cmd.getVector()) {
-					move(expandedResults, a.position);
-				}
-				break;
-			}
-		}
 	}
 
 	// drawing occurs here as its tied to the robot directly
@@ -331,17 +303,36 @@ namespace RobotArtists {
 
 		vector< ofRobotArmCommand >::iterator it = vectorOfCommands.begin();
 		while (it != vectorOfCommands.end()) {
+			vector<ofRobotArmCommand> expandedResults;
 
 			switch (it->getCommand()) {
+			case RegressionTest:
+				sanityTestHighLevel(expandedResults);
+				break;
+			case RobotCircle:
+				for (auto& a : it->getVectorOfParameters()) {
+					circleMacro(expandedResults, a.float1);
+				}
+				break;
+			case RobotLineTo:
+				for (auto& a : it->getVectorOfParameters()) {
+					lineMacro(expandedResults, a.position);
+				}
+				break;
+			case RobotMoveTo:
+				for (auto& a : it->getVectorOfParameters()) {
+					moveMacro(expandedResults, a.position);
+				}
+				break;
 			case LowLevelTest:
 				sanityTestLowLevel(); // special case, does not use data or other objects, used to test/debug
 				break;
 			case UserDefinded:
 				// no processing needed, just send it on. Low level, no commands parsed such as sleep, assuming that is done else where
-				sendData(it->getVector());
+				sendData(it->getVectorOfParameters());
 				break;
-			case Translate://bugbug make a mov, ie that lifts the brush for example
-				sendData(it->getVector());
+			case Translate:
+				sendData(it->getVectorOfParameters());
 				break;
 			case Push:
 				pushMatrix();
@@ -351,9 +342,7 @@ namespace RobotArtists {
 				break;
 			}
 
-			if (expandedResults.size() > 0) {
-				sendExpandedResults(expandedResults);
-			}
+			sendExpandedResults(expandedResults);
 
 			if (it->OKToDelete()) {
 				it = vectorOfCommands.erase(it);

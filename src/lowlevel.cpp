@@ -258,22 +258,28 @@ namespace RobotArtists {
 		}
 		return type;
 	}
-	void ofTrosseRobotSerial::echoRawBytes(uint8_t *bytes, int count) {
+	void ofTrosseRobotSerial::trace(uint8_t *bytes, int count) {
 		std::stringstream buffer;
 		for (int i = 0; i < count; ++i) {
 			buffer << " bytes[" << i << "] = " << (int)bytes[i] << Pose::dataName(i) << std::endl; // echo in one line
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
-
-
+	void Pose::setup() {
+		memset(get(), 0, size());
+		set(headerByteOffset, 255);
+	}
+	vector <ofSerialDeviceInfo>& ofRobotSerial::getDevices() {
+		buildDeviceList();
+		return devices;
+	}
 	int ofRobotSerial::write(uint8_t* data, int count) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 
 		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 		// no need to hurry packets so just want the minimum amount no matter what
 		ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
-		echoRawBytes(data, count);
+		trace(data, count);
 		int sent = writeBytes(data, count);
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;

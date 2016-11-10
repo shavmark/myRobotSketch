@@ -99,24 +99,13 @@ namespace RobotArtists {
 			add(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent, delta);
 		}
 		// object based
-		ofRobotArmCommand(const RobotArmCommandData&cmd) {
-			add(cmd);
-		}
-		ofRobotArmCommand(const RobotCommand&cmd) {
-			set(cmd);
-		}
-		ofRobotArmCommand(const RobotCommand&cmd, int i) {
-			set(cmd);
-			add(RobotArmCommandData(i));
-		}
-		ofRobotArmCommand(const RobotCommand&cmd, const RobotArmCommandData& data) {
-			reset(cmd, data);
-		}
+		ofRobotArmCommand(const RobotArmCommandData&cmd) {	add(cmd);	}
+		ofRobotArmCommand(const RobotCommand&cmd) {	set(cmd);	}
+		ofRobotArmCommand(const RobotCommand&cmd, int i) {	set(cmd);	add(RobotArmCommandData(i));	}
+		ofRobotArmCommand(const RobotCommand&cmd, const RobotArmCommandData& data) {	setup(cmd, data);		}
+
 		void add(const RobotArmCommandData& data) { vectorOfCommandData.push_back(data); }
-
-		void reset(const RobotCommand&cmd, const RobotArmCommandData& data) { clear(vectorOfCommandData); set(cmd); add(data); }
-		void reset() { clear(vectorOfCommandData); set(UserDefinded);  }
-
+		void setup(const RobotCommand&cmd, const RobotArmCommandData& data) { clear(vectorOfCommandData); set(cmd); add(data); }
 		void SetDeleteWhenDone(bool b = true) { deleteWhenDone = b; }
 		bool OKToDelete() { return deleteWhenDone; }
 
@@ -149,7 +138,7 @@ namespace RobotArtists {
 
 		void set(const RobotCommand& cmd) { this->cmd = cmd; }
 		const RobotCommand&getCommand() { return cmd; }
-		vector<RobotArmCommandData>&getVector() {	return vectorOfCommandData;	}
+		vector<RobotArmCommandData>&getVectorOfParameters() {	return vectorOfCommandData;	}
 
 	private:
 		// one command can have mulitiple data or 0 data
@@ -173,9 +162,7 @@ namespace RobotArtists {
 		void draw();
 		void update();
 
-		void add(const ofRobotArmCommand& cmd) {
-			vectorOfCommands.push_back(cmd);
-		}
+		void add(const ofRobotArmCommand& cmd) {	vectorOfCommands.push_back(cmd);	}
 
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
@@ -185,33 +172,25 @@ namespace RobotArtists {
 	protected:
 
 		void sanityTestHighLevel(vector<ofRobotArmCommand>&commands);
-		void circle(vector<ofRobotArmCommand>&commands, float r);
-		void line(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to);
-		void move(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to);
-		void penUp(vector<ofRobotArmCommand>&commands);
-		void penDown(vector<ofRobotArmCommand>&commands);
+		void circleMacro(vector<ofRobotArmCommand>&commands, float r);
+		void lineMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to);
+		void moveMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to);
+		void penUpMacro(vector<ofRobotArmCommand>&commands);
+		void penDownMacro(vector<ofRobotArmCommand>&commands);
 		//void translate(float x, float y) { getPose().position.setPercents(x, y);}
 		void pushMatrix() { stack.push(pose); }
-		void popMatrix() { 
-			if (stack.size() == 0) {
-				ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
-			}
-			else {
-				setPose(stack.top());
-				stack.pop();
-			}
-		}
+		void popMatrix();
 
 		void setPoint(ofRobotPosition pt);
 		void setState(ofRobotArmState pt);
 
-		int servoCount;
-		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr; // none set by default
+		int servoCount=0;
 
 	private:
+		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr; // none set by default
 		string name;
 		void validate();
-		vector<ofRobotArmCommand> expandedResults;
+		
 		vector<ofRobotArmCommand> vectorOfCommands; // one more more points
 		void testdata();
 		stack<Pose> stack; // bugbug once working likely to include colors, brush size etc
@@ -219,7 +198,6 @@ namespace RobotArtists {
 		void sanityTestLowLevel();
 		void sendData(vector<RobotArmCommandData>&data);
 		void sendExpandedResults(vector<ofRobotArmCommand>& results);
-		void move(const ofRobotPosition& pos);
 		void set(RobotArmCommandData& request);
 	};
 	
@@ -228,9 +206,7 @@ namespace RobotArtists {
 	public:
 		
 		ofRobot() {}
-		ofRobot(const string& name) { 
-			this->name = name;  
-		}
+		ofRobot(const string& name) { 	this->name = name;  }
 
 		void setup();
 		void update();

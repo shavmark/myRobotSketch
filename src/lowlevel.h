@@ -26,9 +26,6 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 #include <sstream>     
 
 namespace RobotArtists {
-
-	// from GlobalArm.h
-
 	/* RAM REGISTER ADDRESSES */
 	enum AXRegisters {
 		AX_TORQUE_ENABLE = 24, AX_LED, AX_CW_COMPLIANCE_MARGIN, AX_CCW_COMPLIANCE_MARGIN, AX_CW_COMPLIANCE_SLOPE, AX_CCW_COMPLIANCE_SLOPE,
@@ -112,10 +109,7 @@ namespace RobotArtists {
 	public:
 		Pose() { setup(); }
 
-		void setup() {
-			memset(get(), 0, size());
-			set(headerByteOffset, 255);
-		}
+		void setup();
 		void update() {	setChkSum();}
 		void set(uint16_t offset, uint8_t b);
 		void setDelta(uint8_t value = 128) { if (value > maxDelta()) value = maxDelta(); set(deltaValBytesOffset, value); }
@@ -136,7 +130,7 @@ namespace RobotArtists {
 		int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
 		uint8_t getDelta() { return pose[deltaValBytesOffset]; }
 
-		uint8_t operator[](int i) { return pose[i]; }
+		uint8_t& operator[](int i) { return pose[i]; }
 		uint8_t* get() { return pose.data(); }
 		int size() const { return pose.size(); }
 		void trace();
@@ -168,13 +162,10 @@ namespace RobotArtists {
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
 		int readLine(uint8_t* bytes, int bytesMax = 100);
-		vector <ofSerialDeviceInfo>& getDevices() {
-			buildDeviceList();
-			return devices;
-		}
+		vector <ofSerialDeviceInfo>& getDevices();
 
 		virtual robotType waitForRobot(string& name, int retries) { return createUndefinedRobotType(); };
-		virtual void echoRawBytes(uint8_t *bytes, int count) {};
+		virtual void trace(uint8_t *bytes, int count) {};
 		virtual void readPose() {};
 
 		string deviceName;
@@ -199,7 +190,7 @@ namespace RobotArtists {
 		int  getVoltage(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
 		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
 		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
-		void echoRawBytes(uint8_t *bytes, int count);
+		void trace(uint8_t *bytes, int count);
 		bool idPacket(uint8_t *bytes, int size);
 		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
 		void readPose();
@@ -237,7 +228,6 @@ namespace RobotArtists {
 
 	private:
 		robotType type;// required
-
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
@@ -282,7 +272,6 @@ namespace RobotArtists {
 		ArmInfo info;
 		void sendToRobot(ofRobotSerial* serial);
 		Pose pose;
-		
 
 	private:
 		// user defined ranges
@@ -291,6 +280,4 @@ namespace RobotArtists {
 
 		static void set(SpecificJoint type, int min, int max, int defaultvalue);
 	};
-
-
 }
