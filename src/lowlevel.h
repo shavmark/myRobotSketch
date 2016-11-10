@@ -139,7 +139,7 @@ namespace RobotArtists {
 		uint8_t operator[](int i) { return pose[i]; }
 		uint8_t* get() { return pose.data(); }
 		int size() const { return pose.size(); }
-		const string trace();
+		void trace();
 
 		void set(uint16_t high, uint16_t low, int val);
 		int get(uint16_t high, uint16_t low);
@@ -203,7 +203,7 @@ namespace RobotArtists {
 		bool idPacket(uint8_t *bytes, int size);
 		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
 		void readPose();
-		robotType waitForRobot(string& name, int retries);
+		robotType waitForRobotArm(string& name, int retries);
 	private:
 
 	};
@@ -241,11 +241,11 @@ namespace RobotArtists {
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
-	class ofRobotJoints  {
+	class ofTrRobotArmInternals  {
 	public:
 		// constructor required
-		ofRobotJoints(const robotType& typeOfRobot)  { this->info = typeOfRobot; };
-		ofRobotJoints() {}
+		ofTrRobotArmInternals(const robotType& type)  { this->info = type; };
+		ofTrRobotArmInternals() {}
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);
@@ -276,12 +276,13 @@ namespace RobotArtists {
 		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
 
 		void setPose(const Pose&pose) { this->pose = pose; }
+		void setType(robotType type) { this->info.setType(type); }
 
 	protected:
-
+		ArmInfo info;
 		void sendToRobot(ofRobotSerial* serial);
 		Pose pose;
-		ArmInfo info;
+		
 
 	private:
 		// user defined ranges

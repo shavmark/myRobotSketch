@@ -41,7 +41,7 @@ namespace RobotArtists {
 		ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
 		
 		void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
-		virtual void echo();
+		virtual void trace();
 
 		float getX() { return x; }
 		float getY() { return y; }
@@ -53,141 +53,143 @@ namespace RobotArtists {
 		bool validRange(float f);
 
 	};
-
-	class ofRobotState : public ofRobotPosition {
+	// helper that masks position (x,y etc)
+	class ofRobotArmState : public ofRobotPosition {
 	public:
-		ofRobotState(float wristAngle = NoRobotValue, float wristRotate = NoRobotValue, float gripper = NoRobotValue) :ofRobotPosition(wristAngle, wristRotate, gripper) {  }
+		ofRobotArmState(float wristAngle = NoRobotValue, float wristRotate = NoRobotValue, float gripper = NoRobotValue) :ofRobotPosition(wristAngle, wristRotate, gripper) {  }
 
 		float getWristAngle() { return getPtr()[0]; }
 		float getWristRotation()  { return getPtr()[1]; }
 		float getGripper()  { return getPtr()[2]; }
 
-		void echo();
-
+		void trace();
 	};
 
-	enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, HighLevelTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo};// command and basic commands.  Derive object or create functions to create more commands
+	enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, RegressionTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo};// command and basic commands.  Derive object or create functions to create more commands
 
 	// high level interface to robot data data
-	class RobotCommandData {
+	class RobotArmCommandData {
 	public:
 
-		RobotCommandData(const ofRobotPosition&position, const ofRobotState&state, uint8_t delta=maxDelta()) {
+		RobotArmCommandData(const ofRobotPosition&position, const ofRobotArmState&state, uint8_t delta=maxDelta()) {
 			this->position = position;
 			this->delta = delta;
 			this->state = state;
 		}
-		RobotCommandData(float float1 = 0.0f) {  this->float1 = float1; }
-		RobotCommandData(int int1) { this->int1 = int1; }
-		RobotCommandData(const ofRobotPosition&position) { this->position = position; }
+		RobotArmCommandData(float float1 = 0.0f) {  this->float1 = float1; }
+		RobotArmCommandData(int int1) { this->int1 = int1; }
+		RobotArmCommandData(const ofRobotPosition&position) { this->position = position; }
 
 		ofRobotPosition& getPoint() { return position; }
-		ofRobotState& getState() { return state; }
+		ofRobotArmState& getState() { return state; }
 		uint8_t& getDelta() { return delta; }
 		
 		float float1=0.0f;
 		int   int1=0;
 	
 		uint8_t delta;
-		ofRobotState state;
+		ofRobotArmState state;
 		ofRobotPosition position;
 	};																												
 
-	class ofRobotCommand {
+	class ofRobotArmCommand {
 	public:
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
-		ofRobotCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, uint8_t delta = maxDelta()) {
+		ofRobotArmCommand(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, uint8_t delta = maxDelta()) {
 			add(xPercent, yPercent, zPercent, wristAngle, wristAnglePercent, gripperPercent, delta);
 		}
 		// object based
-		ofRobotCommand(const RobotCommandData&cmd) {
+		ofRobotArmCommand(const RobotArmCommandData&cmd) {
 			add(cmd);
 		}
-		ofRobotCommand(const RobotCommand&cmd) {
+		ofRobotArmCommand(const RobotCommand&cmd) {
 			set(cmd);
 		}
-		ofRobotCommand(const RobotCommand&cmd, int i) {
+		ofRobotArmCommand(const RobotCommand&cmd, int i) {
 			set(cmd);
-			add(RobotCommandData(i));
+			add(RobotArmCommandData(i));
 		}
-		ofRobotCommand(const RobotCommand&cmd, const RobotCommandData& data) {
+		ofRobotArmCommand(const RobotCommand&cmd, const RobotArmCommandData& data) {
 			reset(cmd, data);
 		}
-		void add(const RobotCommandData& data) { vectorOfCommandData.push_back(data); }
+		void add(const RobotArmCommandData& data) { vectorOfCommandData.push_back(data); }
 
-		void reset(const RobotCommand&cmd, const RobotCommandData& data) { clear(vectorOfCommandData); set(cmd); add(data); }
+		void reset(const RobotCommand&cmd, const RobotArmCommandData& data) { clear(vectorOfCommandData); set(cmd); add(data); }
 		void reset() { clear(vectorOfCommandData); set(UserDefinded);  }
-
-		void addSay(const string& say) { voice.add(say); }
 
 		void SetDeleteWhenDone(bool b = true) { deleteWhenDone = b; }
 		bool OKToDelete() { return deleteWhenDone; }
 
-		void echo();
+		void trace();
 	    void add(float xPercent, float yPercent = NoRobotValue, float zPercent = NoRobotValue, float wristAnglePercent = NoRobotValue, float wristRotatePercent = NoRobotValue, float gripperPercent = NoRobotValue, uint8_t sleep = maxDelta()) {
-			add(RobotCommandData(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep));
+			add(RobotArmCommandData(ofRobotPosition(xPercent, yPercent, zPercent), ofRobotArmState(wristAnglePercent, wristRotatePercent, gripperPercent), sleep));
 		}
-		void add(const ofRobotPosition& position, const ofRobotState& state= ofRobotState(), uint8_t delta = maxDelta()) {
-			add(RobotCommandData(position, state, delta));
+		void add(const ofRobotPosition& position, const ofRobotArmState& state= ofRobotArmState(), uint8_t delta = maxDelta()) {
+			add(RobotArmCommandData(position, state, delta));
 		}
 		void addX(float x= NoRobotValue, uint8_t delta = maxDelta()) {
-			add(RobotCommandData(ofRobotPosition(x), ofRobotState(), delta));
+			add(RobotArmCommandData(ofRobotPosition(x), ofRobotArmState(), delta));
 		}
 		void addY(float y = NoRobotValue, uint8_t delta = maxDelta()) {
-			add(RobotCommandData(ofRobotPosition(NoRobotValue, y), ofRobotState(), delta));
+			add(RobotArmCommandData(ofRobotPosition(NoRobotValue, y), ofRobotArmState(), delta));
 		}
 		void addZ(float z = NoRobotValue, uint8_t delta = maxDelta()) {
-			add(RobotCommandData(ofRobotPosition(NoRobotValue, NoRobotValue, z), ofRobotState(), delta));
+			add(RobotArmCommandData(ofRobotPosition(NoRobotValue, NoRobotValue, z), ofRobotArmState(), delta));
 		}
 		void addGripper(float gripper = NoRobotValue, uint8_t delta = maxDelta()) {
-			add(RobotCommandData(ofRobotPosition(), ofRobotState(NoRobotValue, NoRobotValue, gripper), delta));
+			add(RobotArmCommandData(ofRobotPosition(), ofRobotArmState(NoRobotValue, NoRobotValue, gripper), delta));
 		}
 		void addWristRotate(float value = NoRobotValue, uint8_t delta = maxDelta()) {
-			add(RobotCommandData(ofRobotPosition(), ofRobotState(NoRobotValue, value, NoRobotValue), delta));
+			add(RobotArmCommandData(ofRobotPosition(), ofRobotArmState(NoRobotValue, value, NoRobotValue), delta));
 		}
 		void addWristAngle(float value = NoRobotValue, uint8_t delta = maxDelta()) {
-			add(RobotCommandData(ofRobotPosition(), ofRobotState(value, NoRobotValue, NoRobotValue), delta));
+			add(RobotArmCommandData(ofRobotPosition(), ofRobotArmState(value, NoRobotValue, NoRobotValue), delta));
 		}
-		static ofRobotCommand getSleep(int duration) { return ofRobotCommand(Sleep, duration); }
+		static ofRobotArmCommand getSleep(int duration) { return ofRobotArmCommand(Sleep, duration); }
 
 		void set(const RobotCommand& cmd) { this->cmd = cmd; }
 		const RobotCommand&getCommand() { return cmd; }
-		vector<RobotCommandData>&getVector() {	return vectorOfCommandData;	}
+		vector<RobotArmCommandData>&getVector() {	return vectorOfCommandData;	}
 
 	private:
 		// one command can have mulitiple data or 0 data
-		vector<RobotCommandData> vectorOfCommandData;
+		vector<RobotArmCommandData> vectorOfCommandData;
 		RobotCommand cmd = UserDefinded;
 		bool deleteWhenDone = true; // false to repeat command per every draw occurance
-		ofRobotVoice voice;
 	};
 
-	class ofRobot;
-
-	class ofRobotCommands : protected ofRobotJoints {
+	class ofTrRobotArm : public ofTrRobotArmInternals {
 	public:
-		void echo(); 
+
+		ofTrRobotArm(const string& name, const robotType& type) :ofTrRobotArmInternals(type) { setName(name); }
+		ofTrRobotArm() :ofTrRobotArmInternals() {}
+		void trace(); 
 
 		// put command data in a known state
 		// a robot is required for life of this object
-		void setup(ofRobot*, robotArmMode);
+		void setup(robotArmMode);
 
 		// move or draw based on the value in moveOrDraw
-		virtual void draw();
+		void draw();
 		void update();
 
-		void add(const ofRobotCommand& cmd) {
-			vectorOfRobotCommands.push_back(cmd);
+		void add(const ofRobotArmCommand& cmd) {
+			vectorOfCommands.push_back(cmd);
 		}
+
+		void setName(const string&name) { this->name = name; }
+		string& getName() { return name; }
+
+		ofTrosseRobotSerial serial; // talking to the robots
 
 	protected:
 
-		void sanityTestHighLevel(vector<ofRobotCommand>&commands);
-		void circle(vector<ofRobotCommand>&commands, float r);
-		void line(vector<ofRobotCommand>&commands, const ofRobotPosition& to);
-		void move(vector<ofRobotCommand>&commands, const ofRobotPosition& to);
-		void penUp(vector<ofRobotCommand>&commands);
-		void penDown(vector<ofRobotCommand>&commands);
+		void sanityTestHighLevel(vector<ofRobotArmCommand>&commands);
+		void circle(vector<ofRobotArmCommand>&commands, float r);
+		void line(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to);
+		void move(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to);
+		void penUp(vector<ofRobotArmCommand>&commands);
+		void penDown(vector<ofRobotArmCommand>&commands);
 		//void translate(float x, float y) { getPose().position.setPercents(x, y);}
 		void pushMatrix() { stack.push(pose); }
 		void popMatrix() { 
@@ -199,78 +201,50 @@ namespace RobotArtists {
 				stack.pop();
 			}
 		}
+
 		void setPoint(ofRobotPosition pt);
-		void setState(ofRobotState pt);
-		
-		ofRobot *robot = nullptr; // owner
+		void setState(ofRobotArmState pt);
+
+		int servoCount;
+		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr; // none set by default
 
 	private:
-		vector<ofRobotCommand> expandedResults;
-		vector<ofRobotCommand> vectorOfRobotCommands; // one more more points
+		string name;
+		void validate();
+		vector<ofRobotArmCommand> expandedResults;
+		vector<ofRobotArmCommand> vectorOfCommands; // one more more points
 		void testdata();
 		stack<Pose> stack; // bugbug once working likely to include colors, brush size etc
 									  // built in commands
 		void sanityTestLowLevel();
-		void sendData(vector<RobotCommandData>&data);
-		void sendExpandedResults(vector<ofRobotCommand>& results);
+		void sendData(vector<RobotArmCommandData>&data);
+		void sendExpandedResults(vector<ofRobotArmCommand>& results);
 		void move(const ofRobotPosition& pos);
-		void set(RobotCommandData& request);
+		void set(RobotArmCommandData& request);
 	};
-
+	
 	// the robot itself
 	class ofRobot {
 	public:
 		
-		friend class ofRobotCommands;
 		ofRobot() {}
-		ofRobot(const string& name, robotType type) { 
+		ofRobot(const string& name) { 
 			this->name = name;  
-			this->info = type;
 		}
 
 		void setup();
 		void update();
 		void draw();
-		void echo(); // echos positions
-		void setPause(bool pause = true) { this->pause = pause; }//bugbug go to threads
-
-		ofRobotCommands commands;
+		void trace(); // echos positions
 
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
 
-		shared_ptr<RobotValueRanges> userDefinedRanges=nullptr; // none set by default
-
-		void validate();
-		ofTrosseRobotSerial serial; // talking to the robots
-		ArmInfo info;
+		vector<shared_ptr<ofTrRobotArm>> arms; // bugbug at some point maybe add wrappers etc when more is known
 
 	private:
-		
-		int servoCount;
-		bool pause = false;
 		string name;
-	};
-
-	// all robots being managed
-	class ofRobotFamly {
-	public:
-
-		void setup();
-		void update();
-		void draw();
-
-		//InterbotiXPhantomXPincherArm for example
-		void set(RobotTypeID id= AllRobotTypes) {
-			ofLogNotice() << "set id " << id;
-			idToUse = id;
-		}
-
-		shared_ptr<ofRobot> getRobot(int index, RobotTypeID id = AllRobotTypes);
-
-	private:
-		RobotTypeID idToUse= AllRobotTypes;
-		vector<shared_ptr<ofRobot>> robots;
+		vector<ofRobotVoice> voices;//bugbug can be anywhere and also add ofEyes (Kinetc, CV etc)
 	};
 
 }

@@ -23,13 +23,13 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
-	void ofRobotState::echo() {
+	void ofRobotArmState::trace() {
 		ofRobotTrace() << "WristAngle=" << (valueIsSet(getWristAngle()) ? ofToString(getWristAngle()) : "<not set>") << std::endl;
 		ofRobotTrace() << "WristRotatation=" << (valueIsSet(getWristRotation()) ? ofToString(getWristRotation()) : "<not set>") << std::endl;
 		ofRobotTrace() << "Gripper=" << (valueIsSet(getGripper()) ? ofToString(getGripper()) : "<not set>") << std::endl;
 	}
 	
-	void ofRobotPosition::echo()  {
+	void ofRobotPosition::trace()  {
 		ofRobotTrace() << "x=" << (valueIsSet(x) ? ofToString(x) : "<not set>") << std::endl;
 		ofRobotTrace() << "y=" << (valueIsSet(y) ? ofToString(y) : "<not set>") << std::endl;
 		ofRobotTrace() << "z=" << (valueIsSet(z) ? ofToString(z) : "<not set>") << std::endl;
@@ -55,14 +55,14 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobotCommands::echo()  {
-		for ( auto& cmd : vectorOfRobotCommands) {
-			cmd.echo();
+	void ofTrRobotArm::trace()  {
+		for ( auto& cmd : vectorOfCommands) {
+			cmd.trace();
 		}
 	}
 
 	// x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
-	void ofRobotCommands::setState(ofRobotState statePercent) {
+	void ofTrRobotArm::setState(ofRobotArmState statePercent) {
 		if (valueIsSet(statePercent.getWristAngle())) {
 			setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
 		}
@@ -75,7 +75,7 @@ namespace RobotArtists {
 	}
 
 	//+/- 0 to 1.000
-	void ofRobotCommands::setPoint(ofRobotPosition ptPercent) {
+	void ofTrRobotArm::setPoint(ofRobotPosition ptPercent) {
 		// only Cylindrical supported by this function, mainly the setx one
 		if (info.isCylindrical()) {
 			//ofMap
@@ -95,11 +95,11 @@ namespace RobotArtists {
 	}
 
 	// various tests
-	void ofRobotCommands::sanityTestHighLevel(vector<ofRobotCommand>&commands) {
+	void ofTrRobotArm::sanityTestHighLevel(vector<ofRobotArmCommand>&commands) {
 		ofRobotTrace() << "high level sanityTest" << std::endl;
 
 		//ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
-		ofRobotCommand cmd(0.0f);
+		ofRobotArmCommand cmd(0.0f);
 		cmd.addWristAngle(0.0f);
 		cmd.addWristAngle(1.0f);
 		commands.push_back(cmd); // saves a copy
@@ -107,17 +107,17 @@ namespace RobotArtists {
 		cmd.add(1.0f);
 		// add a new command, either way works
 		commands.push_back(cmd);
-		commands.push_back(ofRobotCommand::getSleep(1000));
-		ofRobotCommand cmd2(NoRobotValue, 0.10f);
+		commands.push_back(ofRobotArmCommand::getSleep(1000));
+		ofRobotArmCommand cmd2(NoRobotValue, 0.10f);
 		cmd2.add(NoRobotValue, 1.0f);
 		commands.push_back(cmd2);
-		commands.push_back(ofRobotCommand::getSleep(1000)); 
-		ofRobotCommand cmd3(NoRobotValue, NoRobotValue, 0.0f);
+		commands.push_back(ofRobotArmCommand::getSleep(1000)); 
+		ofRobotArmCommand cmd3(NoRobotValue, NoRobotValue, 0.0f);
 		cmd3.add(NoRobotValue, NoRobotValue, 1.0f);
 		commands.push_back(cmd3);
 	}
 
-	void ofRobotJoints::sendToRobot(ofRobotSerial* serial) {
+	void ofTrRobotArmInternals::sendToRobot(ofRobotSerial* serial) {
 		
 		if (serial) {
 			serial->writePose(&pose);
@@ -125,9 +125,9 @@ namespace RobotArtists {
 	}
 
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
-	void ofRobotCommands::sanityTestLowLevel() {
+	void ofTrRobotArm::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
-		sendToRobot(&robot->serial);
+		sendToRobot(&serial);
 		pose.setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
@@ -136,50 +136,70 @@ namespace RobotArtists {
 		//setWristRotate(120);
 		setGripper(10);
 		pose.setButton();
-		sendToRobot(&robot->serial);
+		sendToRobot(&serial);
 		setGripper(100);
-		sendToRobot(&robot->serial);
+		sendToRobot(&serial);
 		setGripper(511);
-		sendToRobot(&robot->serial);
+		sendToRobot(&serial);
 		ofSleepMillis(1000);
 		setX(200);
-		sendToRobot(&robot->serial);
+		sendToRobot(&serial);
 		setX(0);
-		sendToRobot(&robot->serial);
+		sendToRobot(&serial);
 	}
 
 
-	void ofRobotCommands::setup(ofRobot *robot, robotArmMode mode) { 
-		this->robot = robot;
+	void ofTrRobotArm::setup(robotArmMode mode) { 
+		ofRobotTrace() << "setup ofTrRobotArm " << name << " type " << info.trace();
+		
 		setStartState(mode);
-		if (robot) {
-			info.setType(robot->info.getType());
-			setUserDefinedRanges(SpecificJoint(robot->info.getType(), X), robot->userDefinedRanges);
-			sendToRobot(&robot->serial); // send the mode, also resets the robot
-		}
+		setUserDefinedRanges(SpecificJoint(info.getType(), X), userDefinedRanges);
+		sendToRobot(&serial); // send the mode, also resets the robot
 		setDefaultState();
-		clear(vectorOfRobotCommands);
+
+		clear(vectorOfCommands);
+	
+		// setup the robot
+		switch (info.getTypeID()) {
+		case PhantomXReactorArm:
+			servoCount = REACTOR_SERVO_COUNT;
+			ofRobotTrace() << "Reactor";
+			break;
+		case PhantomXPincherArm:
+			servoCount = PINCHER_SERVO_COUNT;
+			ofRobotTrace() << "Pincher";
+			break;
+		case WidowX:
+			servoCount = WIDOWX_SERVO_COUNT;
+			ofRobotTrace() << "WidowX";
+			break;
+		}
+
+		ofRobotTrace() << " on " << serial.deviceName << std::endl;
+
+		validate(); // validate robot
+
 	}
 
 	//ofPushMatrix();
 	//ofTranslate(400, 300);
 	//ofPopMatrix();
 
-	void ofRobotCommands::penUp(vector<ofRobotCommand>&commands) {
-		ofRobotCommand cmd(UserDefinded);
+	void ofTrRobotArm::penUp(vector<ofRobotArmCommand>&commands) {
+		ofRobotArmCommand cmd(UserDefinded);
 		
 		cmd.addZ(pose.getZ()+0.1); // bugbug what if its max,I guess it just ignores the request
 		commands.push_back(cmd);
 	}
 
-	void ofRobotCommands::penDown(vector<ofRobotCommand>&commands) {
-		ofRobotCommand cmd(UserDefinded);
+	void ofTrRobotArm::penDown(vector<ofRobotArmCommand>&commands) {
+		ofRobotArmCommand cmd(UserDefinded);
 		cmd.addZ(pose.getZ() - 0.1);
 		commands.push_back(cmd);
 	}
 
 	// draw optimized line from current location
-	void ofRobotCommands::line(vector<ofRobotCommand>&commands, const ofRobotPosition& to)	{
+	void ofTrRobotArm::line(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to)	{
 		// drop pen and move
 		penDown(commands);
 		move(commands, to);
@@ -198,9 +218,9 @@ namespace RobotArtists {
 	}
 
 	// move arm
-	void ofRobotCommands::move(vector<ofRobotCommand>&commands,  const ofRobotPosition& to) {
+	void ofTrRobotArm::move(vector<ofRobotArmCommand>&commands,  const ofRobotPosition& to) {
 		// move arm
-		ofRobotCommand cmd(RobotMoveTo, RobotCommandData(to));
+		ofRobotArmCommand cmd(RobotMoveTo, RobotArmCommandData(to));
 		commands.push_back(cmd);
 	}
 	
@@ -218,7 +238,7 @@ namespace RobotArtists {
 	}
 
 	// create circle data
-	void ofRobotCommands::circle(vector<ofRobotCommand>&commands, float r)
+	void ofTrRobotArm::circle(vector<ofRobotArmCommand>&commands, float r)
 	{
 		// do a move like OF does so drawing always starts at current
 		float slice = 2 * M_PI / 10;
@@ -227,44 +247,44 @@ namespace RobotArtists {
 			float newX = r * cos(angle);
 			float newY = r * sin(angle);
 			ofRobotTrace() << newX << " " << newY << std::endl; 
-			ofRobotCommand cmd(RobotCommandData(ofRobotPosition(newX, newY)));
+			ofRobotArmCommand cmd(RobotArmCommandData(ofRobotPosition(newX, newY)));
 			commands.push_back(cmd);
 		}
 	}
 
-	void ofRobotCommands::move(const ofRobotPosition& pos) {
+	void ofTrRobotArm::move(const ofRobotPosition& pos) {
 		setPoint(pos);
 		
 		// set Z to max, then restore z
 		pushMatrix();
 		ofRobotPosition newPos = pos;
 		newPos.setPercents(NoRobotValue, NoRobotValue, getMin(Z));
-		sendToRobot(&robot->serial);
+		sendToRobot(&serial);
 		popMatrix();
 
-		sendToRobot(&robot->serial); // restore to normal z
+		sendToRobot(&serial); // restore to normal z
 	}
 
-	void ofRobotCommands::testdata() {
+	void ofTrRobotArm::testdata() {
 		pose.trace();
-		echo(); // echo object data
+		trace(); // echo object data
 	}
 
-	void ofRobotCommands::set(RobotCommandData& request) {
+	void ofTrRobotArm::set(RobotArmCommandData& request) {
 		setPoint(request.getPoint());
 		setState(request.getState());
 		pose.setDelta(request.getDelta());
 	}
 
-	void ofRobotCommands::sendData(vector<RobotCommandData>&data) {
+	void ofTrRobotArm::sendData(vector<RobotArmCommandData>&data) {
 		for (auto& a : data) {
 			set(a);
-			sendToRobot(&robot->serial);
+			sendToRobot(&serial);
 		}
 	}
 
 	// send and delete (if requested) commands created as a result of using built in functions such as drawCircle
-	void ofRobotCommands::sendExpandedResults(vector<ofRobotCommand>& results) {
+	void ofTrRobotArm::sendExpandedResults(vector<ofRobotArmCommand>& results) {
 		for (auto& result : results) {
 			if (result.getCommand() == Sleep) {
 				for (auto& a : result.getVector()) {
@@ -277,14 +297,14 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobotCommands::update() {
+	void ofTrRobotArm::update() {
 		
 		clear(expandedResults);
 
 		// expand data as needed by all commands
-		for (auto& cmd : vectorOfRobotCommands) {
+		for (auto& cmd : vectorOfCommands) {
 			switch (cmd.getCommand()) {
-			case HighLevelTest:
+			case RegressionTest:
 				sanityTestHighLevel(expandedResults);
 				break;
 			case RobotCircle:
@@ -307,57 +327,54 @@ namespace RobotArtists {
 	}
 
 	// drawing occurs here as its tied to the robot directly
-	void ofRobotCommands::draw() {
+	void ofTrRobotArm::draw() {
 
-		if (robot) {
-			
-			vector< ofRobotCommand >::iterator it = vectorOfRobotCommands.begin();
-			while (it != vectorOfRobotCommands.end()) {
+		vector< ofRobotArmCommand >::iterator it = vectorOfCommands.begin();
+		while (it != vectorOfCommands.end()) {
 
-				switch (it->getCommand()) {
-				case LowLevelTest:
-					sanityTestLowLevel(); // special case, does not use data or other objects, used to test/debug
-					break;
-				case UserDefinded:
-					// no processing needed, just send it on. Low level, no commands parsed such as sleep, assuming that is done else where
-					sendData(it->getVector());
-					break;
-				case Translate://bugbug make a mov, ie that lifts the brush for example
-					sendData(it->getVector());
-					break;
-				case Push:
-					pushMatrix();
-					break;
-				case Pop:
-					popMatrix();
-					break;
-				}
+			switch (it->getCommand()) {
+			case LowLevelTest:
+				sanityTestLowLevel(); // special case, does not use data or other objects, used to test/debug
+				break;
+			case UserDefinded:
+				// no processing needed, just send it on. Low level, no commands parsed such as sleep, assuming that is done else where
+				sendData(it->getVector());
+				break;
+			case Translate://bugbug make a mov, ie that lifts the brush for example
+				sendData(it->getVector());
+				break;
+			case Push:
+				pushMatrix();
+				break;
+			case Pop:
+				popMatrix();
+				break;
+			}
 
-				if (expandedResults.size() > 0) {
-					sendExpandedResults(expandedResults);
-				}
+			if (expandedResults.size() > 0) {
+				sendExpandedResults(expandedResults);
+			}
 
-				if (it->OKToDelete()) {
-					it = vectorOfRobotCommands.erase(it);
-				}
-				else {
-					++it;
-				}
+			if (it->OKToDelete()) {
+				it = vectorOfCommands.erase(it);
+			}
+			else {
+				++it;
 			}
 		}
 	}
 
-	void ofRobotCommand::echo()  {
+	void ofRobotArmCommand::trace()  {
 		for ( auto& a : vectorOfCommandData) {
-			a.getPoint().echo();
-			a.getState().echo();
+			a.getPoint().trace();
+			a.getState().trace();
 		}
 	}
 
-	void ofRobot::validate() {
+	void ofTrRobotArm::validate() {
 		return;// do not bother when debugging
 
-		ofRobotTrace() << "valiate robot" << std::endl;
+		ofRobotTrace() << "valiate ofTrRobotArm" << std::endl;
 		
 		for (int i = FIRST_SERVO; i < servoCount; ++i) {
 			for (int j = 1; j <= 5; ++j) { // flash a bit
@@ -388,92 +405,32 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobot::setup() {
-
-		ofRobotTrace() << "setup robot " << name << " type ";
-
-		info.setMode(IKM_CYLINDRICAL);
-		commands.setup(this, IKM_CYLINDRICAL);
-
-		// setup the robot
-		switch (info.getTypeID()) {
-		case PhantomXReactorArm:
-			servoCount = REACTOR_SERVO_COUNT;
-			ofRobotTrace() << "Reactor";
-			break;
-		case PhantomXPincherArm:
-			servoCount = PINCHER_SERVO_COUNT;
-			ofRobotTrace() << "Pincher";
-			break;
-		case WidowX:
-			servoCount = WIDOWX_SERVO_COUNT;
-			ofRobotTrace() << "WidowX";
-			break;
+	void ofRobot::trace() {
+		ofRobotTrace() << "trace robot " << name << std::endl;
+		for (auto arm : arms) {
+			arm->trace();
 		}
-
-		ofRobotTrace() << " on " << serial.deviceName << std::endl;
-
-		validate(); // validate robot
-
-	}
-
-	void ofRobot::update() {
-		commands.update();
-	}
-
-	void ofRobot::echo() {
-		commands.echo();
 	}
 
 	void ofRobot::draw() {
-		if (pause) {
-			return;
+		ofRobotTrace() << "draw robot" << name << std::endl;
+		for (auto arm : arms) {
+			arm->draw();
 		}
-		commands.draw();
 	}
-
-	shared_ptr<ofRobot> ofRobotFamly::getRobot(int index, RobotTypeID id) {
-		ofRobotTrace() << "getRobot" << std::endl;
-		int count = 0;
-		for (int i = 0; i < robots.size(); ++i) {
-			if (id == AllRobotTypes || id == robots[i]->info.getTypeID()) {
-				if (count == index) {
-					return robots[i];
-				}
-				++count;
-			}
-		}
-		return nullptr;
-	}
-
-	void ofRobotFamly::update() {
-		if (robots.size() == 0) {
-			ofRobotTrace() << "update robots no data" << std::endl;
-			ofSleepMillis(500);
-		}
-		else {
-			ofRobotTrace() << "update robots" << std::endl;
-		}
-		for (const auto robot : robots) {
-			if (idToUse == AllRobotTypes || idToUse == robot->info.getTypeID()) {
-				robot->update();
-			}
+	void ofRobot::update() {
+		ofRobotTrace() << "update robot" << name << std::endl;
+		for (auto arm : arms) {
+			arm->update();
 		}
 	}
 
-	void ofRobotFamly::draw() {
-		ofRobotTrace() << "draw robots" << std::endl;
-		for (const auto robot : robots) {
-			if (idToUse == AllRobotTypes || idToUse == robot->info.getTypeID()) {
-				robot->draw();
-			}
-		}
-	}
-
-	void ofRobotFamly::setup() {
-
+	void ofRobot::setup() {
+		
+		ofRobotTrace() << "setup robot" << name << std::endl;
+		
 		// do one time setup
-		ofRobotJoints::oneTimeSetup(); // do one time setup of static data
+		ofTrRobotArmInternals::oneTimeSetup(); // do one time setup of static data
 
 		ofRobotSerial serial;
 		serial.listDevices(); // let viewer see thats out there
@@ -482,28 +439,28 @@ namespace RobotArtists {
 			if (device.getDeviceID() == 0) {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
-			ofRobotTrace("FindAllRobots") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
-			shared_ptr<ofRobot> robot = make_shared<ofRobot>();
-			if (!robot) {
+			ofRobotTrace("FindAllArms") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
+			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
+			if (!arm) {
 				return; // something is really wrong
 			}
-			if (!robot->serial.setup(device.getDeviceName(), 38400)) {
-				ofRobotTrace(FatalErrorLog) << "FindAllRobots" << std::endl;
+			if (!arm->serial.setup(device.getDeviceName(), 38400)) {
+				ofRobotTrace(FatalErrorLog) << "FindAllArms" << std::endl;
 				return;
 			}
-			robot->serial.deviceName = device.getDeviceName();
+			arm->serial.deviceName = device.getDeviceName();
 			// port found, see what may be on it
 			// start with default mode
 			uint64_t t1 = ofGetElapsedTimeMillis();
 			robotType robotType;
 			string robotName;
-			if (!robotTypeIsError(robotType = robot->serial.waitForRobot(robotName, 25))) {
+			if (!robotTypeIsError(robotType = arm->serial.waitForRobotArm(robotName, 25))) {
 				uint64_t t2 = ofGetElapsedTimeMillis();
 				int gone = t2 - t1;
-				robot->setName(robotName);
-				robot->info.setType(robotType);
-				robot->setup();
-				robots.push_back(robot);
+				arm->setName(robotName);
+				arm->setType(robotType);
+				arm->setup(IKM_CYLINDRICAL);
+				arms.push_back(arm);
 				ofRobotTrace() << "install duration in milliseconds " << gone << " for " << robotName << std::endl;
 			}
 			else {

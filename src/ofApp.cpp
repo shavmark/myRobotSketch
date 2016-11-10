@@ -5,22 +5,22 @@
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-	family.draw();
+	robot.draw();
 }
 //--------------------------------------------------------------
 void ofApp::setup() {
 
-	family.setup();
+	robot.setup();
 
 }
 
 //--------------------------------------------------------------
 void ofApp::update() {
-	shared_ptr<ofRobot> robot = family.getRobot(0, PhantomXPincherArm); // work with first pincher found
-	if (robot) {
+	
+	if (robot.arms.size() > 0) {
 		//HighLevelTest
-		ofRobotCommand cmd(HighLevelTest);
-		robot->commands.add(cmd);
+		ofRobotArmCommand cmd(RegressionTest);
+		robot.arms[0]->add(cmd);
 		/*
 		ofRobotCommand cmd(RobotMoveTo, RobotCommandData(ofRobotPosition(0.0f)));
 		robot->commands.add(cmd);
@@ -28,7 +28,7 @@ void ofApp::update() {
 		robot->commands.add(cmd);
 		*/
 	}
-	family.update();
+	robot.update();
 
 	//if (robotPincher.commands) {
 	//	robotPincher.commands->add(ofRobotCommand::LowLevelTest);//bugbug data is too bug, just testing getting data around
@@ -103,11 +103,6 @@ void ofApp::update() {
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
-	if (key == ' ') {
-		//robotPincher.setPause();//bugbug need a thread/semaphore to do this
-		//robotPincher.echo();
-		//robotPincher.setPause(false);
-	}
 }
 
 //--------------------------------------------------------------

@@ -21,7 +21,7 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 //http://biorobots.case.edu/wp-content/uploads/2014/12/IntroductiontoDynamixelMotorControlUsingtheArbotiX20141112-1.pdf
 namespace RobotArtists {
 
-	RobotValueRanges ofRobotJoints::hardwareRanges; // just need to set once
+	RobotValueRanges ofTrRobotArmInternals::hardwareRanges; // just need to set once
 
 													
 	const string Pose::dataName(int id) {
@@ -217,7 +217,7 @@ namespace RobotArtists {
 
 
 
-	robotType ofTrosseRobotSerial::waitForRobot(string& name, int retries) {
+	robotType ofTrosseRobotSerial::waitForRobotArm(string& name, int retries) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
 
 		robotType type = createUndefinedRobotType();
@@ -370,43 +370,43 @@ namespace RobotArtists {
 		set(high, highByte(val));
 		set(low, lowByte(val));
 	}
-	void ofRobotJoints::setX(int x) {
+	void ofTrRobotArmInternals::setX(int x) {
 		ofRobotTrace() << "try to set x=" << x << std::endl;
 		if (inRange(X, x)) {
 			pose.setLowLevelX(x, addMagicNumber());
 		}
 	}
-	void ofRobotJoints::setY(int y) {
+	void ofTrRobotArmInternals::setY(int y) {
 		ofRobotTrace() << "try to set y=" << y << std::endl;
 		if (inRange(Y, y)) {
 			pose.setLowLevelY(y);
 		}
 	}
-	void ofRobotJoints::setZ(int z) {
+	void ofTrRobotArmInternals::setZ(int z) {
 		ofRobotTrace() << "try to set z=" << z << std::endl;
 		if (inRange(Z, z)) {
 			pose.setLowLevelZ(z);
 		}
 	}
-	void ofRobotJoints::setWristAngle(int a) {
+	void ofTrRobotArmInternals::setWristAngle(int a) {
 		ofRobotTrace() << "try to set setWristAngle=" << a << std::endl;
 		if (inRange(wristAngle, a)) {
 			pose.setLowLevelWristAngle(a);
 		}
 	}
-	void ofRobotJoints::setWristRotate(int a) {
+	void ofTrRobotArmInternals::setWristRotate(int a) {
 		ofRobotTrace() << "try to set setWristRotate=" << a << std::endl;
 		if (inRange(wristRotate, a)) {
 			pose.setLowLevelWristRotate(a);
 		}
 	}
-	void ofRobotJoints::setGripper(int distance) {
+	void ofTrRobotArmInternals::setGripper(int distance) {
 		ofRobotTrace() << "try to set setGripper=" << distance << std::endl;
 		if (inRange(Gripper, distance)) {
 			pose.setLowLevelGripper(distance);
 		}
 	}
-	void ofRobotJoints::setMin(SpecificJoint joint, int value) {
+	void ofTrRobotArmInternals::setMin(SpecificJoint joint, int value) {
 		if (userDefinedRanges) {
 			if (value < hardwareRanges.maxValue[joint] && value > hardwareRanges.minValue[joint]) {
 				userDefinedRanges->minValue[joint] = value;
@@ -416,7 +416,7 @@ namespace RobotArtists {
 			}
 		}
 	}
-	void ofRobotJoints::setMax(SpecificJoint joint, int value) {
+	void ofTrRobotArmInternals::setMax(SpecificJoint joint, int value) {
 		if (userDefinedRanges) {
 			if (value < hardwareRanges.maxValue[joint] && value > hardwareRanges.minValue[joint]) {
 				userDefinedRanges->maxValue[joint] = value;
@@ -426,24 +426,24 @@ namespace RobotArtists {
 			}
 		}
 	}
-	int ofRobotJoints::getMin(robotArmJointType type) {
+	int ofTrRobotArmInternals::getMin(robotArmJointType type) {
 		if (userDefinedRanges && userDefinedRanges->minValue.find(SpecificJoint(info.getType(), type)) != userDefinedRanges->minValue.end()) {
 			return userDefinedRanges->minValue[SpecificJoint(info.getType(), type)];
 		}
 		return hardwareRanges.minValue[SpecificJoint(info.getType(), type)];
 	}
-	int ofRobotJoints::getMid(robotArmJointType type) {
+	int ofTrRobotArmInternals::getMid(robotArmJointType type) {
 		return (getMax(type) - getMin(type)) / 2; //bugbug works for robot types? 
 	}
 
-	int ofRobotJoints::getMax(robotArmJointType type) {
+	int ofTrRobotArmInternals::getMax(robotArmJointType type) {
 		if (userDefinedRanges && userDefinedRanges->maxValue.find(SpecificJoint(info.getType(), type)) != userDefinedRanges->maxValue.end()) {
 			return userDefinedRanges->maxValue[SpecificJoint(info.getType(), type)];
 		}
 		return hardwareRanges.maxValue[SpecificJoint(info.getType(), type)];
 	}
 
-	bool ofRobotJoints::inRange(robotArmJointType type, int value) {
+	bool ofTrRobotArmInternals::inRange(robotArmJointType type, int value) {
 		if (value > getMax(type) || value < getMin(type)) {
 			ofRobotTrace(ErrorLog) << "out of range " << value << " (" << getMin(type) << ", " << getMax(type) << ")" << std::endl;
 			return false;
@@ -451,7 +451,7 @@ namespace RobotArtists {
 		return true;
 	}
 	// needs to only be called one time -- uses static data to save time/space. backhoe not supported
-	void ofRobotJoints::oneTimeSetup() {
+	void ofTrRobotArmInternals::oneTimeSetup() {
 
 		// these values come from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html#limits for pincher and there
 		// is also a page for the Reactor.  Any ranges can be set as default ranges.
@@ -556,7 +556,7 @@ namespace RobotArtists {
 	}
 
 	// "home" and set data matching state
-	void ofRobotJoints::setDefaultState() {
+	void ofTrRobotArmInternals::setDefaultState() {
 		ofRobotTrace() << "setDefaults";
 		setX(getDefaultValue(X));
 		setY(getDefaultValue(Y));
@@ -569,7 +569,7 @@ namespace RobotArtists {
 		pose.setButton();
 	}
 	// will block until arm is ready
-	robotType ofRobotJoints::setStartState(robotArmMode mode) {
+	robotType ofTrRobotArmInternals::setStartState(robotArmMode mode) {
 		info.setMode(mode);
 		ofRobotTrace() << "setStartState(mode, type) " << info.trace() << std::endl;
 		pose.setLowLevelCommand(getStartCommand(info.getMode()));
@@ -611,7 +611,7 @@ namespace RobotArtists {
 		pose[trChecksum] = getChkSum(pose.data());
 	}
 	// user defined can never be greater than hardware min/max
-	void ofRobotJoints::setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>) {
+	void ofTrRobotArmInternals::setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>) {
 
 		if (userDefinedRanges) {
 			if (userDefinedRanges->minValue[joint] < hardwareRanges.minValue[joint] || userDefinedRanges->maxValue[joint] > hardwareRanges.maxValue[joint]) {
@@ -622,7 +622,7 @@ namespace RobotArtists {
 		this->userDefinedRanges = userDefinedRanges;
 	}
 
-	void ofRobotJoints::set(SpecificJoint type, int minVal, int maxVal, int defaultVal) {
+	void ofTrRobotArmInternals::set(SpecificJoint type, int minVal, int maxVal, int defaultVal) {
 		ofRobotTrace() << "RobotJoints::set" << echoJointType(type) << " - min = " << minVal << " max = " << maxVal << " default = " << defaultVal << std::endl;
 
 		hardwareRanges.minValue[type] = minVal;
@@ -630,13 +630,13 @@ namespace RobotArtists {
 		hardwareRanges.defaultValue[type] = defaultVal;
 	}
 
-	int ofRobotJoints::getDefaultValue(robotArmJointType type) {
+	int ofTrRobotArmInternals::getDefaultValue(robotArmJointType type) {
 		if (userDefinedRanges && userDefinedRanges->defaultValue.find(SpecificJoint(info.getType(), type)) != userDefinedRanges->defaultValue.end()) {
 			return userDefinedRanges->defaultValue[SpecificJoint(info.getType(), type)];
 		}
 		return  hardwareRanges.defaultValue[SpecificJoint(info.getType(), type)];
 	}
-	void ofRobotJoints::setDefault(SpecificJoint joint, int value) {
+	void ofTrRobotArmInternals::setDefault(SpecificJoint joint, int value) {
 		if (userDefinedRanges) {
 			if (value < hardwareRanges.maxValue[joint] && value > hardwareRanges.minValue[joint]) {
 				userDefinedRanges->defaultValue[joint] = value;
