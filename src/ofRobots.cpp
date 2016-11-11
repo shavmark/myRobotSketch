@@ -70,7 +70,7 @@ namespace RobotArtists {
 			setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
 		}
 		if (valueIsSet(statePercent.getGripper())) {
-			setGripper(getMin(Gripper) + (statePercent.getGripper() * (getMax(Gripper) - getMin(Gripper))));
+			setGripper(getMin(ArmGripper) + (statePercent.getGripper() * (getMax(ArmGripper) - getMin(ArmGripper))));
 		}
 	}
 
@@ -80,13 +80,13 @@ namespace RobotArtists {
 		if (info.isCylindrical()) {
 			//ofMap
 			if (valueIsSet(ptPercent.getX())) {
-				setX(getMin(X) + (ptPercent.getX() * (getMax(X) - getMin(X))));
+				setX(getMin(ArmX) + (ptPercent.getX() * (getMax(ArmX) - getMin(ArmX))));
 			}
 			if (valueIsSet(ptPercent.getY())) {
-				setY(getMin(Y) + (ptPercent.getY() * (getMax(Y) - getMin(Y))));
+				setY(getMin(ArmY) + (ptPercent.getY() * (getMax(ArmY) - getMin(ArmY))));
 			}
 			if (valueIsSet(ptPercent.getZ())) {
-				setZ(getMin(Z) + (ptPercent.getZ() * (getMax(Z) - getMin(Z))));
+				setZ(getMin(ArmZ) + (ptPercent.getZ() * (getMax(ArmZ) - getMin(ArmZ))));
 			}
 		}
 		else {
@@ -94,19 +94,60 @@ namespace RobotArtists {
 		}
 	}
 
+	ofRobotArmCommand::ofRobotArmCommand(robotArmJointType type, float value, uint8_t delta) {
+		//enum robotArmJointType { ArmX, ArmY, ArmZ, wristAngle, wristRotate, ArmGripper, JointNotDefined };
+		set(UserDefinded);
+		addParameter(type, value, delta);
+	}
+
+	void ofRobotArmCommand::addParameter(robotArmJointType type, float value, uint8_t delta) {
+		switch (type) {
+		case ArmX:
+			addParameter(value, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, delta);
+			return;
+		case ArmY:
+			addParameter(NoRobotValue, value, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, delta);
+			return;
+		case ArmZ:
+			addParameter(NoRobotValue, NoRobotValue, value, NoRobotValue, NoRobotValue, NoRobotValue, delta);
+			return;
+		case wristAngle:
+			addParameter(NoRobotValue, NoRobotValue, NoRobotValue, value, NoRobotValue, NoRobotValue, delta);
+			return;
+		case wristRotate:
+			addParameter(NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, value, NoRobotValue, delta);
+			return;
+		case ArmGripper:
+			addParameter(NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, NoRobotValue, value, delta);
+			return;
+		}
+	}
+	void ofRobotArmCommand::setup(const RobotCommand&cmd, const RobotArmCommandData& data) {
+		clear(vectorOfCommandData); 
+		set(cmd); 
+		addParameter(data); 
+	}
+
 	// various tests
-	void ofTrRobotArm::sanityTestHighLevel(vector<ofRobotArmCommand>&commands) {
+	void ofTrRobotArm::regressionTest(vector<ofRobotArmCommand>&commands) {
 		ofRobotTrace() << "high level sanityTest" << std::endl;
 
-		//ofRobotCommand cmd(0.3f, 0.6f, NoRobotValue, 1.0f, -1.0f, 0.5f);
-		ofRobotArmCommand cmd(0.0f);
-		//cmd.addWristAngle(0.0f);
-		//cmd.addWristAngle(1.0f);
-		commands.push_back(cmd); // saves a copy
-		ofRobotArmCommand cmd2(1.0f);
-		commands.push_back(cmd2);
+		ofRobotArmCommand sleep(Sleep, 5000);
+		sleep.addParameter(2000); // example of 2nd parameter, would add 2000 seconds of sleep as an example
+
+		commands.push_back(ofRobotArmCommand(0.0f));
+		commands.push_back(sleep);
+		commands.push_back(ofRobotArmCommand(1.0f));
+		commands.push_back(sleep);
+		commands.push_back(ofRobotArmCommand(0.5f, 0.2f));
+		commands.push_back(ofRobotArmCommand(ArmY, 1.0f, 25)); // fast
+		commands.push_back(ofRobotArmCommand(ArmY, 0.5f));
+		commands.push_back(ofRobotArmCommand(ArmZ, 0.2f));
+		commands.push_back(ofRobotArmCommand(ArmZ, 0.8f));
 		return;
 		/* add a new command, either way works
+		cmd.addWristAngle(0.0f);
+		cmd.addWristAngle(1.0f);
 		commands.push_back(cmd);
 		commands.push_back(ofRobotArmCommand::getSleep(1000));
 		ofRobotArmCommand cmd3(NoRobotValue, 0.10f);
@@ -163,7 +204,7 @@ namespace RobotArtists {
 		ofRobotTrace() << "setup ofTrRobotArm " << name << " type " << info.trace();
 		
 		setStartState(mode);
-		setUserDefinedRanges(SpecificJoint(info.getType(), X), userDefinedRanges);
+		setUserDefinedRanges(SpecificJoint(info.getType(), ArmX), userDefinedRanges);
 		sendToRobot(&serial); // send the mode, also resets the robot
 		setDefaultState();
 
@@ -195,25 +236,25 @@ namespace RobotArtists {
 	//ofTranslate(400, 300);
 	//ofPopMatrix();
 
-	void ofTrRobotArm::penUpMacro(vector<ofRobotArmCommand>&commands) {
-		ofRobotArmCommand cmd(UserDefinded);
+	void ofTrRobotArm::penUpMacro(vector<ofRobotArmCommand>&commands, uint8_t delta) {
+		ofRobotArmCommand cmd(UserDefinded, delta);
 		
-		cmd.addZ(pose.getZ()+0.1); // bugbug what if its max,I guess it just ignores the request
+		cmd.addParameter(ArmZ, pose.getZ()+0.1, delta); // bugbug what if its max,I guess it just ignores the request
 		commands.push_back(cmd);
 	}
 
-	void ofTrRobotArm::penDownMacro(vector<ofRobotArmCommand>&commands) {
-		ofRobotArmCommand cmd(UserDefinded);
-		cmd.addZ(pose.getZ() - 0.1);
+	void ofTrRobotArm::penDownMacro(vector<ofRobotArmCommand>&commands, uint8_t delta) {
+		ofRobotArmCommand cmd(UserDefinded, delta);
+		cmd.addParameter(ArmZ, pose.getZ() - 0.1, delta);
 		commands.push_back(cmd);
 	}
 
 	// draw optimized line from current location
-	void ofTrRobotArm::lineMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to)	{
+	void ofTrRobotArm::lineMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to, uint8_t delta)	{
 		// drop pen and move
-		penDownMacro(commands);
-		moveMacro(commands, to);
-		penUpMacro(commands);
+		penDownMacro(commands, delta);
+		moveMacro(commands, to, delta);
+		penUpMacro(commands, delta);
 		/*
 		float dx = to.x - currentPosition.x; // delta between x and y
 		float dy = to.x - currentPosition.y;
@@ -228,10 +269,9 @@ namespace RobotArtists {
 	}
 
 	// move arm
-	void ofTrRobotArm::moveMacro(vector<ofRobotArmCommand>&commands,  const ofRobotPosition& to) {
+	void ofTrRobotArm::moveMacro(vector<ofRobotArmCommand>&commands,  const ofRobotPosition& to, uint8_t delta) {
 		// move arm
-		ofRobotArmCommand cmd(RobotMoveTo, RobotArmCommandData(to));
-		commands.push_back(cmd);
+		commands.push_back(ofRobotArmCommand(RobotMoveTo, RobotArmCommandData(to, delta)));
 	}
 	
 	ofRobotPosition& ofRobotPosition::operator=(const ofRobotPosition&newpos) {
@@ -248,7 +288,7 @@ namespace RobotArtists {
 	}
 
 	// create circle data
-	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, float r)
+	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, float r, uint8_t delta)
 	{
 		// do a move like OF does so drawing always starts at current
 		float slice = 2 * M_PI / 10;
@@ -257,7 +297,7 @@ namespace RobotArtists {
 			float newX = r * cos(angle);
 			float newY = r * sin(angle);
 			ofRobotTrace() << newX << " " << newY << std::endl; 
-			ofRobotArmCommand cmd(RobotArmCommandData(ofRobotPosition(newX, newY)));
+			ofRobotArmCommand cmd(RobotArmCommandData(ofRobotPosition(newX, newY), delta));
 			commands.push_back(cmd);
 		}
 	}
@@ -284,7 +324,7 @@ namespace RobotArtists {
 	void ofTrRobotArm::sendExpandedResults(vector<ofRobotArmCommand>& results) {
 		for (auto& result : results) {
 			if (result.getCommand() == Sleep) {
-				for (auto& a : result.getVectorOfParameters()) {
+				for (auto& a : result.vectorOfCommandData) {
 					ofSleepMillis(a.int1);
 				}
 			}
@@ -307,7 +347,7 @@ namespace RobotArtists {
 
 			switch (it->getCommand()) {
 			case RegressionTest:
-				sanityTestHighLevel(expandedResults);
+				regressionTest(expandedResults);
 				break;
 			case RobotCircle:
 				for (auto& a : it->getVectorOfParameters()) {

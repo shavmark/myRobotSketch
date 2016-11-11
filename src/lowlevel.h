@@ -62,7 +62,7 @@ namespace RobotArtists {
 	// from firmware IKM_BACKHOE not 100% supported
 	enum robotArmMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED };
 
-	enum robotArmJointType { X, Y, Z, wristAngle, wristRotate, Gripper, JointNotDefined };
+	enum robotArmJointType { ArmX, ArmY, ArmZ, wristAngle, wristRotate, ArmGripper, JointNotDefined };
 
 	// only 1 supported
 	enum RobotTypeID { PhantomXReactorArm, PhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes }; // the MakeBot is coming too...

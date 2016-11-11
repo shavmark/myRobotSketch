@@ -378,19 +378,19 @@ namespace RobotArtists {
 	}
 	void ofTrRobotArmInternals::setX(int x) {
 		ofRobotTrace() << "try to set x=" << x << std::endl;
-		if (inRange(X, x)) {
+		if (inRange(ArmX, x)) {
 			pose.setLowLevelX(x, addMagicNumber());
 		}
 	}
 	void ofTrRobotArmInternals::setY(int y) {
 		ofRobotTrace() << "try to set y=" << y << std::endl;
-		if (inRange(Y, y)) {
+		if (inRange(ArmY, y)) {
 			pose.setLowLevelY(y);
 		}
 	}
 	void ofTrRobotArmInternals::setZ(int z) {
 		ofRobotTrace() << "try to set z=" << z << std::endl;
-		if (inRange(Z, z)) {
+		if (inRange(ArmZ, z)) {
 			pose.setLowLevelZ(z);
 		}
 	}
@@ -408,7 +408,7 @@ namespace RobotArtists {
 	}
 	void ofTrRobotArmInternals::setGripper(int distance) {
 		ofRobotTrace() << "try to set setGripper=" << distance << std::endl;
-		if (inRange(Gripper, distance)) {
+		if (inRange(ArmGripper, distance)) {
 			pose.setLowLevelGripper(distance);
 		}
 	}
@@ -464,60 +464,60 @@ namespace RobotArtists {
 
 		// Reactor
 
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), X), -300, 300, 0);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), X), -300, 300, 0);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), Y), 50, 350, 235);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), Y), 20, 150, 140);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), Z), 20, 250, 210);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), Z), 10, 150, 30);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), ArmX), -300, 300, 0);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), ArmX), -300, 300, 0);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), ArmY), 50, 350, 235);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), ArmY), 20, 150, 140);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), ArmZ), 20, 250, 210);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), ArmZ), 10, 150, 30);
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), wristAngle), -30, 30, 0);
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), wristAngle), -90, -45, -90);
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), wristRotate), 0, 1023, 512);
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), wristRotate), 0, 1023, 512);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), Gripper), 0, 512, 512);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), Gripper), 0, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXReactorArm), ArmGripper), 0, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXReactorArm), ArmGripper), 0, 512, 512);
 
 
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), X), 0, 1023, 512);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), X), 0, 1023, 512);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), Y), 50, 350, 235);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), Y), 20, 150, 140);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), Z), 20, 250, 210);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), Z), 10, 150, 30);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), ArmX), 0, 1023, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), ArmX), 0, 1023, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), ArmY), 50, 350, 235);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), ArmY), 20, 150, 140);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), ArmZ), 20, 250, 210);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), ArmZ), 10, 150, 30);
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), wristAngle), -30, 30, 0);
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), wristAngle), -90, -45, -90);
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), wristRotate), 0, 1023, 512);
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), wristRotate), 0, 1023, 512);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), Gripper), 0, 512, 512);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), Gripper), 0, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXReactorArm), ArmGripper), 0, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXReactorArm), ArmGripper), 0, 512, 512);
 
 		// Pincher
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), X), -200, 200, 0);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), X), -200, 200, 0);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), ArmX), -200, 200, 0);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), ArmX), -200, 200, 0);
 
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), Y), 20, 240, 170);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), Y), 20, 150, 140);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), ArmY), 20, 240, 170);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), ArmY), 20, 150, 140);
 
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), Z), 20, 250, 210);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), Z), 10, 150, 30);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), ArmZ), 20, 250, 210);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), ArmZ), 10, 150, 30);
 
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), wristAngle), -30, 30, 0);
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), wristAngle), -90, -45, -90);
 
 		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), wristRotate), 0, 1023, 512);
 				set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), wristRotate), 0, 1023, 512);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), Gripper), 10, 512, 512);
-		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), Gripper), 10, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN, PhantomXPincherArm), ArmGripper), 10, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_IK3D_CARTESIAN_90, PhantomXPincherArm), ArmGripper), 10, 512, 512);
 
 
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), X), 0, 1023, 512);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), X), 0, 1023, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), ArmX), 0, 1023, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), ArmX), 0, 1023, 512);
 
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), Y), 20, 240, 170);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), Y), 20, 150, 140);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), ArmY), 20, 240, 170);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), ArmY), 20, 150, 140);
 
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), Z), 20, 250, 210);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), Z), 10, 150, 30);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), ArmZ), 20, 250, 210);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), ArmZ), 10, 150, 30);
 
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), wristAngle), -30, 30, 0);
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), wristAngle), -90, -45, -90);
@@ -525,8 +525,8 @@ namespace RobotArtists {
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), wristRotate), 0, 1023, 512);
 		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), wristRotate), 0, 1023, 512);
 
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), Gripper), 10, 512, 512);
-		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), Gripper), 10, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL, PhantomXPincherArm), ArmGripper), 10, 512, 512);
+		set(SpecificJoint(createRobotType(IKM_CYLINDRICAL_90, PhantomXPincherArm), ArmGripper), 10, 512, 512);
 
 		// mark end of list for debugging
 		set(SpecificJoint(createUndefinedRobotType(), JointNotDefined), 0, 0, 0); // should not be set to this while running, only during object init
@@ -564,12 +564,12 @@ namespace RobotArtists {
 	// "home" and set data matching state
 	void ofTrRobotArmInternals::setDefaultState() {
 		ofRobotTrace() << "setDefaults";
-		setX(getDefaultValue(X));
-		setY(getDefaultValue(Y));
-		setZ(getDefaultValue(Z));
+		setX(getDefaultValue(ArmX));
+		setY(getDefaultValue(ArmY));
+		setZ(getDefaultValue(ArmZ));
 		setWristAngle(getDefaultValue(wristAngle));
 		setWristRotate(getDefaultValue(wristRotate));
-		setGripper(getDefaultValue(Gripper));
+		setGripper(getDefaultValue(ArmGripper));
 		pose.setDelta();
 		pose.setLowLevelCommand(NoArmCommand);
 		pose.setButton();
