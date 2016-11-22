@@ -146,18 +146,13 @@ namespace RobotArtists {
 
 		// put command data in a known state
 		// a robot is required for life of this object
-		void setup(robotArmMode);
+		void setup(robotMode);
 
 		// move or draw based on the value in moveOrDraw
 		void draw();
 		void update();
 
 		void add(const ofRobotArmCommand& cmd) {	vectorOfCommands.push_back(cmd);	}
-
-		void setName(const string&name) { this->name = name; }
-		string& getName() { return name; }
-
-		ofTrosseRobotSerial serial; // talking to the robots
 
 	protected:
 
@@ -168,7 +163,7 @@ namespace RobotArtists {
 		void penUpMacro(vector<ofRobotArmCommand>&commands, uint8_t delta = maxDelta());
 		void penDownMacro(vector<ofRobotArmCommand>&commands, uint8_t delta = maxDelta());
 		//void translate(float x, float y) { getPose().position.setPercents(x, y);}
-		void pushMatrix() { stack.push(pose); }
+		void pushMatrix() { stack.push(this); }
 		void popMatrix();
 
 		void setPoint(ofRobotPosition pt);
@@ -178,12 +173,11 @@ namespace RobotArtists {
 
 	private:
 		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr; // none set by default
-		string name;
 		void validate();
 		
 		vector<ofRobotArmCommand> vectorOfCommands; // one more more points
 		void testdata();
-		stack<Pose> stack; // bugbug once working likely to include colors, brush size etc
+		stack<ofTrRobotArm*> stack; // bugbug once working likely to include colors, brush size etc
 									  // built in commands
 		void sanityTestLowLevel();
 		void sendData(vector<RobotArmCommandData>&data);
@@ -207,7 +201,7 @@ namespace RobotArtists {
 		string& getName() { return name; }
 
 		vector<shared_ptr<ofTrRobotArm>> arms; // bugbug at some point maybe add wrappers etc when more is known
-
+		vector<shared_ptr<xyRobot>> makerbots;
 	private:
 		string name;
 		vector<ofRobotVoice> voices;//bugbug can be anywhere and also add ofEyes (Kinetc, CV etc)

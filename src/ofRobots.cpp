@@ -123,7 +123,7 @@ namespace RobotArtists {
 		}
 	}
 	void ofRobotArmCommand::setup(const RobotCommand&cmd, const RobotArmCommandData& data) {
-		clear(vectorOfCommandData); 
+		ClearVector(vectorOfCommandData);
 		set(cmd); 
 		addParameter(data); 
 	}
@@ -160,35 +160,35 @@ namespace RobotArtists {
 		*/
 	}
 
-	void ofTrRobotArmInternals::sendToRobot(ofRobotSerial* serial) {
+	void SerialData::sendToRobot(ofRobotSerial* serial) {
 		
 		if (serial) {
-			serial->writePose(&pose);
+			serial->write(this);
 		}
 	}
 
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 	void ofTrRobotArm::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
-		sendToRobot(&serial);
-		pose.setDelta(254);
+		sendToRobot(getDriver());
+		setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
 		//setZ(50);
 		setWristAngle(30);
 		//setWristRotate(120);
 		setGripper(10);
-		pose.setButton();
-		sendToRobot(&serial);
+		setButton();
+		sendToRobot(getDriver());
 		setGripper(100);
-		sendToRobot(&serial);
+		sendToRobot(getDriver());
 		setGripper(511);
-		sendToRobot(&serial);
+		sendToRobot(getDriver());
 		ofSleepMillis(1000);
 		setX(200);
-		sendToRobot(&serial);
+		sendToRobot(getDriver());
 		setX(0);
-		sendToRobot(&serial);
+		sendToRobot(getDriver());
 	}
 
 	void ofTrRobotArm::popMatrix() {
@@ -196,19 +196,19 @@ namespace RobotArtists {
 			ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
 		}
 		else {
-			setPose(stack.top());
+			//bugbug figure out stack or drop it setPose(stack.top());
 			stack.pop();
 		}
 	}
-	void ofTrRobotArm::setup(robotArmMode mode) { 
+	void ofTrRobotArm::setup(robotMode mode) { 
 		ofRobotTrace() << "setup ofTrRobotArm " << name << " type " << info.trace();
 		
 		setStartState(mode);
 		setUserDefinedRanges(SpecificJoint(info.getType(), ArmX), userDefinedRanges);
-		sendToRobot(&serial); // send the mode, also resets the robot
+		sendToRobot(getDriver()); // send the mode, also resets the robot
 		setDefaultState();
 
-		clear(vectorOfCommands);
+		ClearVector(vectorOfCommands);
 	
 		// setup the robot
 		switch (info.getTypeID()) {
@@ -226,7 +226,7 @@ namespace RobotArtists {
 			break;
 		}
 
-		ofRobotTrace() << " on " << serial.deviceName << std::endl;
+		ofRobotTrace() << " on " << getDriver()->deviceName << std::endl;
 
 		validate(); // validate robot
 
@@ -239,13 +239,13 @@ namespace RobotArtists {
 	void ofTrRobotArm::penUpMacro(vector<ofRobotArmCommand>&commands, uint8_t delta) {
 		ofRobotArmCommand cmd(UserDefinded, delta);
 		
-		cmd.addParameter(ArmZ, pose.getZ()+0.1, delta); // bugbug what if its max,I guess it just ignores the request
+		cmd.addParameter(ArmZ, getZ()+0.1, delta); // bugbug what if its max,I guess it just ignores the request
 		commands.push_back(cmd);
 	}
 
 	void ofTrRobotArm::penDownMacro(vector<ofRobotArmCommand>&commands, uint8_t delta) {
 		ofRobotArmCommand cmd(UserDefinded, delta);
-		cmd.addParameter(ArmZ, pose.getZ() - 0.1, delta);
+		cmd.addParameter(ArmZ, getZ() - 0.1, delta);
 		commands.push_back(cmd);
 	}
 
@@ -303,20 +303,19 @@ namespace RobotArtists {
 	}
 
 	void ofTrRobotArm::testdata() {
-		pose.trace();
 		trace(); // echo object data
 	}
 
 	void ofTrRobotArm::set(RobotArmCommandData& request) {
 		setPoint(request.getPoint());
 		setState(request.getState());
-		pose.setDelta(request.getDelta());
+		setDelta(request.getDelta());
 	}
 
 	void ofTrRobotArm::sendData(vector<RobotArmCommandData>&data) {
 		for (auto& a : data) {
 			set(a);
-			sendToRobot(&serial);
+			sendToRobot(getDriver());
 		}
 	}
 
@@ -407,14 +406,14 @@ namespace RobotArtists {
 		
 		for (int i = FIRST_SERVO; i < servoCount; ++i) {
 			for (int j = 1; j <= 5; ++j) { // flash a bit
-				serial.setLED(static_cast<TrossenServoIDs>(i), 1);
-				int led = serial.getLED(static_cast<TrossenServoIDs>(i));
+				getTrossenDriver()->setLED(static_cast<TrossenServoIDs>(i), 1);
+				int led = getTrossenDriver()->getLED(static_cast<TrossenServoIDs>(i));
 				if (led != 1) {
 					ofRobotTrace(WarningLog) << "reg set fails" << std::endl; // may occur during startup
 				}
 				ofSleepMillis(100);
-				serial.setLED(static_cast<TrossenServoIDs>(i), 0);
-				led = serial.getLED(static_cast<TrossenServoIDs>(i));
+				getTrossenDriver()->setLED(static_cast<TrossenServoIDs>(i), 0);
+				led = getTrossenDriver()->getLED(static_cast<TrossenServoIDs>(i));
 				if (led != 0) {
 					ofRobotTrace(WarningLog) << "reg set fails" << std::endl;
 				}
@@ -422,13 +421,13 @@ namespace RobotArtists {
 			for (int i = FIRST_SERVO; i < servoCount; ++i) {
 				ofRobotTrace() << "servo " << i;
 
-				int pos = serial.getPosition(static_cast<TrossenServoIDs>(i));
+				int pos = getTrossenDriver()->getPosition(static_cast<TrossenServoIDs>(i));
 				ofRobotTrace() << " pos " << pos;
 
-				int tmp = serial.getTempature(static_cast<TrossenServoIDs>(i));
+				int tmp = getTrossenDriver()->getTempature(static_cast<TrossenServoIDs>(i));
 				ofRobotTrace() << " temp. " << tmp;
 
-				float v = serial.getVoltage(static_cast<TrossenServoIDs>(i))/10;
+				float v = getTrossenDriver()->getVoltage(static_cast<TrossenServoIDs>(i))/10;
 				ofRobotTrace() << " voltage " << v << std::endl;
 			}
 		}
@@ -468,22 +467,22 @@ namespace RobotArtists {
 			if (device.getDeviceID() == 0) {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
-			ofRobotTrace("FindAllArms") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
+			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
 			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
 			if (!arm) {
 				return; // something is really wrong
 			}
-			if (!arm->serial.setup(device.getDeviceName(), 38400)) {
+			if (!arm->getDriver()->setup(device.getDeviceName(), 38400)) {
 				ofRobotTrace(FatalErrorLog) << "FindAllArms" << std::endl;
 				return;
 			}
-			arm->serial.deviceName = device.getDeviceName();
+			arm->getDriver()->deviceName = device.getDeviceName();
 			// port found, see what may be on it
 			// start with default mode
 			uint64_t t1 = ofGetElapsedTimeMillis();
 			robotType robotType;
 			string robotName;
-			if (!robotTypeIsError(robotType = arm->serial.waitForRobotArm(robotName, 25))) {
+			if (!robotTypeIsError(robotType = arm->getDriver()->waitForRobot(robotName, 25))) {
 				uint64_t t2 = ofGetElapsedTimeMillis();
 				int gone = t2 - t1;
 				arm->setName(robotName);
@@ -495,6 +494,11 @@ namespace RobotArtists {
 			else {
 				// robot object will delete itself if no robot is found
 				ofRobotTrace() << "no robot at " << device.getDeviceName() << std::endl;
+				// try other robot types
+				shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
+				maker->setName(robotName);
+				maker->setType(robotType);
+				makerbots.push_back(maker);
 			}
 		}
 	}

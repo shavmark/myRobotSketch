@@ -27,10 +27,126 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
+	// from firmware IKM_BACKHOE not 100% supported
+	enum robotMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, MAKERBOT, IKM_NOT_DEFINED };
+
+	enum robotArmJointType { ArmX, ArmY, ArmZ, wristAngle, wristRotate, ArmGripper, JointNotDefined };
+
+	// only 1 supported
+	enum RobotTypeID { PhantomXReactorArm, PhantomXPincherArm, WidowX, MakerBotXY, unknownRobotType, AllRobotTypes }; // the MakeBot is coming too...
+
+	typedef std::pair<robotMode, RobotTypeID> robotType;
+	typedef std::pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets different handling, see is spec. Its not fully supported here
+
+	inline robotType createRobotType(robotMode mode, RobotTypeID id) {
+		return robotType(mode, id);
+	}
+	inline robotType createDefaultRobotType(RobotTypeID id) {
+		return robotType(IKM_CYLINDRICAL, id);
+	}
+	inline robotType createUndefinedRobotType() {
+		return createRobotType(IKM_NOT_DEFINED, unknownRobotType);
+	}
+	inline bool robotTypeIsError(robotType type) {
+		return type == createUndefinedRobotType();
+	}
+	inline SpecificJoint createJoint(robotArmJointType joint, robotMode mode, RobotTypeID id) {
+		return SpecificJoint(createRobotType(mode, id), joint);
+	}
+
+	// tracing helper
+	inline std::string echoJointType(SpecificJoint joint) {
+		std::stringstream buffer;
+		buffer << "SpecificJoint<robotType, robotArmJointType> = " << joint.first.first << ", " << joint.first.second << ", " << joint.second;
+		return buffer.str();
+	}
+	/* RAM REGISTER ADDRESSES */
+	enum AXRegisters {
+		AX_TORQUE_ENABLE = 24, AX_LED, AX_CW_COMPLIANCE_MARGIN, AX_CCW_COMPLIANCE_MARGIN, AX_CW_COMPLIANCE_SLOPE, AX_CCW_COMPLIANCE_SLOPE,
+		AX_GOAL_POSITION_L, AX_GOAL_POSITION_H, AX_GOAL_SPEED_L, AX_GOAL_SPEED_H, AX_TORQUE_LIMIT_L, AX_TORQUE_LIMIT_H, AX_PRESENT_POSITION_L, AX_PRESENT_POSITION_H,
+		AX_PRESENT_SPEED_L, AX_PRESENT_SPEED_H, AX_PRESENT_LOAD_L, AX_PRESENT_LOAD_H, AX_PRESENT_VOLTAGE, AX_PRESENT_TEMPERATURE, AX_REGISTERED_INSTRUCTION,
+		AX_PAUSE_TIME, AX_MOVING, AX_LOCK, AX_PUNCH_L, AX_PUNCH_H
+	};
+
+	enum ArmIDs { PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX, MAKERBOT_ID=99 }; // can add more types here
+
+	enum ArmServoCounts { PINCHER_SERVO_COUNT = 5, REACTOR_SERVO_COUNT = 8, WIDOWX_SERVO_COUNT = 6 };
+
+	enum TrossenServoIDs {
+		FIRST_SERVO = 1,
+		WIDOWX_SID_BASE = FIRST_SERVO, WIDOWX_SID_SHOULDER, WIDOWX_SID_ELBOW, WIDOWX_SID_WRIST, WIDOWX_SID_WRISTROT, WIDOWX_SID_GRIP,
+		REACTOR_SID_BASE = FIRST_SERVO, REACTOR_SID_RSHOULDER, REACTOR_SID_LSHOULDER, REACTOR_SID_RELBOW, REACTOR_SID_LELBOW, REACTOR_SID_WRIST, REACTOR_SID_WRISTROT, REACTOR_SID_GRIP,
+		PINCHER_SID_BASE = FIRST_SERVO, PINCHER_SID_SHOULDER, PINCHER_SID_ELBOW, PINCHER_SID_WRIST, PINCHER_SID_GRIP
+	};
+
+	// low level commands
+	enum robotLowLevelCommandTrossen : uint8_t {
+		unKnownCommand = 255, NoArmCommand = 0, EmergencyStopCommand = 17, SleepArmCommand = 96, HomeArmCommand = 80, HomeArm90Command = 88,
+		setArm3DCylindricalStraightWristAndGoHomeCommand = 48, setArm3DCartesian90DegreeWristAndGoHomeCommand = 40,
+		setArm3DCartesianStraightWristAndGoHomeCommand = 32, setArm3DCylindrical90DegreeWristAndGoHomeCommand = 56,
+		setArmBackhoeJointAndGoHomeCommand = 64, IDPacketCommand = 80, getServoRegisterCommand = 129, setServoRegisterCommand = 130, analogReadCommand = 200
+	};
+
+
+	class SerialData;
+	class ofRobotSerial : public ofSerial {
+	public:
+		ofRobotSerial() {}
+
+		bool waitForSerial(int retries);
+		int write(SerialData *serial);
+		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
+		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
+		int readLine(uint8_t* bytes, int bytesMax = 100);
+		vector <ofSerialDeviceInfo>& getDevices();
+
+		virtual void trace(uint8_t *bytes, int count) {};
+
+		virtual void readResults() {};
+		robotType waitForRobot(string& name, int retries);
+		bool idPacket(uint8_t *bytes, int size);
+		robotType IDResponsePacket(uint8_t *bytes, int count);
+
+		string deviceName;
+
+	protected:
+
+		int write(uint8_t* data, size_t count);
+
+	private:
+		int maxRetries = 25;
+		int waitsleeptime = 100;
+	};
+	class ofTrossenRobotSerial : public ofRobotSerial {
+	public:
+		ofTrossenRobotSerial() : ofRobotSerial() {}
+		//http://support.robotis.com/en/product/dynamixel/ax_series/dxl_ax_actuator.htm
+		int getPosition(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_POSITION_L, 2); }
+		void setPosition(TrossenServoIDs id, int value) { setServoRegister(id, AX_PRESENT_POSITION_L, 1, value); }
+		void setLED(TrossenServoIDs id, int value) { setServoRegister(id, AX_LED, 1, value); }
+		int  getLED(TrossenServoIDs id) { return getServoRegister(id, AX_LED, 1); }
+		int  getTempature(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_TEMPERATURE, 1); }
+		int  getVoltage(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
+		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
+		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
+		void trace(uint8_t *bytes, int count);
+		void readResults();
+	private:
+
+	};
+
 	// read from controllers
 	class SerialData : public vector<uint8_t> {
 	public:
-		SerialData(int setsize) { resize(setsize);	} //bugbug verify memset(data(), 0, size());  is not needed
+		//bugbug go to shared pointer with inheritence
+		SerialData(int setsize, ofRobotSerial *driver) { resize(setsize); setDriver(driver); } //bugbug verify memset(data(), 0, size());  is not needed
+		~SerialData() {
+			if (driver) {
+				delete driver;
+			}
+		}
+		virtual void setup() {};
+		virtual void update() { }
 
 		uint16_t bytes_to_u16(uint8_t high, uint8_t low) {
 			// robot data seems to be big endian, most os seem to be little
@@ -40,18 +156,29 @@ namespace RobotArtists {
 		void set(uint16_t offset, uint8_t b);
 		void set(uint16_t high, uint16_t low, int val);
 		int get(int high, int low);
+		void sendToRobot(ofRobotSerial* serial);
 
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 		uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
+		void setDriver(ofRobotSerial *driver) { this->driver = driver; }
+		ofRobotSerial *getDriver() { return driver; }
+		void setName(const string&name) { this->name = name; }
+		string& getName() { return name; }
+		void setType(robotType type) { info.setType(type); }
+
+		BotInfo info;
 
 	protected:
+		string name;
 		void setChkSum(int index);
+		ofRobotSerial *driver;
 	};
 
 	class xyRobot : public SerialData {
-		
-		xyRobot() : SerialData(7) { set(0, 0xee); }
+	public:
+		xyRobot() : SerialData(7, new ofRobotSerial) { set(0, 0xee); }
+		xyRobot(ofRobotSerial*driver) : SerialData(7, driver) { set(0, 0xee); }
 
 		/* data - 1 or 2 steppers defined in the data
 		*  byte 0 : 0xee - start of data packet
@@ -73,31 +200,6 @@ namespace RobotArtists {
 	};
 
 
-	/* RAM REGISTER ADDRESSES */
-	enum AXRegisters {
-		AX_TORQUE_ENABLE = 24, AX_LED, AX_CW_COMPLIANCE_MARGIN, AX_CCW_COMPLIANCE_MARGIN, AX_CW_COMPLIANCE_SLOPE, AX_CCW_COMPLIANCE_SLOPE,
-		AX_GOAL_POSITION_L, AX_GOAL_POSITION_H, AX_GOAL_SPEED_L, AX_GOAL_SPEED_H, AX_TORQUE_LIMIT_L, AX_TORQUE_LIMIT_H, AX_PRESENT_POSITION_L, AX_PRESENT_POSITION_H,
-		AX_PRESENT_SPEED_L, AX_PRESENT_SPEED_H, AX_PRESENT_LOAD_L, AX_PRESENT_LOAD_H, AX_PRESENT_VOLTAGE, AX_PRESENT_TEMPERATURE, AX_REGISTERED_INSTRUCTION,
-		AX_PAUSE_TIME, AX_MOVING, AX_LOCK, AX_PUNCH_L, AX_PUNCH_H
-	};
-
-	enum ArmIDs {	PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX}; // can add more types here
-
-	enum ArmServoCounts {	PINCHER_SERVO_COUNT=5, REACTOR_SERVO_COUNT=8, WIDOWX_SERVO_COUNT = 6};
-
-	enum TrossenServoIDs {	FIRST_SERVO=1,
-		WIDOWX_SID_BASE = FIRST_SERVO, WIDOWX_SID_SHOULDER, WIDOWX_SID_ELBOW, WIDOWX_SID_WRIST, WIDOWX_SID_WRISTROT, WIDOWX_SID_GRIP,
-		REACTOR_SID_BASE = FIRST_SERVO, REACTOR_SID_RSHOULDER, REACTOR_SID_LSHOULDER, REACTOR_SID_RELBOW, REACTOR_SID_LELBOW, REACTOR_SID_WRIST, REACTOR_SID_WRISTROT, REACTOR_SID_GRIP,
-		PINCHER_SID_BASE = FIRST_SERVO, PINCHER_SID_SHOULDER, PINCHER_SID_ELBOW, PINCHER_SID_WRIST, PINCHER_SID_GRIP
-	};
-
-	// low level commands
-	enum robotLowLevelCommandTrossen : uint8_t {
-		unKnownCommand = 255, NoArmCommand = 0, EmergencyStopCommand = 17, SleepArmCommand = 96, HomeArmCommand = 80, HomeArm90Command = 88,
-		setArm3DCylindricalStraightWristAndGoHomeCommand = 48, setArm3DCartesian90DegreeWristAndGoHomeCommand = 40,
-		setArm3DCartesianStraightWristAndGoHomeCommand = 32, setArm3DCylindrical90DegreeWristAndGoHomeCommand = 56,
-		setArmBackhoeJointAndGoHomeCommand = 64, IDPacketCommand = 80, getServoRegisterCommand = 129, setServoRegisterCommand = 130, analogReadCommand = 200
-	};
 
 	// OF Free, Trossen specific so it can be used w/o openframeworks
 
@@ -105,40 +207,6 @@ namespace RobotArtists {
 
 	//http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 	//http://learn.trossenrobotics.com/arbotix/arbotix-getting-started/38-arbotix-m-hardware-overview.html#&panel1-8
-
-	// from firmware IKM_BACKHOE not 100% supported
-	enum robotArmMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_NOT_DEFINED };
-
-	enum robotArmJointType { ArmX, ArmY, ArmZ, wristAngle, wristRotate, ArmGripper, JointNotDefined };
-
-	// only 1 supported
-	enum RobotTypeID { PhantomXReactorArm, PhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes }; // the MakeBot is coming too...
-
-	typedef std::pair<robotArmMode, RobotTypeID> robotType;
-	typedef std::pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets different handling, see is spec. Its not fully supported here
-
-	inline robotType createRobotType(robotArmMode mode, RobotTypeID id) {
-		return robotType(mode, id);
-	}
-	inline robotType createDefaultRobotType(RobotTypeID id) {
-		return robotType(IKM_CYLINDRICAL, id);
-	}
-	inline robotType createUndefinedRobotType() {
-		return createRobotType(IKM_NOT_DEFINED, unknownRobotType);
-	}
-	inline bool robotTypeIsError(robotType type) {
-		return type == createUndefinedRobotType();
-	}
-	inline SpecificJoint createJoint(robotArmJointType joint, robotArmMode mode, RobotTypeID id) {
-		return SpecificJoint(createRobotType(mode, id), joint);
-	}
-
-	// tracing helper
-	inline std::string echoJointType(SpecificJoint joint) {
-		std::stringstream buffer;
-		buffer << "SpecificJoint<robotType, robotArmJointType> = " << joint.first.first << ", " << joint.first.second << ", " << joint.second;
-		return buffer.str();
-	}
 
 	// initial attempt at a generic robot definition, bugbug once understood move to the right object location
 	inline uint8_t minDelta() { return 0; }
@@ -154,7 +222,7 @@ namespace RobotArtists {
 	//bugbug as we go beyond trossen this will need to change
 	class Pose : public SerialData {
 	public:
-		Pose() : SerialData(17) { setup(); }
+		Pose() : SerialData(17, new ofTrossenRobotSerial) { setup(); }
 
 		void setup();
 		void update() {	setChkSum(trChecksum);}
@@ -183,56 +251,11 @@ namespace RobotArtists {
 	private:
 	};
 
-	robotLowLevelCommandTrossen getStartCommand(robotArmMode mode);
+	robotLowLevelCommandTrossen getStartCommand(robotMode mode);
 
 	//bugbug at some point this needs to be moved out of a trossen specific file as its OF dependent
 
-	// works for any trossen robot bugbug will need to expand for other robots
-	class ofRobotSerial : public ofSerial {
-	public:
-		ofRobotSerial() {}
 
-		bool waitForSerial(int retries);
-		int writePose(Pose *pose); // allow for derviced versions of Pose
-		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
-		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
-		int readLine(uint8_t* bytes, int bytesMax = 100);
-		vector <ofSerialDeviceInfo>& getDevices();
-
-		virtual robotType waitForRobot(string& name, int retries) { return createUndefinedRobotType(); };
-		virtual void trace(uint8_t *bytes, int count) {};
-		virtual void readPose() {};
-
-		string deviceName;
-
-	protected:
-
-		int write(uint8_t* data, size_t count);
-
-	private:
-		int maxRetries = 25;
-		int waitsleeptime = 100;
-	};
-
-	class ofTrosseRobotSerial : public ofRobotSerial {
-	public:
-		//http://support.robotis.com/en/product/dynamixel/ax_series/dxl_ax_actuator.htm
-		int getPosition(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_POSITION_L, 2); }
-		void setPosition(TrossenServoIDs id, int value) { setServoRegister(id, AX_PRESENT_POSITION_L, 1, value); }
-		void setLED(TrossenServoIDs id, int value) { setServoRegister(id, AX_LED, 1, value); }
-		int  getLED(TrossenServoIDs id) { return getServoRegister(id, AX_LED, 1); }
-		int  getTempature(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_TEMPERATURE, 1); }
-		int  getVoltage(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
-		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
-		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
-		void trace(uint8_t *bytes, int count);
-		bool idPacket(uint8_t *bytes, int size);
-		robotType ArmIDResponsePacket(uint8_t *bytes, int count);
-		void readPose();
-		robotType waitForRobotArm(string& name, int retries);
-	private:
-
-	};
 
 	class RobotValueRanges {
 	public:
@@ -244,10 +267,10 @@ namespace RobotArtists {
 
 	//InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes
 
-	class ArmInfo {
+	class BotInfo {
 	public:
-		ArmInfo(robotType type) { this->type = type; }
-		ArmInfo() { this->type = createUndefinedRobotType(); }
+		BotInfo(robotType type) { this->type = type; }
+		BotInfo() { type = createUndefinedRobotType(); }
 
 		const string trace();
 
@@ -255,8 +278,8 @@ namespace RobotArtists {
 		robotType getType() { return type; }
 		void setType(robotType type) { this->type = type; }
 
-		void setMode(robotArmMode mode) { this->type.first = mode; }
-		robotArmMode getMode() { return type.first; }
+		void setMode(robotMode mode) { this->type.first = mode; }
+		robotMode getMode() { return type.first; }
 
 		bool isCartesion() { return (getMode() == IKM_IK3D_CARTESIAN || getMode() == IKM_IK3D_CARTESIAN_90); }
 		bool isCylindrical() { return (getMode() == IKM_CYLINDRICAL || getMode() == IKM_CYLINDRICAL_90); }
@@ -266,11 +289,11 @@ namespace RobotArtists {
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
-	class ofTrRobotArmInternals  {
+	class ofTrRobotArmInternals : public Pose {
 	public:
 		// constructor required
-		ofTrRobotArmInternals(const robotType& type)  { this->info = type; };
-		ofTrRobotArmInternals() {}
+		ofTrRobotArmInternals(const robotType& type) : Pose() { info.setType(type); };
+		ofTrRobotArmInternals() : Pose() {}
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);
@@ -296,17 +319,13 @@ namespace RobotArtists {
 		int addMagicNumber() { return info.isCylindrical() ? 0 : 512; }
 
 		//Set 3D Cartesian mode / straight wrist and go to home etc
-		robotType setStartState(robotArmMode mode);
+		robotType setStartState(robotMode mode);
 		void setDefaultState();
 		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
 
-		void setPose(const Pose&pose) { this->pose = pose; }
-		void setType(robotType type) { this->info.setType(type); }
 
 	protected:
-		ArmInfo info;
-		void sendToRobot(ofRobotSerial* serial);
-		Pose pose;
+		ofTrossenRobotSerial *getTrossenDriver() { return static_cast<ofTrossenRobotSerial*>(driver); }
 
 	private:
 		// user defined ranges

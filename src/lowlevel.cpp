@@ -149,21 +149,21 @@ namespace RobotArtists {
 	}
 
 	// return true if ID packet is value
-	bool ofTrosseRobotSerial::idPacket(uint8_t *bytes, int size) {
+	bool ofRobotSerial::idPacket(uint8_t *bytes, int size) {
 		if (size == 5 && bytes[3] == 0) {
 			uint8_t chksum = (unsigned char)(255 - (bytes[1] + bytes[2] + 0) % 256);
-			return chksum == bytes[4];
+			return chksum == bytes[4] || bytes[4] == 0xff;
 		}
 		return false;
 	}
 
 	// bool readOnly -- just read serial do not send request
-	robotType ofTrosseRobotSerial::ArmIDResponsePacket(uint8_t *bytes, int count) {
+	robotType ofRobotSerial::IDResponsePacket(uint8_t *bytes, int count) {
 		if (!idPacket(bytes, count)) {
 			return robotType(IKM_NOT_DEFINED, unknownRobotType);
 		}
 		if (bytes != nullptr) {
-			robotArmMode armMode = (robotArmMode)bytes[2];
+			robotMode armMode = (robotMode)bytes[2];
 			switch (armMode) {
 			case IKM_IK3D_CARTESIAN:
 				ofRobotTrace() << "arm mode IKM_IK3D_CARTESIAN" << std::endl;
@@ -176,6 +176,9 @@ namespace RobotArtists {
 				break;
 			case IKM_CYLINDRICAL_90:
 				ofRobotTrace() << "arm mode IKM_CYLINDRICAL_90" << std::endl;
+				break;
+			case MAKERBOT:
+				ofRobotTrace() << "MAKERBOT" << std::endl;
 				break;
 			default:
 				ofRobotTrace() << "arm mode IKM_BACKHOE mode?" << std::endl;
@@ -195,6 +198,10 @@ namespace RobotArtists {
 			case WIDOWX:
 				id = WidowX;
 				ofRobotTrace() << "WidowX" << std::endl;
+				break;
+			case MAKERBOT_ID:
+				id = MakerBotXY;
+				ofRobotTrace() << "MakerBotXY" << std::endl;
 				break;
 			}
 			return robotType(armMode, id);
@@ -216,7 +223,7 @@ namespace RobotArtists {
 
 
 
-	robotType ofTrosseRobotSerial::waitForRobotArm(string& name, int retries) {
+	robotType ofRobotSerial::waitForRobot(string& name, int retries) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
 
 		robotType type = createUndefinedRobotType();
@@ -227,7 +234,7 @@ namespace RobotArtists {
 
 			int readin = readAllBytes(bytes, 5);
 			if (readin == 5) {
-				type = ArmIDResponsePacket(bytes, 5);
+				type = IDResponsePacket(bytes, 5);
 				if (type.first == IKM_NOT_DEFINED) {
 					ofRobotTrace(ErrorLog) << "invalid robot type" << std::endl;
 					return type;
@@ -252,12 +259,12 @@ namespace RobotArtists {
 			}
 			ofRobotTrace() << "robot name " << name << std::endl;
 
-			readPose(); // pose for command and pose for start up must be read in
+			readResults(); // pose for command and pose for start up must be read in
 
 		}
 		return type;
 	}
-	void ofTrosseRobotSerial::trace(uint8_t *bytes, int count) {
+	void ofTrossenRobotSerial::trace(uint8_t *bytes, int count) {
 		std::stringstream buffer;
 		for (int i = 0; i < count; ++i) {
 			buffer << " bytes[" << i << "] = " << (int)bytes[i] << Pose::dataName(i) << std::endl; // echo in one line
@@ -282,14 +289,14 @@ namespace RobotArtists {
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;
 
-		readPose(); // pose is sent all the time  by the micro code for at least trossen robots
+		readResults(); // pose is sent all the time  by the micro code for at least trossen robots
 
 		return sent;
 
 	}
 
 	// read pose from robot after every move and setup, just report on it or ignore it
-	void ofTrosseRobotSerial::readPose() {
+	void ofTrossenRobotSerial::readResults() {
 		ofRobotTrace() << "read pose " << std::endl;
 		uint8_t data[500];
 		if (readLine(data, sizeof data) > 0) {
@@ -297,7 +304,7 @@ namespace RobotArtists {
 		}
 	}
 
-	int ofTrosseRobotSerial::getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length) {
+	int ofTrossenRobotSerial::getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length) {
 		// send and read data
 		Pose pose;
 		pose.setLowLevelCommand(getServoRegisterCommand);
@@ -305,7 +312,7 @@ namespace RobotArtists {
 		pose.setLowLevelY(registerNumber);
 		pose.setLowLevelZ(length);
 		
-		int sent = writePose(&pose);
+		int sent = write(&pose);
 		ofSleepMillis(33);
 
 		uint8_t data[500]; // could be lots of sperius data out there, unlikely but if it occurs we want to echo it
@@ -328,16 +335,16 @@ namespace RobotArtists {
 		return 0;
 	}
 
-	int ofRobotSerial::writePose(Pose*pose) {
-		if (pose) {
-			pose->update();
-			return write(pose->data(), pose->size());
+	int ofRobotSerial::write(SerialData*serial) {
+		if (serial) {
+			serial->update();
+			return write(serial->data(), serial->size());
 		}
 		return 0;
 	}
 
 	// length == 2 for ax12SetRegister2
-	void ofTrosseRobotSerial::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
+	void ofTrossenRobotSerial::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
 		Pose pose;
 		pose.setLowLevelCommand(setServoRegisterCommand);
 		pose.setLowLevelX(id); // servo 
@@ -346,7 +353,7 @@ namespace RobotArtists {
 		pose.setLowLevelWristAngle(dataToSend, 0);
 		
 		flush();   // reset
-		int sent = writePose(&pose);
+		int sent = write(&pose);
 		ofSleepMillis(33);
 		uint8_t data[5];
 		int readin = readAllBytes(data, 5);
@@ -377,37 +384,37 @@ namespace RobotArtists {
 	void ofTrRobotArmInternals::setX(int x) {
 		ofRobotTrace() << "try to set x=" << x << std::endl;
 		if (inRange(ArmX, x)) {
-			pose.setLowLevelX(x, addMagicNumber());
+			setLowLevelX(x, addMagicNumber());
 		}
 	}
 	void ofTrRobotArmInternals::setY(int y) {
 		ofRobotTrace() << "try to set y=" << y << std::endl;
 		if (inRange(ArmY, y)) {
-			pose.setLowLevelY(y);
+			setLowLevelY(y);
 		}
 	}
 	void ofTrRobotArmInternals::setZ(int z) {
 		ofRobotTrace() << "try to set z=" << z << std::endl;
 		if (inRange(ArmZ, z)) {
-			pose.setLowLevelZ(z);
+			setLowLevelZ(z);
 		}
 	}
 	void ofTrRobotArmInternals::setWristAngle(int a) {
 		ofRobotTrace() << "try to set setWristAngle=" << a << std::endl;
 		if (inRange(wristAngle, a)) {
-			pose.setLowLevelWristAngle(a);
+			setLowLevelWristAngle(a);
 		}
 	}
 	void ofTrRobotArmInternals::setWristRotate(int a) {
 		ofRobotTrace() << "try to set setWristRotate=" << a << std::endl;
 		if (inRange(wristRotate, a)) {
-			pose.setLowLevelWristRotate(a);
+			setLowLevelWristRotate(a);
 		}
 	}
 	void ofTrRobotArmInternals::setGripper(int distance) {
 		ofRobotTrace() << "try to set setGripper=" << distance << std::endl;
 		if (inRange(ArmGripper, distance)) {
-			pose.setLowLevelGripper(distance);
+			setLowLevelGripper(distance);
 		}
 	}
 	void ofTrRobotArmInternals::setMin(SpecificJoint joint, int value) {
@@ -533,7 +540,7 @@ namespace RobotArtists {
 
 	}
 
-	robotLowLevelCommandTrossen getStartCommand(robotArmMode mode) {
+	robotLowLevelCommandTrossen getStartCommand(robotMode mode) {
 		if (mode == IKM_IK3D_CARTESIAN) {
 			return setArm3DCartesianStraightWristAndGoHomeCommand; 
 		}
@@ -550,10 +557,10 @@ namespace RobotArtists {
 	}
 	void SerialData::set(uint16_t offset, uint8_t b) {
 		ofRobotTrace() << "set SerialData[" << offset << "] = " << (uint16_t)b << std::endl;
-		this[offset] = b;
+		at(offset) = b;
 	}
 
-	const string ArmInfo::trace() {
+	const string BotInfo::trace() {
 		std::ostringstream message;
 		message << "ArmInfo(mode, type) " << getMode() << " " << getTypeID();
 		return message.str();
@@ -568,15 +575,15 @@ namespace RobotArtists {
 		setWristAngle(getDefaultValue(wristAngle));
 		setWristRotate(getDefaultValue(wristRotate));
 		setGripper(getDefaultValue(ArmGripper));
-		pose.setDelta();
-		pose.setLowLevelCommand(NoArmCommand);
-		pose.setButton();
+		setDelta();
+		setLowLevelCommand(NoArmCommand);
+		setButton();
 	}
 	// will block until arm is ready
-	robotType ofTrRobotArmInternals::setStartState(robotArmMode mode) {
+	robotType ofTrRobotArmInternals::setStartState(robotMode mode) {
 		info.setMode(mode);
 		ofRobotTrace() << "setStartState(mode, type) " << info.trace() << std::endl;
-		pose.setLowLevelCommand(getStartCommand(info.getMode()));
+		setLowLevelCommand(getStartCommand(info.getMode()));
 		return info.getType();
 	}
 
@@ -612,7 +619,7 @@ namespace RobotArtists {
 		return cksum;
 	}
 	void SerialData::setChkSum(int index) {
-		this[index] = getChkSum(data());
+		at(index) = getChkSum(data());
 	}
 	// user defined can never be greater than hardware min/max
 	void ofTrRobotArmInternals::setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>) {

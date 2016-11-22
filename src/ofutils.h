@@ -29,7 +29,7 @@ namespace RobotArtists {
 
 	enum TraceType { DebugLog, TraceLog, WarningLog, ErrorLog, FatalErrorLog };
 
-	template<typename T>void clear(std::vector< T > vect) {
+	template<typename T>void ClearVector(std::vector< T > vect) {
 		std::vector< T >::iterator it = vect.begin();
 		while (it != vect.end()) {
 			it = vect.erase(it);
