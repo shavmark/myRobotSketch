@@ -26,6 +26,53 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 #include <sstream>     
 
 namespace RobotArtists {
+
+	// read from controllers
+	class SerialData : public vector<uint8_t> {
+	public:
+		SerialData(int setsize) { resize(setsize);	} //bugbug verify memset(data(), 0, size());  is not needed
+
+		uint16_t bytes_to_u16(uint8_t high, uint8_t low) {
+			// robot data seems to be big endian, most os seem to be little
+			return (((uint16_t)high) & 255) << 8 | (low & 255);
+		}
+
+		void set(uint16_t offset, uint8_t b);
+		void set(uint16_t high, uint16_t low, int val);
+		int get(int high, int low);
+
+		uint8_t lowByte(uint16_t a) { return a % 256; }
+		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
+		uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
+
+		//uint8_t& operator[](int i) { return pose[i]; }
+		//uint8_t* get() { return data(); }
+		//int size() const { return size(); }
+		//uint8_t get(int i) { return pose[i];	}
+
+	protected:
+		void setChkSum(int index);
+	private:
+		//vector<uint8_t> pose;
+	};
+
+	class xyRobot : public SerialData {
+		
+		xyRobot() : SerialData(7) {}
+
+		/* data - 1 or 2 steppers defined in the data
+		*  byte 0 : 0xee - start of data packet
+		*  byte 1 : cmd for stepper1 (see enum Command)
+		*  byte 2 : data for stepper1 (high byte)
+		*  byte 3 : data for stepper1 (low byte)
+		*  byte 4 : cmd  for stepper2, NoCommand for none
+		*  byte 5 : data for stepper2 (high byte)
+		*  byte 6 : data for stepper2 (low byte)
+		*/
+		enum Command { NoCommand, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
+	};
+
+
 	/* RAM REGISTER ADDRESSES */
 	enum AXRegisters {
 		AX_TORQUE_ENABLE = 24, AX_LED, AX_CW_COMPLIANCE_MARGIN, AX_CCW_COMPLIANCE_MARGIN, AX_CW_COMPLIANCE_SLOPE, AX_CCW_COMPLIANCE_SLOPE,
@@ -105,13 +152,12 @@ namespace RobotArtists {
 	};
 
 	//bugbug as we go beyond trossen this will need to change
-	class Pose {
+	class Pose : public SerialData {
 	public:
-		Pose() { setup(); }
+		Pose() : SerialData(17) { setup(); }
 
 		void setup();
-		void update() {	setChkSum();}
-		void set(uint16_t offset, uint8_t b);
+		void update() {	setChkSum(trChecksum);}
 		void setDelta(uint8_t value = 128) { if (value > maxDelta()) value = maxDelta(); set(deltaValBytesOffset, value); }
 		void setButton(uint8_t value = 0) { set(buttonByteOffset, value); }
 		void setLowLevelCommand(uint8_t cmd = 0) { set(extValBytesOffset, cmd); }
@@ -128,24 +174,13 @@ namespace RobotArtists {
 		int getWristAngle() { return get(wristAngleHighByteOffset, wristAngleLowByteOffset); }
 		int getWristRotate() { return get(wristRotateHighByteOffset, wristRotateLowByteOffset); }
 		int getGripper() { return get(gripperHighByteOffset, gripperLowByteOffset); }
-		uint8_t getDelta() { return pose[deltaValBytesOffset]; }
+		uint8_t getDelta() { return at(deltaValBytesOffset); }
 
-		uint8_t& operator[](int i) { return pose[i]; }
-		uint8_t* get() { return pose.data(); }
-		int size() const { return pose.size(); }
 		void trace();
 
-		void set(uint16_t high, uint16_t low, int val);
-		int get(uint16_t high, uint16_t low);
-
-		uint8_t lowByte(uint16_t a) { return a % 256; }
-		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-		uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
 		static const string dataName(int id);
 
 	private:
-		std::array<uint8_t, 17> pose;
-		void setChkSum();
 	};
 
 	robotLowLevelCommandTrossen getStartCommand(robotArmMode mode);

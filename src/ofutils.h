@@ -29,11 +29,6 @@ namespace RobotArtists {
 
 	enum TraceType { DebugLog, TraceLog, WarningLog, ErrorLog, FatalErrorLog };
 
-	inline uint16_t bytes_to_u16(uint8_t high, uint8_t low) {
-		// robot data seems to be big endian, most os seem to be little
-		return (((uint16_t)high) & 255) << 8 | (low & 255);
-	}
-
 	template<typename T>void clear(std::vector< T > vect) {
 		std::vector< T >::iterator it = vect.begin();
 		while (it != vect.end()) {

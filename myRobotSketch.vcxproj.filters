@@ -91,13 +91,13 @@
     <ClCompile Include="..\..\..\addons\ofxXmlSettings\libs\tinyxmlparser.cpp">
       <Filter>addons\ofxXmlSettings\libs</Filter>
     </ClCompile>
-    <ClCompile Include="src\trossenrobots.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\ofRobots.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\ofutils.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\lowlevel.cpp">
       <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
@@ -269,13 +269,13 @@
     <ClInclude Include="..\..\..\addons\ofxXmlSettings\libs\tinyxml.h">
       <Filter>addons\ofxXmlSettings\libs</Filter>
     </ClInclude>
-    <ClInclude Include="src\trossenrobots.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\ofRobots.h">
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\ofutils.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\lowlevel.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>

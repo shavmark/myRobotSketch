@@ -22,7 +22,6 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 namespace RobotArtists {
 
 	RobotValueRanges ofTrRobotArmInternals::hardwareRanges; // just need to set once
-
 													
 	const string Pose::dataName(int id) {
 		switch (id) {
@@ -266,7 +265,6 @@ namespace RobotArtists {
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
 	void Pose::setup() {
-		memset(get(), 0, size());
 		set(headerByteOffset, 255);
 	}
 	vector <ofSerialDeviceInfo>& ofRobotSerial::getDevices() {
@@ -318,7 +316,7 @@ namespace RobotArtists {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
 			if (data[4] == pose.getChkSum(data, 1, 3)) {
-				val = bytes_to_u16(high, low);
+				val = pose.bytes_to_u16(high, low);
 				ofRobotTrace() << "servo " << id << " registerNumber " << registerNumber << " value " << val << std::endl;
 				return val;
 			}
@@ -333,7 +331,7 @@ namespace RobotArtists {
 	int ofRobotSerial::writePose(Pose*pose) {
 		if (pose) {
 			pose->update();
-			return write(pose->get(), pose->size());
+			return write(pose->data(), pose->size());
 		}
 		return 0;
 	}
@@ -356,7 +354,7 @@ namespace RobotArtists {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
 			if (data[4] == pose.getChkSum(data, 1, 3)) {
-				uint16_t val = bytes_to_u16(high, low);
+				uint16_t val = pose.bytes_to_u16(high, low);
 				if (val == dataToSend){
 					ofRobotTrace() << "servo " << id << " registerNumber set " << registerNumber << " value " << val << std::endl;
 				}
@@ -367,11 +365,11 @@ namespace RobotArtists {
 		}
 	}
 
-	int Pose::get(uint16_t high, uint16_t low) {
-		return bytes_to_u16(pose[high], pose[low]);
+	int SerialData::get(int high, int low) {
+		return bytes_to_u16(at(high), at(low));
 	}
 
-	void Pose::set(uint16_t high, uint16_t low, int val) {
+	void SerialData::set(uint16_t high, uint16_t low, int val) {
 		ofRobotTrace() << "set " << val << std::endl;
 		set(high, highByte(val));
 		set(low, lowByte(val));
@@ -550,9 +548,9 @@ namespace RobotArtists {
 		}
 		return unKnownCommand;
 	}
-	void Pose::set(uint16_t offset, uint8_t b) {
-		ofRobotTrace() << "set data[" << offset << "] = " << (uint16_t)b << std::endl;
-		pose[offset] = b;
+	void SerialData::set(uint16_t offset, uint8_t b) {
+		ofRobotTrace() << "set SerialData[" << offset << "] = " << (uint16_t)b << std::endl;
+		this[offset] = b;
 	}
 
 	const string ArmInfo::trace() {
@@ -584,7 +582,7 @@ namespace RobotArtists {
 
 	void Pose::trace() {
 
-#define ECHO(a)ofRobotTrace() << "echo[" << a << "] = "  << std::hex << (unsigned int)pose[a] << "h "  <<  std::dec <<(unsigned int)pose[a] << "d "<< #a << std::endl;
+#define ECHO(a)ofRobotTrace() << "echo[" << a << "] = "  << std::hex << (unsigned int)at(a) << "h "  <<  std::dec <<(unsigned int)at(a) << "d "<< #a << std::endl;
 
 		ECHO(headerByteOffset)
 			ECHO(xLowByteOffset)
@@ -604,7 +602,7 @@ namespace RobotArtists {
 			ECHO(trChecksum)
 	}
 	
-	uint8_t Pose::getChkSum(uint8_t*data, int start, int end) {
+	uint8_t SerialData::getChkSum(uint8_t*data, int start, int end) {
 		uint16_t sum = 0;
 		for (int i = start; i <= end; ++i) {
 			sum += data[i];
@@ -613,8 +611,8 @@ namespace RobotArtists {
 		uint8_t cksum = 255 - invertedChecksum;
 		return cksum;
 	}
-	void Pose::setChkSum() {
-		pose[trChecksum] = getChkSum(pose.data());
+	void SerialData::setChkSum(int index) {
+		this[index] = getChkSum(data());
 	}
 	// user defined can never be greater than hardware min/max
 	void ofTrRobotArmInternals::setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>) {
