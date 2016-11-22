@@ -45,20 +45,13 @@ namespace RobotArtists {
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 		uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
 
-		//uint8_t& operator[](int i) { return pose[i]; }
-		//uint8_t* get() { return data(); }
-		//int size() const { return size(); }
-		//uint8_t get(int i) { return pose[i];	}
-
 	protected:
 		void setChkSum(int index);
-	private:
-		//vector<uint8_t> pose;
 	};
 
 	class xyRobot : public SerialData {
 		
-		xyRobot() : SerialData(7) {}
+		xyRobot() : SerialData(7) { set(0, 0xee); }
 
 		/* data - 1 or 2 steppers defined in the data
 		*  byte 0 : 0xee - start of data packet
@@ -70,6 +63,13 @@ namespace RobotArtists {
 		*  byte 6 : data for stepper2 (low byte)
 		*/
 		enum Command { NoCommand, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
+		enum Steppers { IDstepper1 = 1, IDstepper2 = 4};
+
+		void setxy(Steppers stepperID, uint8_t cmd, uint8_t datahigh, uint8_t datalow) {
+			set(stepperID, cmd);
+			set(stepperID+1, datahigh);
+			set(stepperID+2, datalow);
+		}
 	};
 
 
@@ -207,7 +207,7 @@ namespace RobotArtists {
 
 	protected:
 
-		int write(uint8_t* data, int count);
+		int write(uint8_t* data, size_t count);
 
 	private:
 		int maxRetries = 25;
