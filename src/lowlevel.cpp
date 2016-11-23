@@ -228,7 +228,7 @@ namespace RobotArtists {
 
 		robotType type = createUndefinedRobotType();
 		uint8_t bytes[500];
-
+		//bugbug make an Open command to make robots more predicable at startup time
 		if (waitForSerial(retries)) {
 			// somethis is out there, see if we can ID it
 

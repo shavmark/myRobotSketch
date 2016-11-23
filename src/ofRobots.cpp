@@ -479,26 +479,27 @@ namespace RobotArtists {
 			arm->getDriver()->deviceName = device.getDeviceName();
 			// port found, see what may be on it
 			// start with default mode
-			uint64_t t1 = ofGetElapsedTimeMillis();
 			robotType robotType;
 			string robotName;
 			if (!robotTypeIsError(robotType = arm->getDriver()->waitForRobot(robotName, 25))) {
-				uint64_t t2 = ofGetElapsedTimeMillis();
-				int gone = t2 - t1;
-				arm->setName(robotName);
-				arm->setType(robotType);
-				arm->setup(IKM_CYLINDRICAL);
-				arms.push_back(arm);
-				ofRobotTrace() << "install duration in milliseconds " << gone << " for " << robotName << std::endl;
-			}
-			else {
-				// robot object will delete itself if no robot is found
-				ofRobotTrace() << "no robot at " << device.getDeviceName() << std::endl;
-				// try other robot types
-				shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
-				maker->setName(robotName);
-				maker->setType(robotType);
-				makerbots.push_back(maker);
+			
+				switch (robotType.second) {
+				case PhantomXReactorArm:
+				case PhantomXPincherArm:
+				case WidowX:
+					arm->setName(robotName);
+					arm->setType(robotType);
+					arm->setup(IKM_CYLINDRICAL);
+					arms.push_back(arm);
+					break;
+				case MakerBotXY:
+					// robot object arm will delete itself if no robot is found
+					shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
+					maker->setName(robotName);
+					maker->setType(robotType);
+					makerbots.push_back(maker);
+					break;
+				}
 			}
 		}
 	}
