@@ -87,6 +87,27 @@ namespace RobotArtists {
 		setArmBackhoeJointAndGoHomeCommand = 64, IDPacketCommand = 80, getServoRegisterCommand = 129, setServoRegisterCommand = 130, analogReadCommand = 200
 	};
 
+	class BotInfo {
+	public:
+		BotInfo(robotType type) { this->type = type; }
+		BotInfo() { type = createUndefinedRobotType(); }
+
+		const string trace();
+
+		RobotTypeID getTypeID() { return type.second; }
+		robotType getType() { return type; }
+		void setType(robotType type) { this->type = type; }
+
+		void setMode(robotMode mode) { this->type.first = mode; }
+		robotMode getMode() { return type.first; }
+
+		bool isCartesion() { return (getMode() == IKM_IK3D_CARTESIAN || getMode() == IKM_IK3D_CARTESIAN_90); }
+		bool isCylindrical() { return (getMode() == IKM_CYLINDRICAL || getMode() == IKM_CYLINDRICAL_90); }
+
+	private:
+		robotType type;// required
+	};
+
 
 	class SerialData;
 	class ofRobotSerial : public ofSerial {
@@ -117,34 +138,13 @@ namespace RobotArtists {
 		int maxRetries = 25;
 		int waitsleeptime = 100;
 	};
-	class ofTrossenRobotSerial : public ofRobotSerial {
-	public:
-		ofTrossenRobotSerial() : ofRobotSerial() {}
-		//http://support.robotis.com/en/product/dynamixel/ax_series/dxl_ax_actuator.htm
-		int getPosition(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_POSITION_L, 2); }
-		void setPosition(TrossenServoIDs id, int value) { setServoRegister(id, AX_PRESENT_POSITION_L, 1, value); }
-		void setLED(TrossenServoIDs id, int value) { setServoRegister(id, AX_LED, 1, value); }
-		int  getLED(TrossenServoIDs id) { return getServoRegister(id, AX_LED, 1); }
-		int  getTempature(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_TEMPERATURE, 1); }
-		int  getVoltage(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
-		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
-		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
-		void trace(uint8_t *bytes, int count);
-		void readResults();
-	private:
-
-	};
 
 	// read from controllers
 	class SerialData : public vector<uint8_t> {
 	public:
 		//bugbug go to shared pointer with inheritence
-		SerialData(int setsize, ofRobotSerial *driver) { resize(setsize); setDriver(driver); } //bugbug verify memset(data(), 0, size());  is not needed
-		~SerialData() {
-			if (driver) {
-				delete driver;
-			}
-		}
+		SerialData(int setsize) { resize(setsize); driver = make_shared<ofRobotSerial>(); } //bugbug verify memset(data(), 0, size());  is not needed
+		SerialData(int setsize, shared_ptr<ofRobotSerial>driver) { resize(setsize); this->driver = driver; } 
 		virtual void setup() {};
 		virtual void update() { }
 
@@ -156,13 +156,12 @@ namespace RobotArtists {
 		void set(uint16_t offset, uint8_t b);
 		void set(uint16_t high, uint16_t low, int val);
 		int get(int high, int low);
-		void sendToRobot(ofRobotSerial* serial);
+		void sendToRobot();
 
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
 		uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
-		void setDriver(ofRobotSerial *driver) { this->driver = driver; }
-		ofRobotSerial *getDriver() { return driver; }
+		shared_ptr<ofRobotSerial> getDriver() { return driver; }
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
 		void setType(robotType type) { info.setType(type); }
@@ -172,13 +171,13 @@ namespace RobotArtists {
 	protected:
 		string name;
 		void setChkSum(int index);
-		ofRobotSerial *driver;
+	private:
+		shared_ptr<ofRobotSerial>  driver;
 	};
 
 	class xyRobot : public SerialData {
 	public:
-		xyRobot() : SerialData(7, new ofRobotSerial) { set(0, 0xee); }
-		xyRobot(ofRobotSerial*driver) : SerialData(7, driver) { set(0, 0xee); }
+		xyRobot(shared_ptr<ofRobotSerial>driver) : SerialData(7, driver) { set(0, 0xee); }
 
 		/* data - 1 or 2 steppers defined in the data
 		*  byte 0 : 0xee - start of data packet
@@ -222,7 +221,7 @@ namespace RobotArtists {
 	//bugbug as we go beyond trossen this will need to change
 	class Pose : public SerialData {
 	public:
-		Pose() : SerialData(17, new ofTrossenRobotSerial) { setup(); }
+		Pose() : SerialData(17) { setup(); }
 
 		void setup();
 		void update() {	setChkSum(trChecksum);}
@@ -253,39 +252,12 @@ namespace RobotArtists {
 
 	robotLowLevelCommandTrossen getStartCommand(robotMode mode);
 
-	//bugbug at some point this needs to be moved out of a trossen specific file as its OF dependent
-
-
-
 	class RobotValueRanges {
 	public:
 
 		std::map<SpecificJoint, int> minValue;
 		std::map<SpecificJoint, int> maxValue;
 		std::map<SpecificJoint, int> defaultValue;
-	};
-
-	//InterbotiXPhantomXReactorArm, InterbotiXPhantomXPincherArm, WidowX, unknownRobotType, AllRobotTypes
-
-	class BotInfo {
-	public:
-		BotInfo(robotType type) { this->type = type; }
-		BotInfo() { type = createUndefinedRobotType(); }
-
-		const string trace();
-
-		RobotTypeID getTypeID() { return type.second; }
-		robotType getType() { return type; }
-		void setType(robotType type) { this->type = type; }
-
-		void setMode(robotMode mode) { this->type.first = mode; }
-		robotMode getMode() { return type.first; }
-
-		bool isCartesion() { return (getMode() == IKM_IK3D_CARTESIAN || getMode() == IKM_IK3D_CARTESIAN_90); }
-		bool isCylindrical() { return (getMode() == IKM_CYLINDRICAL || getMode() == IKM_CYLINDRICAL_90); }
-
-	private:
-		robotType type;// required
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
@@ -323,9 +295,19 @@ namespace RobotArtists {
 		void setDefaultState();
 		void setUserDefinedRanges(SpecificJoint joint, shared_ptr<RobotValueRanges>);
 
+		//http://support.robotis.com/en/product/dynamixel/ax_series/dxl_ax_actuator.htm
+		int getPosition(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_POSITION_L, 2); }
+		void setPosition(TrossenServoIDs id, int value) { setServoRegister(id, AX_PRESENT_POSITION_L, 1, value); }
+		void setLED(TrossenServoIDs id, int value) { setServoRegister(id, AX_LED, 1, value); }
+		int  getLED(TrossenServoIDs id) { return getServoRegister(id, AX_LED, 1); }
+		int  getTempature(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_TEMPERATURE, 1); }
+		int  getVoltage(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
+		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
+		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
+		void trace(uint8_t *bytes, int count);
+		void readResults();
 
 	protected:
-		ofTrossenRobotSerial *getTrossenDriver() { return static_cast<ofTrossenRobotSerial*>(driver); }
 
 	private:
 		// user defined ranges

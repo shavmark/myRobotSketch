@@ -264,7 +264,7 @@ namespace RobotArtists {
 		}
 		return type;
 	}
-	void ofTrossenRobotSerial::trace(uint8_t *bytes, int count) {
+	void ofTrRobotArmInternals::trace(uint8_t *bytes, int count) {
 		std::stringstream buffer;
 		for (int i = 0; i < count; ++i) {
 			buffer << " bytes[" << i << "] = " << (int)bytes[i] << Pose::dataName(i) << std::endl; // echo in one line
@@ -296,15 +296,15 @@ namespace RobotArtists {
 	}
 
 	// read pose from robot after every move and setup, just report on it or ignore it
-	void ofTrossenRobotSerial::readResults() {
+	void ofTrRobotArmInternals::readResults() {
 		ofRobotTrace() << "read pose " << std::endl;
 		uint8_t data[500];
-		if (readLine(data, sizeof data) > 0) {
+		if (getDriver()->readLine(data, sizeof data) > 0) {
 			ofRobotTrace() << "current pos vals = " << data << std::endl;
 		}
 	}
 
-	int ofTrossenRobotSerial::getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length) {
+	int ofTrRobotArmInternals::getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length) {
 		// send and read data
 		Pose pose;
 		pose.setLowLevelCommand(getServoRegisterCommand);
@@ -312,13 +312,13 @@ namespace RobotArtists {
 		pose.setLowLevelY(registerNumber);
 		pose.setLowLevelZ(length);
 		
-		int sent = write(&pose);
+		int sent = getDriver()->write(&pose);
 		ofSleepMillis(33);
 
 		uint8_t data[500]; // could be lots of sperius data out there, unlikely but if it occurs we want to echo it
 		memset(data, 0, sizeof data);
 		uint16_t val = 0;
-		int readin = readAllBytes(data, 5);
+		int readin = getDriver()->readAllBytes(data, 5);
 		if (readin == 5 && data[0] == 255 && data[1] == getServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
@@ -330,7 +330,7 @@ namespace RobotArtists {
 		}
 		ofRobotTrace(ErrorLog) << "reportServoRegister fails" << std::endl;
 		// see what data is out there
-		readLine(&data[readin], sizeof data - readin);
+		getDriver()->readLine(&data[readin], sizeof data - readin);
 		ofRobotTrace(ErrorLog) << "spurious data " << data << std::endl;
 		return 0;
 	}
@@ -344,24 +344,23 @@ namespace RobotArtists {
 	}
 
 	// length == 2 for ax12SetRegister2
-	void ofTrossenRobotSerial::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
-		Pose pose;
-		pose.setLowLevelCommand(setServoRegisterCommand);
-		pose.setLowLevelX(id); // servo 
-		pose.setLowLevelY(registerNumber);
-		pose.setLowLevelZ(length);
-		pose.setLowLevelWristAngle(dataToSend, 0);
+	void ofTrRobotArmInternals::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
+		setLowLevelCommand(setServoRegisterCommand);
+		setLowLevelX(id); // servo 
+		setLowLevelY(registerNumber);
+		setLowLevelZ(length);
+		setLowLevelWristAngle(dataToSend, 0);
 		
-		flush();   // reset
-		int sent = write(&pose);
+		getDriver()->flush();   // reset
+		int sent = getDriver()->write(this);
 		ofSleepMillis(33);
 		uint8_t data[5];
-		int readin = readAllBytes(data, 5);
+		int readin = getDriver()->readAllBytes(data, 5);
 		if (readin == 5 && data[0] == 255 && data[1] == setServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
-			if (data[4] == pose.getChkSum(data, 1, 3)) {
-				uint16_t val = pose.bytes_to_u16(high, low);
+			if (data[4] == getChkSum(data, 1, 3)) {
+				uint16_t val = bytes_to_u16(high, low);
 				if (val == dataToSend){
 					ofRobotTrace() << "servo " << id << " registerNumber set " << registerNumber << " value " << val << std::endl;
 				}

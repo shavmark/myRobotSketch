@@ -160,17 +160,17 @@ namespace RobotArtists {
 		*/
 	}
 
-	void SerialData::sendToRobot(ofRobotSerial* serial) {
+	void SerialData::sendToRobot() {
 		
-		if (serial) {
-			serial->write(this);
+		if (driver) {
+			driver->write(this);
 		}
 	}
 
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 	void ofTrRobotArm::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
-		sendToRobot(getDriver());
+		sendToRobot();
 		setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
@@ -179,16 +179,16 @@ namespace RobotArtists {
 		//setWristRotate(120);
 		setGripper(10);
 		setButton();
-		sendToRobot(getDriver());
+		sendToRobot();
 		setGripper(100);
-		sendToRobot(getDriver());
+		sendToRobot();
 		setGripper(511);
-		sendToRobot(getDriver());
+		sendToRobot();
 		ofSleepMillis(1000);
 		setX(200);
-		sendToRobot(getDriver());
+		sendToRobot();
 		setX(0);
-		sendToRobot(getDriver());
+		sendToRobot();
 	}
 
 	void ofTrRobotArm::popMatrix() {
@@ -205,7 +205,7 @@ namespace RobotArtists {
 		
 		setStartState(mode);
 		setUserDefinedRanges(SpecificJoint(info.getType(), ArmX), userDefinedRanges);
-		sendToRobot(getDriver()); // send the mode, also resets the robot
+		sendToRobot(); // send the mode, also resets the robot
 		setDefaultState();
 
 		ClearVector(vectorOfCommands);
@@ -315,7 +315,7 @@ namespace RobotArtists {
 	void ofTrRobotArm::sendData(vector<RobotArmCommandData>&data) {
 		for (auto& a : data) {
 			set(a);
-			sendToRobot(getDriver());
+			sendToRobot();
 		}
 	}
 
@@ -406,14 +406,14 @@ namespace RobotArtists {
 		
 		for (int i = FIRST_SERVO; i < servoCount; ++i) {
 			for (int j = 1; j <= 5; ++j) { // flash a bit
-				getTrossenDriver()->setLED(static_cast<TrossenServoIDs>(i), 1);
-				int led = getTrossenDriver()->getLED(static_cast<TrossenServoIDs>(i));
+				setLED(static_cast<TrossenServoIDs>(i), 1);
+				int led = getLED(static_cast<TrossenServoIDs>(i));
 				if (led != 1) {
 					ofRobotTrace(WarningLog) << "reg set fails" << std::endl; // may occur during startup
 				}
 				ofSleepMillis(100);
-				getTrossenDriver()->setLED(static_cast<TrossenServoIDs>(i), 0);
-				led = getTrossenDriver()->getLED(static_cast<TrossenServoIDs>(i));
+				setLED(static_cast<TrossenServoIDs>(i), 0);
+				led = getLED(static_cast<TrossenServoIDs>(i));
 				if (led != 0) {
 					ofRobotTrace(WarningLog) << "reg set fails" << std::endl;
 				}
@@ -421,13 +421,13 @@ namespace RobotArtists {
 			for (int i = FIRST_SERVO; i < servoCount; ++i) {
 				ofRobotTrace() << "servo " << i;
 
-				int pos = getTrossenDriver()->getPosition(static_cast<TrossenServoIDs>(i));
+				int pos = getPosition(static_cast<TrossenServoIDs>(i));
 				ofRobotTrace() << " pos " << pos;
 
-				int tmp = getTrossenDriver()->getTempature(static_cast<TrossenServoIDs>(i));
+				int tmp = getTempature(static_cast<TrossenServoIDs>(i));
 				ofRobotTrace() << " temp. " << tmp;
 
-				float v = getTrossenDriver()->getVoltage(static_cast<TrossenServoIDs>(i))/10;
+				float v = getVoltage(static_cast<TrossenServoIDs>(i))/10;
 				ofRobotTrace() << " voltage " << v << std::endl;
 			}
 		}
