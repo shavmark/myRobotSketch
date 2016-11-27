@@ -23,7 +23,7 @@ namespace RobotArtists {
 
 	RobotValueRanges ofTrRobotArmInternals::hardwareRanges; // just need to set once
 													
-	const string Pose::dataName(int id) {
+	string Pose::dataName(int id) {
 		switch (id) {
 		case headerByteOffset:
 			return " headerByteOffset";
@@ -121,7 +121,6 @@ namespace RobotArtists {
 					// that we don't overwrite the bytes we already have
 					int bytesArrayOffset = bytesRequired - bytesRemaining;
 					int result = readBytes(&bytes[bytesArrayOffset], bytesRemaining);
-
 					// check for error code
 					if (result == OF_SERIAL_ERROR) {
 						// something bad happened
@@ -150,9 +149,15 @@ namespace RobotArtists {
 
 	// return true if ID packet is value
 	bool ofRobotSerial::idPacket(uint8_t *bytes, int size) {
-		if (size == 5 && bytes[3] == 0) {
-			uint8_t chksum = (unsigned char)(255 - (bytes[1] + bytes[2] + 0) % 256);
-			return chksum == bytes[4] || bytes[4] == 0xff;
+		ofRobotTrace() << "validate packet" << std::endl;
+		if (bytes[0] == 0xee || bytes[0] == 0xff) {
+			uint8_t chksum = getChkSum(bytes, 1, size - 2);
+			if (chksum == bytes[size-1]) {
+				return true;
+			}
+		}
+		for (int i = 0; i < size; ++i) {
+			ofRobotTrace(ErrorLog) << "invalid packet[" << i << "]" << (int)bytes[i] << std::endl;
 		}
 		return false;
 	}
@@ -177,8 +182,8 @@ namespace RobotArtists {
 			case IKM_CYLINDRICAL_90:
 				ofRobotTrace() << "arm mode IKM_CYLINDRICAL_90" << std::endl;
 				break;
-			case MAKERBOT:
-				ofRobotTrace() << "MAKERBOT" << std::endl;
+			case IKM_MAKERBOTXY:
+				ofRobotTrace() << "IKM_MAKERBOTXY" << std::endl;
 				break;
 			default:
 				ofRobotTrace() << "arm mode IKM_BACKHOE mode?" << std::endl;
@@ -223,18 +228,19 @@ namespace RobotArtists {
 
 
 
-	robotType ofRobotSerial::waitForRobot(string& name, int retries) {
+	robotType ofRobotSerial::waitForRobot(string& name, int retries, int packetsize) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
 
 		robotType type = createUndefinedRobotType();
 		uint8_t bytes[500];
-		//bugbug make an Open command to make robots more predicable at startup time
+		
+
 		if (waitForSerial(retries)) {
 			// somethis is out there, see if we can ID it
 
-			int readin = readAllBytes(bytes, 5);
-			if (readin == 5) {
-				type = IDResponsePacket(bytes, 5);
+			int readin = readAllBytes(bytes, packetsize);
+			if (readin == packetsize) {
+				type = IDResponsePacket(bytes, packetsize);
 				if (type.first == IKM_NOT_DEFINED) {
 					ofRobotTrace(ErrorLog) << "invalid robot type" << std::endl;
 					return type;
@@ -264,13 +270,6 @@ namespace RobotArtists {
 		}
 		return type;
 	}
-	void ofTrRobotArmInternals::trace(uint8_t *bytes, int count) {
-		std::stringstream buffer;
-		for (int i = 0; i < count; ++i) {
-			buffer << " bytes[" << i << "] = " << (int)bytes[i] << Pose::dataName(i) << std::endl; // echo in one line
-		}
-		ofRobotTrace() << buffer.str() << std::endl;
-	}
 	void Pose::setup() {
 		set(headerByteOffset, 255);
 	}
@@ -278,13 +277,20 @@ namespace RobotArtists {
 		buildDeviceList();
 		return devices;
 	}
+	void SerialData::trace() {
+		std::stringstream buffer;
+		for (int i = 0; i < size(); ++i) {
+			buffer << " bytes[" << i << "] = " << (int)at(i) << dataName(i) << std::endl; // echo in one line
+		}
+		ofRobotTrace() << buffer.str() << std::endl;
+	}
+	
 	int ofRobotSerial::write(uint8_t* data, size_t count) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 
 		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 		// no need to hurry packets so just want the minimum amount no matter what
 		ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
-		trace(data, (int)count);
 		int sent = writeBytes(data, (int)count);//bugbug of function should e size_t
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;
@@ -322,7 +328,7 @@ namespace RobotArtists {
 		if (readin == 5 && data[0] == 255 && data[1] == getServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
-			if (data[4] == pose.getChkSum(data, 1, 3)) {
+			if (data[4] == getChkSum(data, 1, 3)) {
 				val = pose.bytes_to_u16(high, low);
 				ofRobotTrace() << "servo " << id << " registerNumber " << registerNumber << " value " << val << std::endl;
 				return val;
@@ -338,11 +344,30 @@ namespace RobotArtists {
 	int ofRobotSerial::write(SerialData*serial) {
 		if (serial) {
 			serial->update();
+			serial->trace();
 			return write(serial->data(), serial->size());
 		}
 		return 0;
 	}
-
+	string xyRobot::dataName(int i) {
+		switch (i) {
+		case 0:
+			return " signature ";
+		case 1:
+			return " cmd stepper 1 ";
+		case 2:
+			return " high byte stepper 1 ";
+		case 3:
+			return " low byte stepper 1 ";
+		case 4:
+			return " cmd stepper 2 ";
+		case 5:
+			return " high byte stepper 2 ";
+		case 6:
+			return " low byte stepper 2 ";
+		}
+		return "???";
+	}
 	// length == 2 for ax12SetRegister2
 	void ofTrRobotArmInternals::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
 		setLowLevelCommand(setServoRegisterCommand);
@@ -539,7 +564,7 @@ namespace RobotArtists {
 
 	}
 
-	robotLowLevelCommandTrossen getStartCommand(robotMode mode) {
+	robotLowLevelCommands getStartCommand(robotMode mode) {
 		if (mode == IKM_IK3D_CARTESIAN) {
 			return setArm3DCartesianStraightWristAndGoHomeCommand; 
 		}
@@ -575,7 +600,7 @@ namespace RobotArtists {
 		setWristRotate(getDefaultValue(wristRotate));
 		setGripper(getDefaultValue(ArmGripper));
 		setDelta();
-		setLowLevelCommand(NoArmCommand);
+		setLowLevelCommand(noCommand());
 		setButton();
 	}
 	// will block until arm is ready
@@ -608,7 +633,7 @@ namespace RobotArtists {
 			ECHO(trChecksum)
 	}
 	
-	uint8_t SerialData::getChkSum(uint8_t*data, int start, int end) {
+	uint8_t getChkSum(uint8_t*data, int start, int end) {
 		uint16_t sum = 0;
 		for (int i = start; i <= end; ++i) {
 			sum += data[i];

@@ -467,21 +467,32 @@ namespace RobotArtists {
 			if (device.getDeviceID() == 0) {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
-			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
 			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
 			if (!arm) {
 				return; // something is really wrong
 			}
-			if (!arm->getDriver()->setup(device.getDeviceName(), 38400)) {
-				ofRobotTrace(FatalErrorLog) << "FindAllArms" << std::endl;
+			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
+			int baudrate = 19200;
+			ofRobotTrace("FindAllMyElements") << "baud rate " << baudrate << device.getDeviceName().c_str();
+			
+			if (!arm->getDriver()->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
+				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
 				return;
 			}
-			arm->getDriver()->deviceName = device.getDeviceName();
+			//shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
+			//if (!maker) {
+			//return; // something is really wrong
+			//}
+			//arm->getDriver()->deviceName = device.getDeviceName();
+
 			// port found, see what may be on it
 			// start with default mode
 			robotType robotType;
 			string robotName;
-			if (!robotTypeIsError(robotType = arm->getDriver()->waitForRobot(robotName, 25))) {
+			//arm->getDriver()->flush();
+			//arm->getDriver()->writeByte(NoCommand); // let driver know we are here
+			arm->getDriver()->flush();
+			if (!robotTypeIsError(robotType = arm->getDriver()->waitForRobot(robotName, 25, 6))) {
 			
 				switch (robotType.second) {
 				case PhantomXReactorArm:
@@ -494,10 +505,9 @@ namespace RobotArtists {
 					break;
 				case MakerBotXY:
 					// robot object arm will delete itself if no robot is found
-					shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
-					maker->setName(robotName);
-					maker->setType(robotType);
-					makerbots.push_back(maker);
+					//maker->setName(robotName);
+					//maker->setType(robotType);
+					//makerbots.push_back(maker);
 					break;
 				}
 			}

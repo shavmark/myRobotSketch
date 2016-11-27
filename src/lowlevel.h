@@ -27,8 +27,10 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
+	uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
+
 	// from firmware IKM_BACKHOE not 100% supported
-	enum robotMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, MAKERBOT, IKM_NOT_DEFINED };
+	enum robotMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_MAKERBOTXY, IKM_NOT_DEFINED };
 
 	enum robotArmJointType { ArmX, ArmY, ArmZ, wristAngle, wristRotate, ArmGripper, JointNotDefined };
 
@@ -68,7 +70,7 @@ namespace RobotArtists {
 		AX_PAUSE_TIME, AX_MOVING, AX_LOCK, AX_PUNCH_L, AX_PUNCH_H
 	};
 
-	enum ArmIDs { PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX, MAKERBOT_ID=99 }; // can add more types here
+	enum ArmIDs { PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX, MAKERBOT_ID=199 }; // can add more types here
 
 	enum ArmServoCounts { PINCHER_SERVO_COUNT = 5, REACTOR_SERVO_COUNT = 8, WIDOWX_SERVO_COUNT = 6 };
 
@@ -80,8 +82,8 @@ namespace RobotArtists {
 	};
 
 	// low level commands
-	enum robotLowLevelCommandTrossen : uint8_t {
-		unKnownCommand = 255, NoArmCommand = 0, EmergencyStopCommand = 17, SleepArmCommand = 96, HomeArmCommand = 80, HomeArm90Command = 88,
+	enum robotLowLevelCommands : uint8_t {
+		NoCommand = 100, unKnownCommand = 255,  EmergencyStopCommand = 17, SleepArmCommand = 96, HomeArmCommand = 80, HomeArm90Command = 88,
 		setArm3DCylindricalStraightWristAndGoHomeCommand = 48, setArm3DCartesian90DegreeWristAndGoHomeCommand = 40,
 		setArm3DCartesianStraightWristAndGoHomeCommand = 32, setArm3DCylindrical90DegreeWristAndGoHomeCommand = 56,
 		setArmBackhoeJointAndGoHomeCommand = 64, IDPacketCommand = 80, getServoRegisterCommand = 129, setServoRegisterCommand = 130, analogReadCommand = 200
@@ -121,10 +123,8 @@ namespace RobotArtists {
 		int readLine(uint8_t* bytes, int bytesMax = 100);
 		vector <ofSerialDeviceInfo>& getDevices();
 
-		virtual void trace(uint8_t *bytes, int count) {};
-
 		virtual void readResults() {};
-		robotType waitForRobot(string& name, int retries);
+		robotType waitForRobot(string& name, int retries, int packetsize=5);
 		bool idPacket(uint8_t *bytes, int size);
 		robotType IDResponsePacket(uint8_t *bytes, int count);
 
@@ -160,13 +160,20 @@ namespace RobotArtists {
 
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-		uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
 		shared_ptr<ofRobotSerial> getDriver() { return driver; }
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
 		void setType(robotType type) { info.setType(type); }
 
 		BotInfo info;
+		// basic commands common across all robots
+		uint8_t noCommand() { return 0; }
+		uint8_t openCommand() { return 1; }
+		uint8_t closeCommand() { return 2; }
+
+		virtual void buildOpenCommand() {} // trossen does not use open bugbug should we add one?
+		virtual void trace();
+		virtual string dataName(int id) { return "none"; };
 
 	protected:
 		string name;
@@ -188,14 +195,15 @@ namespace RobotArtists {
 		*  byte 5 : data for stepper2 (high byte)
 		*  byte 6 : data for stepper2 (low byte)
 		*/
-		enum Command { NoCommand, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
+		
+		enum Command { SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
 		enum Steppers { IDstepper1 = 1, IDstepper2 = 4};
-
-		void setxy(Steppers stepperID, uint8_t cmd, uint8_t datahigh, uint8_t datalow) {
+		void setxy(Steppers stepperID, uint8_t cmd, uint8_t datahigh = 0, uint8_t datalow=0) {
 			set(stepperID, cmd);
 			set(stepperID+1, datahigh);
 			set(stepperID+2, datalow);
 		}
+		virtual string dataName(int id) ;
 	};
 
 
@@ -245,12 +253,12 @@ namespace RobotArtists {
 
 		void trace();
 
-		static const string dataName(int id);
+		virtual string dataName(int id);
 
 	private:
 	};
 
-	robotLowLevelCommandTrossen getStartCommand(robotMode mode);
+	robotLowLevelCommands getStartCommand(robotMode mode);
 
 	class RobotValueRanges {
 	public:
@@ -304,7 +312,6 @@ namespace RobotArtists {
 		int  getVoltage(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
 		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
 		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
-		void trace(uint8_t *bytes, int count);
 		void readResults();
 
 	protected:
