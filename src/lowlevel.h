@@ -70,7 +70,7 @@ namespace RobotArtists {
 		AX_PAUSE_TIME, AX_MOVING, AX_LOCK, AX_PUNCH_L, AX_PUNCH_H
 	};
 
-	enum ArmIDs { PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX, MAKERBOT_ID=199 }; // can add more types here
+	enum ArmIDs { PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX, MAKERBOT_ID }; // can add more types here
 
 	enum ArmServoCounts { PINCHER_SERVO_COUNT = 5, REACTOR_SERVO_COUNT = 8, WIDOWX_SERVO_COUNT = 6 };
 
@@ -275,6 +275,7 @@ namespace RobotArtists {
 		void sendToRobot(SerialData *serial) {
 			if (driver) {
 				driver->write(serial);
+				ofSleepMillis(100);// let things xfer then check on data
 				readResults();
 			}
 		}
