@@ -466,44 +466,41 @@ namespace RobotArtists {
 			if (device.getDeviceID() == 0) {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
-			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
-			if (!arm) {
-				return; // something is really wrong
-			}
+			shared_ptr<ofRobotSerial> serialdriver = make_shared<ofRobotSerial>();
 			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
 			int baudrate = 19200;
 			ofRobotTrace("FindAllMyElements") << "baud rate " << baudrate << device.getDeviceName().c_str();
 			
-			if (!arm->getDriver()->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
+			if (!serialdriver->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
 				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
 				return;
 			}
-			// port found, see what may be on it
+			shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver); // move the driver over
+																				// port found, see what may be on it
 			// start with default mode
+			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
+			if (!arm) {
+				return; // something is really wrong
+			}
 			robotType robotType;
 			string robotName;
-			
-			if (!robotTypeIsError(robotType = arm->getDriver()->waitForRobot(robotName, 25, 5))) {
+			xySenddata data;
+			data.add(xySenddata::IDstepper1, xySenddata::SignOn);
+			maker->add(data);
+			maker->draw();
+			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 25, 5))) {
 			
 				switch (robotType.second) {
 				case PhantomXReactorArm:
 				case PhantomXPincherArm:
 				case WidowX:
+					arm->setSerial(serialdriver);
 					arm->setName(robotName);
 					arm->setType(robotType);
 					arm->setup(IKM_CYLINDRICAL);
 					arms.push_back(arm);
 					break;
 				case MakerBotXY:
-					// robot object arm will delete itself if no robot is found
-					shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
-					if (!maker) {
-						return; // something is really wrong
-					}
-					maker->getDriver()->flush();
-					xySenddata data;
-					data.add(xySenddata::IDstepper1, xySenddata::NoCommand);
-					maker->draw(); 
 					maker->setName(robotName);
 					maker->setType(robotType);
 					makerbots.push_back(maker);

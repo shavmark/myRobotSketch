@@ -180,9 +180,9 @@ namespace RobotArtists {
 	*/
 	class xySenddata : public SerialData {
 	public:
-		xySenddata() : SerialData(7) {  }
+		xySenddata() : SerialData(7) { set(0, 0xee); }
 
-		enum Command { NoCommand, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
+		enum Command { NoCommand, SignOn, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
 		enum Steppers { IDstepper1 = 1, IDstepper2 = 4 };
 		void add(Steppers stepperID, uint8_t cmd, uint8_t datahigh = 0, uint8_t datalow = 0) {
 			set(stepperID, cmd);
@@ -279,7 +279,7 @@ namespace RobotArtists {
 			}
 		}
 		virtual void readResults() {};
-
+		void setSerial(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
 		shared_ptr<ofRobotSerial>  driver;
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
