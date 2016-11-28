@@ -265,8 +265,6 @@ namespace RobotArtists {
 			}
 			ofRobotTrace() << "robot name " << name << std::endl;
 
-			readResults(); // pose for command and pose for start up must be read in
-
 		}
 		return type;
 	}
@@ -294,8 +292,6 @@ namespace RobotArtists {
 		int sent = writeBytes(data, (int)count);//bugbug of function should e size_t
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;
-
-		readResults(); // pose is sent all the time  by the micro code for at least trossen robots
 
 		return sent;
 

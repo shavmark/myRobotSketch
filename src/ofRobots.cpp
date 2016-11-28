@@ -309,6 +309,7 @@ namespace RobotArtists {
 		for (auto& a : data) {
 			set(a);
 			sendToRobot(this);
+
 		}
 	}
 
@@ -435,6 +436,11 @@ namespace RobotArtists {
 
 	void ofRobot::draw() {
 		ofRobotTrace() << "draw robot" << name << std::endl;
+
+		for (auto bot : makerbots) {
+			bot->draw();
+		}
+		
 		for (auto arm : arms) {
 			arm->draw();
 		}

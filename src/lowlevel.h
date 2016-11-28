@@ -123,7 +123,6 @@ namespace RobotArtists {
 		int readLine(uint8_t* bytes, int bytesMax = 100);
 		vector <ofSerialDeviceInfo>& getDevices();
 
-		virtual void readResults() {};
 		robotType waitForRobot(string& name, int retries, int packetsize=5);
 		bool idPacket(uint8_t *bytes, int size);
 		robotType IDResponsePacket(uint8_t *bytes, int count);
@@ -183,7 +182,7 @@ namespace RobotArtists {
 	public:
 		xydata() : SerialData(7) {  }
 
-		enum Command { SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
+		enum Command { NoCommand, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
 		enum Steppers { IDstepper1 = 1, IDstepper2 = 4 };
 		void add(Steppers stepperID, uint8_t cmd, uint8_t datahigh = 0, uint8_t datalow = 0) {
 			set(stepperID, cmd);
@@ -265,8 +264,11 @@ namespace RobotArtists {
 		void sendToRobot(SerialData *serial) {
 			if (driver) {
 				driver->write(serial);
+				readResults();
 			}
 		}
+		virtual void readResults() {};
+
 		shared_ptr<ofRobotSerial>  driver;
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
@@ -283,14 +285,22 @@ namespace RobotArtists {
 
 		void add(const xydata& cmd) { vectorOfCommands.push_back(cmd); }
 
-		void sendToRobot() {
+		void draw() {
+			ofRobotTrace() << "draw xyRobot" << name << std::endl;
+
 			if (driver) {
 				for (auto& a : vectorOfCommands) {
-					driver->write(&a);
+					sendToRobot(&a);
 				}
 			}
 		}
-
+		void readResults() {
+			ofRobotTrace() << "read xyRobot " << std::endl;
+			xydata data;
+			if (getDriver()->readAllBytes(data.data(), data.size()) > 0) {
+				data.trace();//bugbug not sure what to do here yet
+			}
+		}
 	protected:
 		vector<xydata> vectorOfCommands;
 	};
@@ -341,8 +351,7 @@ namespace RobotArtists {
 		int  getVoltage(TrossenServoIDs id) { return getServoRegister(id, AX_PRESENT_VOLTAGE, 1); }
 		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
 		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
-		void readResults();
-
+		virtual void readResults();
 
 	protected:
 
