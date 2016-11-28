@@ -500,6 +500,10 @@ namespace RobotArtists {
 					if (!maker) {
 						return; // something is really wrong
 					}
+					maker->getDriver()->flush();
+					xySenddata data;
+					data.add(xySenddata::IDstepper1, xySenddata::NoCommand);
+					maker->draw(); 
 					maker->setName(robotName);
 					maker->setType(robotType);
 					makerbots.push_back(maker);

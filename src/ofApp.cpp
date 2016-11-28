@@ -18,8 +18,8 @@ void ofApp::setup() {
 void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
-		xydata data;
-		data.add(xydata::IDstepper1, xydata::NoCommand);
+		xySenddata data;
+		data.add(xySenddata::IDstepper1, xySenddata::NoCommand);
 		robot.makerbots[0]->add(data);
 	}
 	if (robot.arms.size() > 0) {

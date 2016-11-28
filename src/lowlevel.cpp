@@ -346,7 +346,7 @@ namespace RobotArtists {
 		return 0;
 	}
 
-	string xydata::dataName(int i) {
+	string xySenddata::dataName(int i) {
 		switch (i) {
 		case 0:
 			return " signature ";
@@ -362,6 +362,21 @@ namespace RobotArtists {
 			return " high byte stepper 2 ";
 		case 6:
 			return " low byte stepper 2 ";
+		}
+		return "???";
+	}
+	string xyGetdata::dataName(int i) {
+		switch (i) {
+		case 0:
+			return " signature ";
+		case 1:
+			return " data1 ";
+		case 2:
+			return " data2  ";
+		case 3:
+			return " cmd ";
+		case 4:
+			return " chksum ";
 		}
 		return "???";
 	}
@@ -390,6 +405,30 @@ namespace RobotArtists {
 					ofRobotTrace(ErrorLog) << "servo regiser send fails" << id << " registerNumber " << registerNumber << " value " << val << std::endl;
 				}
 			}
+		}
+	}
+	void xyRobot::draw() {
+		ofRobotTrace() << "draw xyRobot" << name << std::endl;
+
+		if (driver) {
+			for (auto& a : vectorOfCommands) {
+				sendToRobot(&a);
+			}
+		}
+		vectorOfCommands.clear();
+	}
+	void xyRobot::readResults() {
+		ofRobotTrace() << "read xyRobot " << std::endl;
+		xyGetdata data;
+		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
+			uint8_t chksum = getChkSum(data.data(), 1, data.size() - 2);
+			if (chksum == data[data.size() - 1]) {
+				ofRobotTrace() << "xyRobot is ok" << std::endl;
+			}
+			else {
+				ofRobotTrace(TraceType::ErrorLog) << "xyRobot is NOT ok" << std::endl;
+			}
+			data.trace();//bugbug not sure what to do here yet
 		}
 	}
 

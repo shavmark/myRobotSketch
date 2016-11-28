@@ -178,9 +178,9 @@ namespace RobotArtists {
 	*  byte 5 : data for stepper2 (high byte)
 	*  byte 6 : data for stepper2 (low byte)
 	*/
-	class xydata : public SerialData {
+	class xySenddata : public SerialData {
 	public:
-		xydata() : SerialData(7) {  }
+		xySenddata() : SerialData(7) {  }
 
 		enum Command { NoCommand, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
 		enum Steppers { IDstepper1 = 1, IDstepper2 = 4 };
@@ -192,6 +192,17 @@ namespace RobotArtists {
 		virtual string dataName(int id);
 	};
 
+	/*	byte 0: 0xee
+		byte 1: cmd
+		byte 2: data1
+		byte 3: data2
+		byte 4: chksum   */
+	class xyGetdata : public SerialData {
+	public:
+		xyGetdata() : SerialData(5) {  }
+		
+		virtual string dataName(int id);
+	};
 
 
 
@@ -283,26 +294,13 @@ namespace RobotArtists {
 		xyRobot() : iRobot() {  }
 		xyRobot(shared_ptr<ofRobotSerial>  driver):iRobot(driver) {  }
 
-		void add(const xydata& cmd) { vectorOfCommands.push_back(cmd); }
+		void add(const xySenddata& cmd) { vectorOfCommands.push_back(cmd); }
 
-		void draw() {
-			ofRobotTrace() << "draw xyRobot" << name << std::endl;
+		void draw();
 
-			if (driver) {
-				for (auto& a : vectorOfCommands) {
-					sendToRobot(&a);
-				}
-			}
-		}
-		void readResults() {
-			ofRobotTrace() << "read xyRobot " << std::endl;
-			xydata data;
-			if (getDriver()->readAllBytes(data.data(), data.size()) > 0) {
-				data.trace();//bugbug not sure what to do here yet
-			}
-		}
 	protected:
-		vector<xydata> vectorOfCommands;
+		void readResults();
+		vector<xySenddata> vectorOfCommands;
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
