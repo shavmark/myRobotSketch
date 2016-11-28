@@ -91,9 +91,9 @@ namespace RobotArtists {
 		uint8_t delta;
 		ofRobotArmState state;
 		ofRobotPosition position;
-	};																												
+	};				
 
-	// one command with of data assoicated with that command
+	// one command with data assoicated with that command
 	class ofRobotArmCommand {
 	public:
 		// commands and only be 0.0 to +/- 1.0 (0 to +/- 100%)
@@ -140,8 +140,11 @@ namespace RobotArtists {
 	class ofTrRobotArm : public ofTrRobotArmInternals {
 	public:
 
-		ofTrRobotArm(const string& name, const robotType& type) :ofTrRobotArmInternals(type) { setName(name); }
-		ofTrRobotArm() :ofTrRobotArmInternals() {}
+		ofTrRobotArm(const string& name, const robotType& type) :ofTrRobotArmInternals(type) { 
+			setName(name); 
+		}
+		ofTrRobotArm() :ofTrRobotArmInternals() {
+		}
 		void trace(); 
 
 		// put command data in a known state
@@ -151,6 +154,8 @@ namespace RobotArtists {
 		// move or draw based on the value in moveOrDraw
 		void draw();
 		void update();
+		void setName(const string&name) { this->name = name; }
+		string& getName() { return name; }
 
 		void add(const ofRobotArmCommand& cmd) {	vectorOfCommands.push_back(cmd);	}
 
@@ -174,7 +179,8 @@ namespace RobotArtists {
 	private:
 		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr; // none set by default
 		void validate();
-		
+		string name;
+
 		vector<ofRobotArmCommand> vectorOfCommands; // one more more points
 		void testdata();
 		stack<ofTrRobotArm*> stack; // bugbug once working likely to include colors, brush size etc
@@ -183,6 +189,7 @@ namespace RobotArtists {
 		void sendData(vector<RobotArmCommandData>&data);
 		void sendExpandedResults(vector<ofRobotArmCommand>& results);
 		void set(RobotArmCommandData& request);
+
 	};
 	
 	// the robot itself

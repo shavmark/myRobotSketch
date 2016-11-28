@@ -160,17 +160,10 @@ namespace RobotArtists {
 		*/
 	}
 
-	void SerialData::sendToRobot() {
-		
-		if (driver) {
-			driver->write(this);
-		}
-	}
-
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
 	void ofTrRobotArm::sanityTestLowLevel() {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
-		sendToRobot();
+		sendToRobot(this);
 		setDelta(254);
 		setX(100); // absolution position vs. percentages
 		setY(100);
@@ -179,16 +172,16 @@ namespace RobotArtists {
 		//setWristRotate(120);
 		setGripper(10);
 		setButton();
-		sendToRobot();
+		sendToRobot(this);
 		setGripper(100);
-		sendToRobot();
+		sendToRobot(this);
 		setGripper(511);
-		sendToRobot();
+		sendToRobot(this);
 		ofSleepMillis(1000);
 		setX(200);
-		sendToRobot();
+		sendToRobot(this);
 		setX(0);
-		sendToRobot();
+		sendToRobot(this);
 	}
 
 	void ofTrRobotArm::popMatrix() {
@@ -205,7 +198,7 @@ namespace RobotArtists {
 		
 		setStartState(mode);
 		setUserDefinedRanges(SpecificJoint(info.getType(), ArmX), userDefinedRanges);
-		sendToRobot(); // send the mode, also resets the robot
+		sendToRobot(this); // send the mode, also resets the robot
 		setDefaultState();
 
 		ClearVector(vectorOfCommands);
@@ -315,7 +308,7 @@ namespace RobotArtists {
 	void ofTrRobotArm::sendData(vector<RobotArmCommandData>&data) {
 		for (auto& a : data) {
 			set(a);
-			sendToRobot();
+			sendToRobot(this);
 		}
 	}
 
@@ -479,20 +472,12 @@ namespace RobotArtists {
 				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
 				return;
 			}
-			//shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
-			//if (!maker) {
-			//return; // something is really wrong
-			//}
-			//arm->getDriver()->deviceName = device.getDeviceName();
-
 			// port found, see what may be on it
 			// start with default mode
 			robotType robotType;
 			string robotName;
-			//arm->getDriver()->flush();
-			//arm->getDriver()->writeByte(NoCommand); // let driver know we are here
-			arm->getDriver()->flush();
-			if (!robotTypeIsError(robotType = arm->getDriver()->waitForRobot(robotName, 25, 6))) {
+			
+			if (!robotTypeIsError(robotType = arm->getDriver()->waitForRobot(robotName, 25, 5))) {
 			
 				switch (robotType.second) {
 				case PhantomXReactorArm:
@@ -505,9 +490,13 @@ namespace RobotArtists {
 					break;
 				case MakerBotXY:
 					// robot object arm will delete itself if no robot is found
-					//maker->setName(robotName);
-					//maker->setType(robotType);
-					//makerbots.push_back(maker);
+					shared_ptr<xyRobot> maker = make_shared<xyRobot>(arm->getDriver()); // move the driver over
+					if (!maker) {
+						return; // something is really wrong
+					}
+					maker->setName(robotName);
+					maker->setType(robotType);
+					makerbots.push_back(maker);
 					break;
 				}
 			}

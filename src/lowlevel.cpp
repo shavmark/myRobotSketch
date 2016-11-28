@@ -349,7 +349,8 @@ namespace RobotArtists {
 		}
 		return 0;
 	}
-	string xyRobot::dataName(int i) {
+
+	string xydata::dataName(int i) {
 		switch (i) {
 		case 0:
 			return " signature ";

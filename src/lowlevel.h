@@ -143,8 +143,8 @@ namespace RobotArtists {
 	class SerialData : public vector<uint8_t> {
 	public:
 		//bugbug go to shared pointer with inheritence
-		SerialData(int setsize) { resize(setsize); driver = make_shared<ofRobotSerial>(); } //bugbug verify memset(data(), 0, size());  is not needed
-		SerialData(int setsize, shared_ptr<ofRobotSerial>driver) { resize(setsize); this->driver = driver; } 
+		SerialData(int setsize) { resize(setsize); } //bugbug verify memset(data(), 0, size());  is not needed
+
 		virtual void setup() {};
 		virtual void update() { }
 
@@ -156,55 +156,43 @@ namespace RobotArtists {
 		void set(uint16_t offset, uint8_t b);
 		void set(uint16_t high, uint16_t low, int val);
 		int get(int high, int low);
-		void sendToRobot();
 
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
-		shared_ptr<ofRobotSerial> getDriver() { return driver; }
-		void setName(const string&name) { this->name = name; }
-		string& getName() { return name; }
-		void setType(robotType type) { info.setType(type); }
-
-		BotInfo info;
 		// basic commands common across all robots
 		uint8_t noCommand() { return 0; }
-		uint8_t openCommand() { return 1; }
-		uint8_t closeCommand() { return 2; }
 
-		virtual void buildOpenCommand() {} // trossen does not use open bugbug should we add one?
 		virtual void trace();
 		virtual string dataName(int id) { return "none"; };
 
 	protected:
-		string name;
 		void setChkSum(int index);
 	private:
-		shared_ptr<ofRobotSerial>  driver;
 	};
 
-	class xyRobot : public SerialData {
+	/* data - 1 or 2 steppers defined in the data
+	*  byte 0 : 0xee - start of data packet
+	*  byte 1 : cmd for stepper1 (see enum Command)
+	*  byte 2 : data for stepper1 (high byte)
+	*  byte 3 : data for stepper1 (low byte)
+	*  byte 4 : cmd  for stepper2, NoCommand for none
+	*  byte 5 : data for stepper2 (high byte)
+	*  byte 6 : data for stepper2 (low byte)
+	*/
+	class xydata : public SerialData {
 	public:
-		xyRobot(shared_ptr<ofRobotSerial>driver) : SerialData(7, driver) { set(0, 0xee); }
+		xydata() : SerialData(7) {  }
 
-		/* data - 1 or 2 steppers defined in the data
-		*  byte 0 : 0xee - start of data packet
-		*  byte 1 : cmd for stepper1 (see enum Command)
-		*  byte 2 : data for stepper1 (high byte)
-		*  byte 3 : data for stepper1 (low byte)
-		*  byte 4 : cmd  for stepper2, NoCommand for none
-		*  byte 5 : data for stepper2 (high byte)
-		*  byte 6 : data for stepper2 (low byte)
-		*/
-		
 		enum Command { SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
-		enum Steppers { IDstepper1 = 1, IDstepper2 = 4};
-		void setxy(Steppers stepperID, uint8_t cmd, uint8_t datahigh = 0, uint8_t datalow=0) {
+		enum Steppers { IDstepper1 = 1, IDstepper2 = 4 };
+		void add(Steppers stepperID, uint8_t cmd, uint8_t datahigh = 0, uint8_t datalow = 0) {
 			set(stepperID, cmd);
-			set(stepperID+1, datahigh);
-			set(stepperID+2, datalow);
+			set(stepperID + 1, datahigh);
+			set(stepperID + 2, datalow);
 		}
-		virtual string dataName(int id) ;
+		virtual string dataName(int id);
 	};
+
 
 
 
@@ -267,13 +255,54 @@ namespace RobotArtists {
 		std::map<SpecificJoint, int> maxValue;
 		std::map<SpecificJoint, int> defaultValue;
 	};
+	// base class helper
+	class iRobot {
+	public:
+		iRobot(const robotType& type) { setType(type); driver = make_shared<ofRobotSerial>(); }
+		iRobot() {  driver = make_shared<ofRobotSerial>(); }
+		iRobot(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
+		shared_ptr<ofRobotSerial> getDriver() { return driver; }
+		void sendToRobot(SerialData *serial) {
+			if (driver) {
+				driver->write(serial);
+			}
+		}
+		shared_ptr<ofRobotSerial>  driver;
+		void setName(const string&name) { this->name = name; }
+		string& getName() { return name; }
+		void setType(robotType type) { info.setType(type); }
+
+		BotInfo info;
+
+		string name;
+	};
+	class xyRobot : public iRobot {
+	public:
+		xyRobot() : iRobot() {  }
+		xyRobot(shared_ptr<ofRobotSerial>  driver):iRobot(driver) {  }
+
+		void add(const xydata& cmd) { vectorOfCommands.push_back(cmd); }
+
+		void sendToRobot() {
+			if (driver) {
+				for (auto& a : vectorOfCommands) {
+					driver->write(&a);
+				}
+			}
+		}
+
+	protected:
+		vector<xydata> vectorOfCommands;
+	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
-	class ofTrRobotArmInternals : public Pose {
+	class ofTrRobotArmInternals : public Pose, public iRobot {
 	public:
 		// constructor required
-		ofTrRobotArmInternals(const robotType& type) : Pose() { info.setType(type); };
-		ofTrRobotArmInternals() : Pose() {}
+		ofTrRobotArmInternals(const robotType& type) : Pose(), iRobot(type){
+		}
+		ofTrRobotArmInternals() : Pose() {
+		}
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);
@@ -313,6 +342,7 @@ namespace RobotArtists {
 		int getServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length);
 		void setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend);
 		void readResults();
+
 
 	protected:
 
