@@ -18,10 +18,11 @@ void ofApp::setup() {
 void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
-		xySenddata data;
-		data.add(xySenddata::IDstepper1, xySenddata::NoCommand);
+		xyDataToSend data;
+		data.add(xyDataToSend::IDstepper1, xyDataToSend::MoveTo, 0.5f);
 		robot.makerbots[0]->add(data);
 	}
+	return;//just test xy for now
 	if (robot.arms.size() > 0) {
 		//HighLevelTest
 		ofRobotArmCommand cmd(RegressionTest);

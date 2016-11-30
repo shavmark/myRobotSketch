@@ -275,6 +275,14 @@ namespace RobotArtists {
 		buildDeviceList();
 		return devices;
 	}
+
+	//bugbug what is are we sending?
+	void ofRobotSerial::sendFloat(float f) {
+		// get access to the float as a byte-array:
+		uint8_t * data = (uint8_t *)&f; //bugbug will this break as its binary and there are control chars?
+		write(data, sizeof(f));
+	}
+
 	void SerialData::trace() {
 		std::stringstream buffer;
 		for (int i = 0; i < size(); ++i) {
@@ -282,7 +290,17 @@ namespace RobotArtists {
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
-	
+	xyDataToSend::xyDataToSend(Steppers stepperID, Command cmd) : SerialData(3) { 
+		set(0, 0xee); set(1, stepperID); set(2, cmd); 
+	}
+
+	void xyDataToSend::addData(Steppers stepperID, Command cmd, uint8_t datahigh, uint8_t datalow) {
+		ofRobotTrace("xySenddata::add") << "stepperID = " << stepperID << "cmd = " << cmd << "datahigh = " << datahigh << cmd << "datalow = " << datalow << std::endl;
+		set(stepperID, cmd);
+		set(stepperID + 1, datahigh);
+		set(stepperID + 2, datalow);
+	}
+
 	int ofRobotSerial::write(uint8_t* data, size_t count) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 
@@ -346,7 +364,7 @@ namespace RobotArtists {
 		return 0;
 	}
 
-	string xySenddata::dataName(int i) {
+	string xyDataToSend::dataName(int i) {
 		switch (i) {
 		case 0:
 			return " signature ";
@@ -412,7 +430,13 @@ namespace RobotArtists {
 
 		if (driver) {
 			for (auto& a : vectorOfCommands) {
-				sendToRobot(&a);
+				sendToRobot(&a); // send header
+				if (a.floatset) {
+					driver->sendFloat(a.f);
+				}
+				if (a.intset) {
+					driver->sendFloat(a.i);
+				}
 			}
 		}
 		vectorOfCommands.clear();

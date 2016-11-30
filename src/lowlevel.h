@@ -129,6 +129,8 @@ namespace RobotArtists {
 
 		string deviceName;
 
+		void sendFloat(float f);
+
 	protected:
 
 		int write(uint8_t* data, size_t count);
@@ -156,8 +158,10 @@ namespace RobotArtists {
 		void set(uint16_t high, uint16_t low, int val);
 		int get(int high, int low);
 
+
 		uint8_t lowByte(uint16_t a) { return a % 256; }
 		uint8_t highByte(uint16_t a) { return (a / 256) % 256; }
+
 		// basic commands common across all robots
 		uint8_t noCommand() { return 0; }
 
@@ -178,17 +182,32 @@ namespace RobotArtists {
 	*  byte 5 : data for stepper2 (high byte)
 	*  byte 6 : data for stepper2 (low byte)
 	*/
-	class xySenddata : public SerialData {
+	class xyDataToSend : public SerialData {
 	public:
-		xySenddata() : SerialData(7) { set(0, 0xee); }
+		enum Command : uint8_t { NoCommand, SignOn, SetPin = 1, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
+		enum Steppers : uint8_t { IDstepper1 = 0, IDstepper2 = 1 };
 
-		enum Command { NoCommand, SignOn, SetPin, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
-		enum Steppers { IDstepper1 = 1, IDstepper2 = 4 };
-		void add(Steppers stepperID, uint8_t cmd, uint8_t datahigh = 0, uint8_t datalow = 0) {
-			set(stepperID, cmd);
-			set(stepperID + 1, datahigh);
-			set(stepperID + 2, datalow);
+		xyDataToSend() : SerialData(3) { set(0, 0xee); }
+		xyDataToSend(Steppers stepperID, Command cmd);
+
+		// float is just between 0 and 1 (infinity to some) so its ok to treat it as an int16 (0 to -32k)
+		void add(Steppers stepperID, Command cmd, float f) {
+			this->f = f;
+			floatset = true;
+			addData(stepperID, cmd);
 		}
+		void add(Steppers stepperID, Command cmd, uint16_t i=0) {
+			this->i = i;
+			intset = true;
+			addData(stepperID, cmd, highByte(i), lowByte(i));
+		}
+		bool intset = false;
+		bool floatset = false;
+		float f;
+		int   i;
+
+	private:
+		void addData(Steppers stepperID, Command cmd, uint8_t datahigh=0, uint8_t datalow = 0);
 		virtual string dataName(int id);
 	};
 
@@ -276,10 +295,8 @@ namespace RobotArtists {
 			if (driver) {
 				driver->write(serial);
 				ofSleepMillis(100);// let things xfer then check on data
-				readResults();
 			}
 		}
-		virtual void readResults() {};
 		void setSerial(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
 		shared_ptr<ofRobotSerial>  driver;
 		void setName(const string&name) { this->name = name; }
@@ -295,13 +312,16 @@ namespace RobotArtists {
 		xyRobot() : iRobot() {  }
 		xyRobot(shared_ptr<ofRobotSerial>  driver):iRobot(driver) {  }
 
-		void add(const xySenddata& cmd) { vectorOfCommands.push_back(cmd); }
+		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
 
 		void draw();
 
+		static const uint16_t getMaxWidth() { return 2000; } // bugbug learn the right ranges
+		static const uint16_t getMaxHeight() { return 2000; }
+
 	protected:
 		void readResults();
-		vector<xySenddata> vectorOfCommands;
+		vector<xyDataToSend> vectorOfCommands;
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion

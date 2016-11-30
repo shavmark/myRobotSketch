@@ -484,9 +484,7 @@ namespace RobotArtists {
 			}
 			robotType robotType;
 			string robotName;
-			xySenddata data;
-			data.add(xySenddata::IDstepper1, xySenddata::SignOn);
-			maker->add(data);
+			maker->add(xyDataToSend(xyDataToSend::IDstepper1, xyDataToSend::SignOn)); // some drivers require a sign on
 			maker->draw();
 			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 25, 5))) {
 			
