@@ -129,14 +129,10 @@ namespace RobotArtists {
 
 		string deviceName;
 
-		void sendFloat(float f);
-		void sendInt(uint16_t i);
-
-	protected:
-
-		int write(uint8_t* data, size_t count);
+		int write(const string&str) { return write((uint8_t*)str.c_str(), str.size()); }
 
 	private:
+		int write(uint8_t* data, size_t count);
 		int maxRetries = 25;
 		int waitsleeptime = 100;
 	};
@@ -191,16 +187,18 @@ namespace RobotArtists {
 		xyDataToSend() : SerialData(3) { set(0, 0xee); }
 		xyDataToSend(Steppers stepperID, Command cmd);
 
-		void addInt(Steppers stepperID, Command cmd, uint16_t i=0) {
-			this->i = i;
-			intset = true;
-			addData(stepperID, cmd);
+		void setCommand(Steppers stepperID, Command cmd, int i) {
+			parameter = ofToString(i);
+			setCommand(stepperID, cmd);
 		}
-		bool intset = false;
-		int   i;
+		void setCommand(Steppers stepperID, Command cmd, float f) {
+			parameter = ofToString(f);
+			setCommand(stepperID, cmd);
+		}
+		string parameter; // optional command parameter
 
 	private:
-		void addData(Steppers stepperID, Command cmd);
+		void setCommand(Steppers stepperID, Command cmd);
 		virtual string dataName(int id);
 	};
 

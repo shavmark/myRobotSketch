@@ -272,17 +272,6 @@ namespace RobotArtists {
 		return devices;
 	}
 
-	//bugbug what is are we sending?
-	void ofRobotSerial::sendFloat(float f) {
-		// get access to the float as a byte-array:
-		write((uint8_t *)&f, sizeof(f));
-	}
-
-	void ofRobotSerial::sendInt(uint16_t i) {
-		// get access to the float as a byte-array:
-		write((uint8_t *)&i, sizeof(i));
-	}
-
 
 	void SerialData::trace() {
 		std::stringstream buffer;
@@ -292,10 +281,10 @@ namespace RobotArtists {
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
 	xyDataToSend::xyDataToSend(Steppers stepperID, Command cmd) : SerialData(3) {
-		addData(stepperID, cmd);
+		setCommand(stepperID, cmd);
 	}
 
-	void xyDataToSend::addData(Steppers stepperID, Command cmd) {
+	void xyDataToSend::setCommand(Steppers stepperID, Command cmd) {
 		ofRobotTrace("xySenddata::add") << "stepperID = " << stepperID << "cmd = " << cmd << std::endl;
 		set(0, 0xee); set(1, stepperID); set(2, cmd);
 	}
@@ -422,8 +411,8 @@ namespace RobotArtists {
 		if (driver) {
 			for (auto& a : vectorOfCommands) {
 				sendToRobot(&a); // send header
-				if (a.intset) {
-					driver->sendInt(a.i);
+				if (a.parameter.length() > 0) {
+					driver->write(a.parameter);
 				}
 			}
 		}
