@@ -130,6 +130,7 @@ namespace RobotArtists {
 		string deviceName;
 
 		void sendFloat(float f);
+		void sendInt(uint16_t i);
 
 	protected:
 
@@ -184,30 +185,22 @@ namespace RobotArtists {
 	*/
 	class xyDataToSend : public SerialData {
 	public:
-		enum Command : uint8_t { NoCommand, SignOn, SetPin = 1, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
+		enum Command : uint8_t { NoCommand, SignOn, SetPi, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
 		enum Steppers : uint8_t { IDstepper1 = 0, IDstepper2 = 1 };
 
 		xyDataToSend() : SerialData(3) { set(0, 0xee); }
 		xyDataToSend(Steppers stepperID, Command cmd);
 
-		// float is just between 0 and 1 (infinity to some) so its ok to treat it as an int16 (0 to -32k)
-		void add(Steppers stepperID, Command cmd, float f) {
-			this->f = f;
-			floatset = true;
-			addData(stepperID, cmd);
-		}
-		void add(Steppers stepperID, Command cmd, uint16_t i=0) {
+		void addInt(Steppers stepperID, Command cmd, uint16_t i=0) {
 			this->i = i;
 			intset = true;
-			addData(stepperID, cmd, highByte(i), lowByte(i));
+			addData(stepperID, cmd);
 		}
 		bool intset = false;
-		bool floatset = false;
-		float f;
 		int   i;
 
 	private:
-		void addData(Steppers stepperID, Command cmd, uint8_t datahigh=0, uint8_t datalow = 0);
+		void addData(Steppers stepperID, Command cmd);
 		virtual string dataName(int id);
 	};
 
@@ -315,12 +308,12 @@ namespace RobotArtists {
 		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
 
 		void draw();
+		void readResults();
 
 		static const uint16_t getMaxWidth() { return 2000; } // bugbug learn the right ranges
 		static const uint16_t getMaxHeight() { return 2000; }
 
 	protected:
-		void readResults();
 		vector<xyDataToSend> vectorOfCommands;
 	};
 

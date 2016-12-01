@@ -19,7 +19,7 @@ void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
 		xyDataToSend data;
-		data.add(xyDataToSend::IDstepper1, xyDataToSend::MoveTo, 0.5f);
+		data.addInt(xyDataToSend::IDstepper1, xyDataToSend::Move, 200);//bugbug enable both absolute values and percent of absolute
 		robot.makerbots[0]->add(data);
 	}
 	return;//just test xy for now

@@ -226,15 +226,12 @@ namespace RobotArtists {
 		return false;
 	}
 
-
-
 	robotType ofRobotSerial::waitForRobot(string& name, int retries, int packetsize) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
 
 		robotType type = createUndefinedRobotType();
 		uint8_t bytes[500];
 		
-
 		if (waitForSerial(retries)) {
 			// somethis is out there, see if we can ID it
 
@@ -264,7 +261,6 @@ namespace RobotArtists {
 				name += bytes[i];
 			}
 			ofRobotTrace() << "robot name " << name << std::endl;
-
 		}
 		return type;
 	}
@@ -279,9 +275,14 @@ namespace RobotArtists {
 	//bugbug what is are we sending?
 	void ofRobotSerial::sendFloat(float f) {
 		// get access to the float as a byte-array:
-		uint8_t * data = (uint8_t *)&f; //bugbug will this break as its binary and there are control chars?
-		write(data, sizeof(f));
+		write((uint8_t *)&f, sizeof(f));
 	}
+
+	void ofRobotSerial::sendInt(uint16_t i) {
+		// get access to the float as a byte-array:
+		write((uint8_t *)&i, sizeof(i));
+	}
+
 
 	void SerialData::trace() {
 		std::stringstream buffer;
@@ -290,15 +291,13 @@ namespace RobotArtists {
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
-	xyDataToSend::xyDataToSend(Steppers stepperID, Command cmd) : SerialData(3) { 
-		set(0, 0xee); set(1, stepperID); set(2, cmd); 
+	xyDataToSend::xyDataToSend(Steppers stepperID, Command cmd) : SerialData(3) {
+		addData(stepperID, cmd);
 	}
 
-	void xyDataToSend::addData(Steppers stepperID, Command cmd, uint8_t datahigh, uint8_t datalow) {
-		ofRobotTrace("xySenddata::add") << "stepperID = " << stepperID << "cmd = " << cmd << "datahigh = " << datahigh << cmd << "datalow = " << datalow << std::endl;
-		set(stepperID, cmd);
-		set(stepperID + 1, datahigh);
-		set(stepperID + 2, datalow);
+	void xyDataToSend::addData(Steppers stepperID, Command cmd) {
+		ofRobotTrace("xySenddata::add") << "stepperID = " << stepperID << "cmd = " << cmd << std::endl;
+		set(0, 0xee); set(1, stepperID); set(2, cmd);
 	}
 
 	int ofRobotSerial::write(uint8_t* data, size_t count) {
@@ -369,17 +368,9 @@ namespace RobotArtists {
 		case 0:
 			return " signature ";
 		case 1:
-			return " cmd stepper 1 ";
+			return " stepper index ";
 		case 2:
-			return " high byte stepper 1 ";
-		case 3:
-			return " low byte stepper 1 ";
-		case 4:
-			return " cmd stepper 2 ";
-		case 5:
-			return " high byte stepper 2 ";
-		case 6:
-			return " low byte stepper 2 ";
+			return " cmd ";
 		}
 		return "???";
 	}
@@ -431,11 +422,8 @@ namespace RobotArtists {
 		if (driver) {
 			for (auto& a : vectorOfCommands) {
 				sendToRobot(&a); // send header
-				if (a.floatset) {
-					driver->sendFloat(a.f);
-				}
 				if (a.intset) {
-					driver->sendFloat(a.i);
+					driver->sendInt(a.i);
 				}
 			}
 		}
@@ -450,7 +438,9 @@ namespace RobotArtists {
 				ofRobotTrace() << "xyRobot is ok" << std::endl;
 			}
 			else {
-				ofRobotTrace(TraceType::ErrorLog) << "xyRobot is NOT ok" << std::endl;
+				ofRobotTrace(TraceType::ErrorLog) << "xyRobot is NOT ok or there is spurious start update (all is good then)" << std::endl;
+				// read all existing data
+				getDriver()->flush();
 			}
 			data.trace();//bugbug not sure what to do here yet
 		}

@@ -439,6 +439,7 @@ namespace RobotArtists {
 
 		for (auto bot : makerbots) {
 			bot->draw();
+			bot->readResults();
 		}
 		
 		for (auto arm : arms) {
@@ -466,15 +467,16 @@ namespace RobotArtists {
 			if (device.getDeviceID() == 0) {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
-			shared_ptr<ofRobotSerial> serialdriver = make_shared<ofRobotSerial>();
 			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
 			int baudrate = 19200;
 			ofRobotTrace("FindAllMyElements") << "baud rate " << baudrate << device.getDeviceName().c_str();
-			
+
+			shared_ptr<ofRobotSerial> serialdriver = make_shared<ofRobotSerial>();
 			if (!serialdriver->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
 				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
 				return;
 			}
+
 			shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver); // move the driver over
 																				// port found, see what may be on it
 			// start with default mode
