@@ -439,6 +439,7 @@ namespace RobotArtists {
 
 		for (auto bot : makerbots) {
 			bot->draw();
+			ofSleepMillis(2000);
 			bot->readResults();
 		}
 		

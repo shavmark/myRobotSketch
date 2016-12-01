@@ -420,18 +420,15 @@ namespace RobotArtists {
 	}
 	void xyRobot::readResults() {
 		ofRobotTrace() << "read xyRobot " << std::endl;
-		xyGetdata data;
+		SerialData data(2); // resullts header
 		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
-			uint8_t chksum = getChkSum(data.data(), 1, data.size() - 2);
-			if (chksum == data[data.size() - 1]) {
-				ofRobotTrace() << "xyRobot is ok" << std::endl;
+			if (data[0] == 0xee) {
+				uint8_t bytes[255];
+				int readin = getDriver()->readLine(bytes, sizeof bytes);
+				ofRobotTrace() << "xyRobot readResults " << bytes << std::endl;
+				readin = getDriver()->readLine(bytes, sizeof bytes);
+				ofRobotTrace() << "xyRobot readResults " << bytes << std::endl;
 			}
-			else {
-				ofRobotTrace(TraceType::ErrorLog) << "xyRobot is NOT ok or there is spurious start update (all is good then)" << std::endl;
-				// read all existing data
-				getDriver()->flush();
-			}
-			data.trace();//bugbug not sure what to do here yet
 		}
 	}
 
