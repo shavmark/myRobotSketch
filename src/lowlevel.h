@@ -121,6 +121,7 @@ namespace RobotArtists {
 		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
 		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
 		int readLine(uint8_t* bytes, int bytesMax = 100);
+		int readLine(string &s);
 		vector <ofSerialDeviceInfo>& getDevices();
 
 		robotType waitForRobot(string& name, int retries, int packetsize=5);
@@ -179,26 +180,28 @@ namespace RobotArtists {
 	*  byte 5 : data for stepper2 (high byte)
 	*  byte 6 : data for stepper2 (low byte)
 	*/
+	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPi, MoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition };
 	class xyDataToSend : public SerialData {
 	public:
-		enum Command : uint8_t { NoCommand, SignOn, SetPi, MoveTo, Move, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition, };
 		enum Steppers : uint8_t { IDstepper1 = 0, IDstepper2 = 1 };
 
 		xyDataToSend() : SerialData(3) { set(0, 0xee); }
-		xyDataToSend(Steppers stepperID, Command cmd);
+		xyDataToSend(Steppers stepperID, XYCommands cmd);
 
-		void setCommand(Steppers stepperID, Command cmd, int i) {
+		void setCommand(Steppers stepperID, XYCommands cmd, int i) {
 			parameter = ofToString(i);
 			setCommand(stepperID, cmd);
 		}
-		void setCommand(Steppers stepperID, Command cmd, float f) {
+		void setCommand(Steppers stepperID, XYCommands cmd, float f) {
 			parameter = ofToString(f);
 			setCommand(stepperID, cmd);
 		}
+		void setCommand(Steppers stepperID, XYCommands cmd);
+		uint8_t getCommand() {	return at(2);	}
+
 		string parameter; // optional command parameter
 
 	private:
-		void setCommand(Steppers stepperID, Command cmd);
 		virtual string dataName(int id);
 	};
 
@@ -306,13 +309,14 @@ namespace RobotArtists {
 		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
 
 		void draw();
-		void readResults();
+		bool readResults(XYCommands cmd);
 
 		static const uint16_t getMaxWidth() { return 2000; } // bugbug learn the right ranges
 		static const uint16_t getMaxHeight() { return 2000; }
 
 	protected:
 		vector<xyDataToSend> vectorOfCommands;
+		int currentPosition = 0;
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion

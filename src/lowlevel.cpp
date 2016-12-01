@@ -63,6 +63,17 @@ namespace RobotArtists {
 		return "???";
 	}
 
+	int ofRobotSerial::readLine(string &s) {
+		uint8_t bytes[512]; // max size of a line, beyond this things get ignored
+		int c;
+		s.clear();
+		if ((c=readLine(bytes, sizeof bytes)) > 0) {
+			for (int i = 0; i < c; ++i) {
+				s += bytes[i];
+			}
+		}
+		return c;
+	}
 	int ofRobotSerial::readLine(uint8_t* bytes, int bytesMax)	{
 		if (!bytes) {
 			return 0;
@@ -280,11 +291,11 @@ namespace RobotArtists {
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
-	xyDataToSend::xyDataToSend(Steppers stepperID, Command cmd) : SerialData(3) {
+	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd) : SerialData(3) {
 		setCommand(stepperID, cmd);
 	}
 
-	void xyDataToSend::setCommand(Steppers stepperID, Command cmd) {
+	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd) {
 		ofRobotTrace("xySenddata::add") << "stepperID = " << stepperID << "cmd = " << cmd << std::endl;
 		set(0, 0xee); set(1, stepperID); set(2, cmd);
 	}
@@ -414,22 +425,44 @@ namespace RobotArtists {
 				if (a.parameter.length() > 0) {
 					driver->write(a.parameter);
 				}
+				readResults((XYCommands)a.getCommand());
 			}
 		}
 		vectorOfCommands.clear();
 	}
-	void xyRobot::readResults() {
-		ofRobotTrace() << "read xyRobot " << std::endl;
-		SerialData data(2); // resullts header
-		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
-			if (data[0] == 0xee) {
-				uint8_t bytes[255];
-				int readin = getDriver()->readLine(bytes, sizeof bytes);
-				ofRobotTrace() << "xyRobot readResults " << bytes << std::endl;
-				readin = getDriver()->readLine(bytes, sizeof bytes);
-				ofRobotTrace() << "xyRobot readResults " << bytes << std::endl;
-			}
+	// just echo results
+	bool xyRobot::readResults(XYCommands cmd) {
+
+		if (cmd == SignOn) {
+			return true; // leave the data alone, its not a command for us to parse
 		}
+		
+		ofRobotTrace() << "read xyRobot " << std::endl;
+		SerialData data(2); // results header
+		string s;
+
+		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
+			if (data[0] != 0xee) {
+				// all commands need this header
+				ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
+				return false;
+			}
+			else if (data[1] == GetCurrentPosition) {
+				if (getDriver()->readLine(s) > 0) {
+					currentPosition = ofToInt(s);
+				}
+				else {
+					return false;
+				}
+			}
+			else {
+				// no matter the input command ACK always echos
+				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
+				// readline for commands that send lines getDriver()->readLine(s);
+			}
+			return data[1] == cmd;
+		}
+		return false;
 	}
 
 	int SerialData::get(int high, int low) {

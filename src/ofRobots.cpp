@@ -439,8 +439,6 @@ namespace RobotArtists {
 
 		for (auto bot : makerbots) {
 			bot->draw();
-			ofSleepMillis(2000);
-			bot->readResults();
 		}
 		
 		for (auto arm : arms) {
@@ -487,7 +485,7 @@ namespace RobotArtists {
 			}
 			robotType robotType;
 			string robotName;
-			maker->add(xyDataToSend(xyDataToSend::IDstepper1, xyDataToSend::SignOn)); // some drivers require a sign on
+			maker->add(xyDataToSend(xyDataToSend::IDstepper1, SignOn)); // some drivers require a sign on
 			maker->draw();
 			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 25, 5))) {
 			
