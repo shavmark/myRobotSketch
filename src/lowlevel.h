@@ -188,7 +188,9 @@ namespace RobotArtists {
 
 		xyDataToSend();
 		xyDataToSend(Steppers stepperID, XYCommands cmd);
-
+		xyDataToSend(Steppers stepperID, XYCommands cmd, int);
+		xyDataToSend(XYCommands cmd, const ofVec2f& point);
+		
 		void setCommand(XYCommands cmd, const ofVec2f& point); // send to both
 		void setCommand(Steppers stepperID, XYCommands cmd, int i);
 		void setCommand(Steppers stepperID, XYCommands cmd, float f);
@@ -198,6 +200,7 @@ namespace RobotArtists {
 		SerialData* getData(Steppers stepperID) { return &steppers[stepperID]; }
 
 	private:
+		void init();
 		virtual string dataName(int id);
 		array<SerialData, 2> steppers; // x and y
 		array<string, 2> parameters; // x and y
@@ -303,14 +306,19 @@ namespace RobotArtists {
 	public:
 		xyRobot() : iRobot() {  }
 		xyRobot(shared_ptr<ofRobotSerial>  driver):iRobot(driver) {  }
-
-		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
-
 		void draw();
 		bool readResults(Steppers);
 
+		// value is 0 to 1 and all points in between
+		void add(Steppers stepper, XYCommands cmd, float value) { 
+			add(xyDataToSend(stepper, cmd, (int)(maxPositions[stepper] * value)));
+		} 
+		// point.x/y are 0 to 1 and all points in between
+		void add(XYCommands cmd, const ofVec2f& point);
+
 		uint16_t getMax(Steppers stepper) { return maxPositions[stepper]; } // bugbug learn the right ranges
 		uint16_t getPosition(Steppers stepper) { return currentPositions[stepper]; }
+		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
 
 	private:
 		vector<xyDataToSend> vectorOfCommands;

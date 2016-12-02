@@ -291,14 +291,25 @@ namespace RobotArtists {
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
-	xyDataToSend::xyDataToSend() { 
+	void xyDataToSend::init() {
 		steppers[0].resize(3);
 		steppers[1].resize(3);
+	}
+	xyDataToSend::xyDataToSend(XYCommands cmd, const ofVec2f& point) {
+		init();
+		setCommand(cmd, point);
+	}
+	xyDataToSend::xyDataToSend() {
+		init();
 		setCommand(IDstepperX, NoXYCommand);
 		setCommand(IDstepperY, NoXYCommand);
 	}
-
+	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd, int i) {
+		init();
+		setCommand(stepperID, cmd, i);
+	}
 	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd)  {
+		init();
 		setCommand(stepperID, cmd);
 	}
 	// send two commands, to X and to Y
@@ -317,10 +328,11 @@ namespace RobotArtists {
 	}
 
 	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd) {
-		ofRobotTrace("xySenddata::add") << "stepperID = " << stepperID << "cmd = " << cmd << std::endl;
+		ofRobotTrace() << "stepperID = " << stepperID << "cmd = " << cmd << std::endl;
 		steppers[stepperID].set(0, 0xee); 
 		steppers[stepperID].set(1, stepperID); 
 		steppers[stepperID].set(2, cmd);
+		ofRobotTrace() << "parameters [stepperID] " << parameters[stepperID] << stepperID << std::endl;
 	}
 
 	int ofRobotSerial::write(uint8_t* data, size_t count) {
@@ -490,7 +502,13 @@ namespace RobotArtists {
 		}
 		return false;
 	}
-
+	void xyRobot::add(XYCommands cmd, const ofVec2f& point) {
+		ofVec2f absolutePoint;
+		absolutePoint.x = (int)(maxPositions[IDstepperX] * point.x);
+		absolutePoint.y = (int)(maxPositions[IDstepperY] * point.y);
+		add(xyDataToSend(cmd, absolutePoint));
+		return;
+	}
 	int SerialData::get(int high, int low) {
 		return bytes_to_u16(at(high), at(low));
 	}
