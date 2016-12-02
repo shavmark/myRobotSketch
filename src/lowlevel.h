@@ -143,6 +143,7 @@ namespace RobotArtists {
 	public:
 		//bugbug go to shared pointer with inheritence
 		SerialData(int setsize) { resize(setsize); } //bugbug verify memset(data(), 0, size());  is not needed
+		SerialData() { }
 
 		virtual void setup() {};
 		virtual void update() { }
@@ -181,28 +182,25 @@ namespace RobotArtists {
 	*  byte 6 : data for stepper2 (low byte)
 	*/
 	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPi, MoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition };
-	class xyDataToSend : public SerialData {
+	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
+	class xyDataToSend  {
 	public:
-		enum Steppers : uint8_t { IDstepper1 = 0, IDstepper2 = 1 };
 
-		xyDataToSend() : SerialData(3) { set(0, 0xee); }
+		xyDataToSend();
 		xyDataToSend(Steppers stepperID, XYCommands cmd);
 
-		void setCommand(Steppers stepperID, XYCommands cmd, int i) {
-			parameter = ofToString(i);
-			setCommand(stepperID, cmd);
-		}
-		void setCommand(Steppers stepperID, XYCommands cmd, float f) {
-			parameter = ofToString(f);
-			setCommand(stepperID, cmd);
-		}
+		void setCommand(XYCommands cmd, const ofVec2f& point); // send to both
+		void setCommand(Steppers stepperID, XYCommands cmd, int i);
+		void setCommand(Steppers stepperID, XYCommands cmd, float f);
 		void setCommand(Steppers stepperID, XYCommands cmd);
-		uint8_t getCommand() {	return at(2);	}
-
-		string parameter; // optional command parameter
+		uint8_t getCommand(Steppers stepperID) {	return steppers[stepperID].at(2);	}
+		const string& getParameter(Steppers stepperID) { return parameters[stepperID]; }
+		SerialData* getData(Steppers stepperID) { return &steppers[stepperID]; }
 
 	private:
 		virtual string dataName(int id);
+		array<SerialData, 2> steppers; // x and y
+		array<string, 2> parameters; // x and y
 	};
 
 	/*	byte 0: 0xee
@@ -309,14 +307,15 @@ namespace RobotArtists {
 		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
 
 		void draw();
-		bool readResults(XYCommands cmd);
+		bool readResults(Steppers);
 
-		static const uint16_t getMaxWidth() { return 2000; } // bugbug learn the right ranges
-		static const uint16_t getMaxHeight() { return 2000; }
+		uint16_t getMax(Steppers stepper) { return maxPositions[stepper]; } // bugbug learn the right ranges
+		uint16_t getPosition(Steppers stepper) { return currentPositions[stepper]; }
 
-	protected:
+	private:
 		vector<xyDataToSend> vectorOfCommands;
-		int currentPosition = 0;
+		array<uint16_t, 2> currentPositions; // x and y
+		array<uint16_t, 2> maxPositions; // x and y
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion

@@ -18,12 +18,16 @@ void ofApp::setup() {
 void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
+		//bugbug enable both absolute values and percent of absolute
+
 		xyDataToSend data;
-		data.setCommand(xyDataToSend::IDstepper1, RobotArtists::XYMove, 500);//bugbug enable both absolute values and percent of absolute
+		data.setCommand(IDstepperX, RobotArtists::XYMove, 500);
 		robot.makerbots[0]->add(data);
-		data.setCommand(xyDataToSend::IDstepper1, RobotArtists::GetCurrentPosition);
+		data.setCommand(IDstepperX, RobotArtists::GetCurrentPosition);
 		robot.makerbots[0]->add(data);
-		data.setCommand(xyDataToSend::IDstepper1, RobotArtists::XYMove, -800);
+		data.setCommand(IDstepperX, RobotArtists::XYMove, -500);
+		robot.makerbots[0]->add(data);
+		data.setCommand(RobotArtists::XYMove, ofVec2f(400, 500));
 		robot.makerbots[0]->add(data);
 	}
 	return;//just test xy for now

@@ -291,18 +291,43 @@ namespace RobotArtists {
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
-	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd) : SerialData(3) {
+	xyDataToSend::xyDataToSend() { 
+		steppers[0].resize(3);
+		steppers[1].resize(3);
+		setCommand(IDstepperX, NoXYCommand);
+		setCommand(IDstepperY, NoXYCommand);
+	}
+
+	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd)  {
+		setCommand(stepperID, cmd);
+	}
+	// send two commands, to X and to Y
+	void xyDataToSend::setCommand(XYCommands cmd, const ofVec2f& point) {
+		setCommand(IDstepperX, cmd, point.x);
+		setCommand(IDstepperY, cmd, point.y);
+	}
+
+	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, int i) {
+		parameters[stepperID] = ofToString(i);
+		setCommand(stepperID, cmd);
+	}
+	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, float f) {
+		parameters[stepperID] = ofToString(f);
 		setCommand(stepperID, cmd);
 	}
 
 	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd) {
 		ofRobotTrace("xySenddata::add") << "stepperID = " << stepperID << "cmd = " << cmd << std::endl;
-		set(0, 0xee); set(1, stepperID); set(2, cmd);
+		steppers[stepperID].set(0, 0xee); 
+		steppers[stepperID].set(1, stepperID); 
+		steppers[stepperID].set(2, cmd);
 	}
 
 	int ofRobotSerial::write(uint8_t* data, size_t count) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
-
+		if (count <= 0) {
+			return 0;
+		}
 		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 		// no need to hurry packets so just want the minimum amount no matter what
 		ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
@@ -311,7 +336,6 @@ namespace RobotArtists {
 		ofRobotTrace() << "write sent = " << sent << std::endl;
 
 		return sent;
-
 	}
 
 	// read pose from robot after every move and setup, just report on it or ignore it
@@ -421,21 +445,19 @@ namespace RobotArtists {
 
 		if (driver) {
 			for (auto& a : vectorOfCommands) {
-				sendToRobot(&a); // send header
-				if (a.parameter.length() > 0) {
-					driver->write(a.parameter);
-				}
-				readResults((XYCommands)a.getCommand());
+				sendToRobot(a.getData(IDstepperX)); 
+				driver->write(a.getParameter(IDstepperX));
+				readResults(IDstepperX);
+
+				sendToRobot(a.getData(IDstepperY));
+				driver->write(a.getParameter(IDstepperY));
+				readResults(IDstepperY);
 			}
 		}
 		vectorOfCommands.clear();
 	}
 	// just echo results
-	bool xyRobot::readResults(XYCommands cmd) {
-
-		if (cmd == SignOn) {
-			return true; // leave the data alone, its not a command for us to parse
-		}
+	bool xyRobot::readResults(Steppers stepper) {
 		
 		ofRobotTrace() << "read xyRobot " << std::endl;
 		SerialData data(2); // results header
@@ -447,12 +469,17 @@ namespace RobotArtists {
 				ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
 				return false;
 			}
+			else if (data[1] == SignOn) {
+				getDriver()->readLine(s); // just read the x, y max info, left the rest to be compatable with other cards
+				maxPositions[IDstepperX] = ofToInt(s);
+				getDriver()->readLine(s); 
+				maxPositions[IDstepperY] = ofToInt(s);
+				return true;
+			}
 			else if (data[1] == GetCurrentPosition) {
 				if (getDriver()->readLine(s) > 0) {
-					currentPosition = ofToInt(s);
-				}
-				else {
-					return false;
+					currentPositions[stepper] = ofToInt(s);
+					return true;
 				}
 			}
 			else {
@@ -460,7 +487,6 @@ namespace RobotArtists {
 				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
 				// readline for commands that send lines getDriver()->readLine(s);
 			}
-			return data[1] == cmd;
 		}
 		return false;
 	}
