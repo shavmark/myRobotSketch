@@ -62,6 +62,16 @@ namespace RobotArtists {
 		}
 		return "???";
 	}
+	int ofRobotSerial::readInt() {
+		string s;
+		readLine(s);
+		return ofToInt(s);
+	}
+	float ofRobotSerial::readFloat() {
+		string s;
+		readLine(s);
+		return ofToFloat(s);
+	}
 
 	int ofRobotSerial::readLine(string &s) {
 		uint8_t bytes[512]; // max size of a line, beyond this things get ignored
@@ -452,28 +462,33 @@ namespace RobotArtists {
 			}
 		}
 	}
+	void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
+		if (data.getData(stepper)->isSetup()) {
+			ofRobotTrace() << "send xyRobot cmd" << data.getCommand(stepper) << " stepper " << stepper << std::endl;
+			sendToRobot(data.getData(stepper));
+			driver->write(data.getParameter(stepper));
+			// sign on is a special case, its compatable with other boards
+			if (data.getCommand(stepper) != SignOn) {
+				readResults(stepper);
+			}
+		}
+	}
 	void xyRobot::draw() {
 		ofRobotTrace() << "draw xyRobot" << name << std::endl;
 
 		if (driver) {
 			for (auto& a : vectorOfCommands) {
-				sendToRobot(a.getData(IDstepperX)); 
-				driver->write(a.getParameter(IDstepperX));
-				readResults(IDstepperX);
-
-				sendToRobot(a.getData(IDstepperY));
-				driver->write(a.getParameter(IDstepperY));
-				readResults(IDstepperY);
+				sendit(IDstepperX, a);
+				sendit(IDstepperY, a);
 			}
 		}
 		vectorOfCommands.clear();
 	}
 	// just echo results
 	bool xyRobot::readResults(Steppers stepper) {
-		
+
 		ofRobotTrace() << "read xyRobot " << std::endl;
 		SerialData data(2); // results header
-		string s;
 
 		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
 			if (data[0] != 0xee) {
@@ -481,18 +496,14 @@ namespace RobotArtists {
 				ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
 				return false;
 			}
-			else if (data[1] == SignOn) {
-				getDriver()->readLine(s); // just read the x, y max info, left the rest to be compatable with other cards
-				maxPositions[IDstepperX] = ofToInt(s);
-				getDriver()->readLine(s); 
-				maxPositions[IDstepperY] = ofToInt(s);
+			else if (data[1] == GetState) {
+				maxPositions[IDstepperX] = getDriver()->readInt(); // both values always returned for convience
+				maxPositions[IDstepperY] = getDriver()->readInt();
+				currentPositions[stepper] = getDriver()->readInt();
+				targetPositions[stepper] = getDriver()->readInt();
+				distanceToGo[stepper] = getDriver()->readInt();
+				speeds[stepper] = getDriver()->readFloat();
 				return true;
-			}
-			else if (data[1] == GetCurrentPosition) {
-				if (getDriver()->readLine(s) > 0) {
-					currentPositions[stepper] = ofToInt(s);
-					return true;
-				}
 			}
 			else {
 				// no matter the input command ACK always echos
@@ -695,6 +706,7 @@ namespace RobotArtists {
 	void SerialData::set(uint16_t offset, uint8_t b) {
 		ofRobotTrace() << "set SerialData[" << offset << "] = " << (uint16_t)b << std::endl;
 		at(offset) = b;
+		datasetup = true;
 	}
 
 	const string BotInfo::trace() {

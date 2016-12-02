@@ -503,6 +503,9 @@ namespace RobotArtists {
 				case MakerBotXY:
 					maker->setName(robotName);
 					maker->setType(robotType);
+					maker->add(xyDataToSend(IDstepperX, GetState));  
+					maker->add(xyDataToSend(IDstepperY, GetState));  
+					maker->draw();
 					makerbots.push_back(maker);
 					break;
 				}

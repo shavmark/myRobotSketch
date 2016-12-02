@@ -23,7 +23,7 @@ void ofApp::update() {
 		xyDataToSend data;
 		data.setCommand(IDstepperX, RobotArtists::XYMove, 500);
 		robot.makerbots[0]->add(data);
-		data.setCommand(IDstepperX, RobotArtists::GetCurrentPosition);
+		data.setCommand(IDstepperX, RobotArtists::GetState);
 		robot.makerbots[0]->add(data);
 		data.setCommand(IDstepperX, RobotArtists::XYMove, -500);
 		robot.makerbots[0]->add(data);

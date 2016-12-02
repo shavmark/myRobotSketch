@@ -122,6 +122,8 @@ namespace RobotArtists {
 		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
 		int readLine(uint8_t* bytes, int bytesMax = 100);
 		int readLine(string &s);
+		int readInt();
+		float readFloat();
 		vector <ofSerialDeviceInfo>& getDevices();
 
 		robotType waitForRobot(string& name, int retries, int packetsize=5);
@@ -166,10 +168,11 @@ namespace RobotArtists {
 
 		virtual void trace();
 		virtual string dataName(int id) { return "none"; };
-
+		bool isSetup() { return datasetup; }
 	protected:
 		void setChkSum(int index);
 	private:
+		bool datasetup = false;
 	};
 
 	/* data - 1 or 2 steppers defined in the data
@@ -181,7 +184,7 @@ namespace RobotArtists {
 	*  byte 5 : data for stepper2 (high byte)
 	*  byte 6 : data for stepper2 (low byte)
 	*/
-	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPi, MoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetDistanceToGo, GetTargetPositon, GetCurrentPosition };
+	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPin, MoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetState, Crash };
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
 	class xyDataToSend  {
 	public:
@@ -323,7 +326,11 @@ namespace RobotArtists {
 	private:
 		vector<xyDataToSend> vectorOfCommands;
 		array<uint16_t, 2> currentPositions; // x and y
+		array<uint16_t, 2> targetPositions; // x and y
+		array<uint16_t, 2> distanceToGo;
+		array<float, 2> speeds; // x and y
 		array<uint16_t, 2> maxPositions; // x and y
+		void sendit(Steppers stepper, xyDataToSend&data);
 	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
