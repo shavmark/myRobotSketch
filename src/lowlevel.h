@@ -198,16 +198,18 @@ namespace RobotArtists {
 	*/
 	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPin, XYMoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetState, Crash };
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
+
 	class xyDataToSend  {
 	public:
 
 		xyDataToSend();
 		xyDataToSend(Steppers stepperID, XYCommands cmd);
-		xyDataToSend(Steppers stepperID, XYCommands cmd, int);
+		xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t);
+		xyDataToSend(XYCommands cmd, int16_t x, int16_t y);
 		xyDataToSend(XYCommands cmd, const ofVec2f& point);
 		
 		void setCommand(XYCommands cmd, const ofVec2f& point); // send to both
-		void setCommand(Steppers stepperID, XYCommands cmd, int i);
+		void setCommand(Steppers stepperID, XYCommands cmd, int16_t i);
 		void setCommand(Steppers stepperID, XYCommands cmd, float f);
 		void setCommand(Steppers stepperID, XYCommands cmd);
 		uint8_t getCommand(Steppers stepperID) {	return steppers[stepperID].at(2);	}
@@ -311,33 +313,7 @@ namespace RobotArtists {
 
 		string name;
 	};
-	class xyRobot : public iRobot {
-	public:
-		xyRobot() : iRobot() {  }
-		xyRobot(shared_ptr<ofRobotSerial>  driver):iRobot(driver) {  }
-		void draw();
-		bool readResults(Steppers);
 
-		// value is 0 to 1 and all points in between
-		void add(Steppers stepper, XYCommands cmd, float value) { 
-			add(xyDataToSend(stepper, cmd, (int)(maxPositions[stepper] * value)));
-		} 
-		// point.x/y are 0 to 1 and all points in between
-		void add(XYCommands cmd, const ofVec2f& point);
-
-		uint16_t getMax(Steppers stepper) { return maxPositions[stepper]; } // bugbug learn the right ranges
-		uint16_t getPosition(Steppers stepper) { return currentPositions[stepper]; }
-		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
-
-	private:
-		vector<xyDataToSend> vectorOfCommands;
-		array<uint16_t, 2> currentPositions; // x and y
-		array<uint16_t, 2> targetPositions; // x and y
-		array<uint16_t, 2> distanceToGo;
-		array<float, 2> speeds; // x and y
-		array<uint16_t, 2> maxPositions; // x and y
-		void sendit(Steppers stepper, xyDataToSend&data);
-	};
 
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
 	class ofTrRobotArmInternals : public Pose, public iRobot {

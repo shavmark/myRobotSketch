@@ -30,16 +30,15 @@ namespace RobotArtists {
 		vector<string> thingsToSay;
 	};
 
-	#define NoRobotValue FLT_MAX
+#define NoRobotValue FLT_MAX
 	inline bool valueIsSet(float v) { return v != NoRobotValue; }
 
 	// positions are defined as % change of all range of joint, from the current position
 	// RobotPositions can only be 0.0 to +/- 1.0 (0 to +/- 100%)
 	class ofRobotPosition : public ofPoint {
 	public:
-		//=FLT_MAX means not set
 		ofRobotPosition(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue) { setPercents(xPercent, yPercent, zPercent); }
-		
+
 		void setPercents(float xPercent = NoRobotValue, float yPercent = NoRobotValue, float zPercent = NoRobotValue);
 		virtual void trace();
 
@@ -53,6 +52,38 @@ namespace RobotArtists {
 		bool validRange(float f);
 
 	};
+
+	class xyRobot : public iRobot {
+	public:
+		xyRobot() : iRobot() {  }
+		xyRobot(shared_ptr<ofRobotSerial>  driver) :iRobot(driver) {  }
+
+		void draw();
+		bool readResults(Steppers);
+
+		// value is 0 to 1 and all points in between
+		void add(Steppers stepper, XYCommands cmd, float value) {
+			add(xyDataToSend(stepper, cmd, (int)(maxPositions[stepper] * value)));
+		}
+		
+		void add(XYCommands cmd, int16_t x, int16_t y); // can move forward and backword via + and - values
+		// point.x/y are 0 to 1 and all points in between
+		void add(XYCommands cmd, const ofVec2f& point);
+		void circleMacro(float r);
+		uint16_t getMax(Steppers stepper) { return maxPositions[stepper]; } // bugbug learn the right ranges
+		uint16_t getPosition(Steppers stepper) { return currentPositions[stepper]; }
+		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
+
+	private:
+		vector<xyDataToSend> vectorOfCommands;
+		array<int16_t, 2> currentPositions; // x and y
+		array<int16_t, 2> targetPositions; // x and y
+		array<int16_t, 2> distanceToGo;
+		array<float, 2> speeds; // x and y
+		array<int16_t, 2> maxPositions; // x and y
+		void sendit(Steppers stepper, xyDataToSend&data);
+	};
+
 	// helper that masks position (x,y etc)
 	class ofRobotArmState : public ofRobotPosition {
 	public:

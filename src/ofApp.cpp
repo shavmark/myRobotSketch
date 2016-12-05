@@ -19,21 +19,15 @@ void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
 		//bugbug enable both absolute values and percent of absolute
-
+		robot.makerbots[0]->circleMacro(0.05f);
+		return;
+		
 		xyDataToSend data;
 		robot.makerbots[0]->add(RobotArtists::XYMoveTo, ofVec2f(0.5f, 0.5f));
 		robot.makerbots[0]->add(RobotArtists::XYMoveTo, ofVec2f(.2f, 0.2f));
 		robot.makerbots[0]->add(RobotArtists::XYMoveTo, ofVec2f(0.5f, 0.5f));
 		robot.makerbots[0]->add(RobotArtists::XYMoveTo, ofVec2f(.2f, 0.2f));
-		return;
-		data.setCommand(IDstepperX, RobotArtists::XYMove, 500);
-		robot.makerbots[0]->add(data);
-		data.setCommand(IDstepperX, RobotArtists::GetState);
-		robot.makerbots[0]->add(data);
-		data.setCommand(IDstepperX, RobotArtists::XYMove, -500);
-		robot.makerbots[0]->add(data);
-		data.setCommand(RobotArtists::XYMove, ofVec2f(400, 500));
-		robot.makerbots[0]->add(data);
+		
 	}
 	return;//just test xy for now
 	if (robot.arms.size() > 0) {

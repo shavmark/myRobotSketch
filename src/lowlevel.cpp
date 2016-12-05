@@ -170,6 +170,13 @@ namespace RobotArtists {
 		}
 		return readIn;
 	}
+	void iRobot::sendToRobot(SerialData *serial) {
+		if (driver) {
+			driver->write(serial);
+			ofSleepMillis(50);
+		}
+	}
+
 
 	// return true if ID packet is value
 	bool ofRobotSerial::idPacket(uint8_t *bytes, size_t size) {
@@ -317,9 +324,14 @@ namespace RobotArtists {
 		setCommand(IDstepperX, NoXYCommand);
 		setCommand(IDstepperY, NoXYCommand);
 	}
-	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd, int i) {
+	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t i) {
 		init();
 		setCommand(stepperID, cmd, i);
+	}
+	xyDataToSend::xyDataToSend(XYCommands cmd, int16_t x, int16_t y) {
+		init();
+		setCommand(IDstepperX, cmd, x);
+		setCommand(IDstepperY, cmd, y);
 	}
 	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd)  {
 		init();
@@ -331,7 +343,7 @@ namespace RobotArtists {
 		setCommand(IDstepperY, cmd, point.y);
 	}
 
-	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, int i) {
+	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, int16_t i) {
 		parameters[stepperID] = ofToString(i);
 		setCommand(stepperID, cmd);
 	}
@@ -341,11 +353,11 @@ namespace RobotArtists {
 	}
 
 	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd) {
-		ofRobotTrace() << "stepperID = " << stepperID << "cmd = " << cmd << std::endl;
+		ofRobotTrace() << "stepperID = " << (int)stepperID << "cmd = " << (int)cmd << std::endl;
 		steppers[stepperID].set(0, 0xee); 
 		steppers[stepperID].set(1, stepperID); 
 		steppers[stepperID].set(2, cmd);
-		ofRobotTrace() << "parameters [stepperID] " << parameters[stepperID] << stepperID << std::endl;
+		ofRobotTrace() << "parameters [stepperID] " << parameters[stepperID]  << std::endl;
 	}
 
 	int ofRobotSerial::write(uint8_t* data, size_t count) {
@@ -464,71 +476,6 @@ namespace RobotArtists {
 				}
 			}
 		}
-	}
-	void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
-		if (data.getData(stepper)->isSetup()) {
-			ofRobotTrace() << "send xyRobot cmd" << data.getCommand(stepper) << " stepper " << stepper << "parameters: " << data.getParameter(stepper) << std::endl;
-			sendToRobot(data.getData(stepper));
-			driver->write(data.getParameter(stepper));
-			// sign on is a special case, its compatable with other boards
-			if (data.getCommand(stepper) == GetState) {
-				readResults(stepper);
-			}
-		}
-	}
-	void xyRobot::draw() {
-		ofRobotTrace() << "draw xyRobot" << name << std::endl;
-
-		if (driver) {
-			for (auto& a : vectorOfCommands) {
-				sendit(IDstepperX, a);
-				sendit(IDstepperY, a);
-			}
-		}
-		vectorOfCommands.clear();
-	}
-	// just echo results
-	bool xyRobot::readResults(Steppers stepper) {
-
-		ofRobotTrace() << "read xyRobot " << std::endl;
-		SerialData data(2); // results header
-
-		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
-			if (data[0] != 0xee) {
-				// all commands need this header
-				ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
-				return false;
-			}
-			else if (data[1] == GetState) {
-				maxPositions[IDstepperX] = getDriver()->readInt16(); // both values always returned for convience
-				maxPositions[IDstepperY] = getDriver()->readInt16();
-				currentPositions[stepper] = getDriver()->readInt16();
-				targetPositions[stepper] = getDriver()->readInt16();
-				distanceToGo[stepper] = getDriver()->readInt16();
-				speeds[stepper] = getDriver()->readFloat();
-				return true;
-			}
-			else {
-				// no matter the input command ACK always echos
-				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
-				// readline for commands that send lines getDriver()->readLine(s);
-			}
-		}
-		return false;
-	}
-	void iRobot::sendToRobot(SerialData *serial) {
-		if (driver) {
-			driver->write(serial);
-			ofSleepMillis(50);
-		}
-	}
-
-	void xyRobot::add(XYCommands cmd, const ofVec2f& point) {
-		ofVec2f absolutePoint;
-		absolutePoint.x = (int)(maxPositions[IDstepperX] * point.x);
-		absolutePoint.y = (int)(maxPositions[IDstepperY] * point.y);
-		add(xyDataToSend(cmd, absolutePoint));
-		return;
 	}
 	int SerialData::get(int high, int low) {
 		return bytes_to_u16(at(high), at(low));

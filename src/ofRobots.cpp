@@ -281,8 +281,7 @@ namespace RobotArtists {
 	}
 
 	// create circle data
-	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, float r, uint8_t delta)
-	{
+	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, float r, uint8_t delta)	{
 		// do a move like OF does so drawing always starts at current
 		float slice = 2 * M_PI / 10;
 		for (int i = 0; i < 10; i++) {
@@ -512,4 +511,80 @@ namespace RobotArtists {
 			}
 		}
 	}
+}
+
+// create circle data, r is in percent (0.0 to 1.0)
+void xyRobot::circleMacro(float r) {
+	// do a move like OF does so drawing always starts at current
+	float slice = 2 * M_PI / 10;
+	float rX = r *getMax(IDstepperX);
+	float rY = r *getMax(IDstepperY);
+	for (int i = 0; i < 10; i++) {
+		float angle = slice * i;
+		float newX = rX * cos(angle);
+		float newY = rY * sin(angle);
+		ofRobotTrace() << newX << " " << newY << std::endl;
+		add(XYMove, newX, newY);
+	}
+}
+void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
+	if (data.getData(stepper)->isSetup()) {
+		ofRobotTrace() << "send xyRobot cmd" << (int)data.getCommand(stepper) << " stepper " << stepper << "parameters: " << data.getParameter(stepper) << std::endl;
+		sendToRobot(data.getData(stepper));
+		driver->write(data.getParameter(stepper));
+		// sign on is a special case, its compatable with other boards
+		if (data.getCommand(stepper) == GetState) {
+			readResults(stepper);
+		}
+	}
+}
+void xyRobot::draw() {
+	ofRobotTrace() << "draw xyRobot" << name << std::endl;
+
+	if (driver) {
+		for (auto& a : vectorOfCommands) {
+			sendit(IDstepperX, a);
+			sendit(IDstepperY, a);
+		}
+	}
+	vectorOfCommands.clear();
+}
+// just echo results
+bool xyRobot::readResults(Steppers stepper) {
+
+	ofRobotTrace() << "read xyRobot " << std::endl;
+	SerialData data(2); // results header
+
+	if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
+		if (data[0] != 0xee) {
+			// all commands need this header
+			ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
+			return false;
+		}
+		else if (data[1] == GetState) {
+			maxPositions[IDstepperX] = getDriver()->readInt16(); // both values always returned for convience
+			maxPositions[IDstepperY] = getDriver()->readInt16();
+			currentPositions[stepper] = getDriver()->readInt16();
+			targetPositions[stepper] = getDriver()->readInt16();
+			distanceToGo[stepper] = getDriver()->readInt16();
+			speeds[stepper] = getDriver()->readFloat();
+			return true;
+		}
+		else {
+			// no matter the input command ACK always echos
+			ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
+			// readline for commands that send lines getDriver()->readLine(s);
+		}
+	}
+	return false;
+}
+void xyRobot::add(XYCommands cmd, int16_t x, int16_t y) {
+	add(xyDataToSend(cmd, x, y));
+}
+void xyRobot::add(XYCommands cmd, const ofVec2f& point) {
+	ofVec2f absolutePoint;
+	absolutePoint.x = (int)(maxPositions[IDstepperX] * point.x);
+	absolutePoint.y = (int)(maxPositions[IDstepperY] * point.y);
+	add(xyDataToSend(cmd, absolutePoint));
+	return;
 }
