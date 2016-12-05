@@ -27,7 +27,7 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 
 namespace RobotArtists {
 
-	uint8_t getChkSum(uint8_t*data, int start = 1, int end = 15);
+	uint8_t getChkSum(uint8_t*data, size_t start = 1, size_t end = 15);
 
 	// from firmware IKM_BACKHOE not 100% supported
 	enum robotMode { IKM_IK3D_CARTESIAN, IKM_IK3D_CARTESIAN_90, IKM_CYLINDRICAL, IKM_CYLINDRICAL_90, IKM_BACKHOE, IKM_MAKERBOTXY, IKM_NOT_DEFINED };
@@ -117,18 +117,23 @@ namespace RobotArtists {
 		ofRobotSerial() {}
 
 		bool waitForSerial(int retries);
-		int write(SerialData *serial);
-		int readAllBytes(uint8_t* bytes, int bytesRequired = 5);
-		int readBytesWithoutWaitingForData(uint8_t* bytes, int bytesMax = 100);
-		int readLine(uint8_t* bytes, int bytesMax = 100);
-		int readLine(string &s);
-		int readInt();
+		size_t write(SerialData *serial);
+		size_t readAllBytes(uint8_t* bytes, size_t bytesRequired = 5);
+		size_t readBytesWithoutWaitingForData(uint8_t* bytes, size_t bytesMax = 100);
+		size_t readLine(uint8_t* bytes, size_t bytesMax = 100);
+		size_t readLine(string &s);
+		size_t readInt();
+
+		//bugbug OpenFrameworks uses int, not portable I believe but I assume they know what they are doing
+		size_t readBytesSizeT(uint8_t* bytes, size_t bytesRemaining) { return readBytes(bytes, (int)bytesRemaining); };
+		uint16_t readInt16() { return (uint16_t)readInt(); }
+
 		float readFloat();
 		vector <ofSerialDeviceInfo>& getDevices();
 
-		robotType waitForRobot(string& name, int retries, int packetsize=5);
-		bool idPacket(uint8_t *bytes, int size);
-		robotType IDResponsePacket(uint8_t *bytes, int count);
+		robotType waitForRobot(string& name, int retries, size_t packetsize=5);
+		bool idPacket(uint8_t *bytes, size_t size);
+		robotType IDResponsePacket(uint8_t *bytes, size_t size);
 
 		string deviceName;
 
@@ -175,6 +180,13 @@ namespace RobotArtists {
 		bool datasetup = false;
 	};
 
+	class XYSerialData : public SerialData {
+	public:
+		XYSerialData(int setsize) :SerialData(setsize) {  }
+		XYSerialData():SerialData(){ }
+		string dataName(int id);
+	};
+
 	/* data - 1 or 2 steppers defined in the data
 	*  byte 0 : 0xee - start of data packet
 	*  byte 1 : cmd for stepper1 (see enum Command)
@@ -184,7 +196,7 @@ namespace RobotArtists {
 	*  byte 5 : data for stepper2 (high byte)
 	*  byte 6 : data for stepper2 (low byte)
 	*/
-	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPin, MoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetState, Crash };
+	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPin, XYMoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetState, Crash };
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
 	class xyDataToSend  {
 	public:
@@ -200,12 +212,11 @@ namespace RobotArtists {
 		void setCommand(Steppers stepperID, XYCommands cmd);
 		uint8_t getCommand(Steppers stepperID) {	return steppers[stepperID].at(2);	}
 		const string& getParameter(Steppers stepperID) { return parameters[stepperID]; }
-		SerialData* getData(Steppers stepperID) { return &steppers[stepperID]; }
+		XYSerialData* getData(Steppers stepperID) { return &steppers[stepperID]; }
 
 	private:
 		void init();
-		virtual string dataName(int id);
-		array<SerialData, 2> steppers; // x and y
+		array<XYSerialData, 2> steppers; // x and y
 		array<string, 2> parameters; // x and y
 	};
 
@@ -289,12 +300,7 @@ namespace RobotArtists {
 		iRobot() {  driver = make_shared<ofRobotSerial>(); }
 		iRobot(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
 		shared_ptr<ofRobotSerial> getDriver() { return driver; }
-		void sendToRobot(SerialData *serial) {
-			if (driver) {
-				driver->write(serial);
-				ofSleepMillis(100);// let things xfer then check on data
-			}
-		}
+		void sendToRobot(SerialData *serial);
 		void setSerial(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
 		shared_ptr<ofRobotSerial>  driver;
 		void setName(const string&name) { this->name = name; }

@@ -18,6 +18,9 @@ along with myRobotSketch.If not, see <http://www.gnu.org/licenses/>.
 #include "ofApp.h"
 #include "ofutils.h"
 #include "lowlevel.h"
+
+//http://www.roborealm.com/help/API.php
+
 //http://biorobots.case.edu/wp-content/uploads/2014/12/IntroductiontoDynamixelMotorControlUsingtheArbotiX20141112-1.pdf
 namespace RobotArtists {
 
@@ -62,7 +65,7 @@ namespace RobotArtists {
 		}
 		return "???";
 	}
-	int ofRobotSerial::readInt() {
+	size_t ofRobotSerial::readInt() {
 		string s;
 		readLine(s);
 		return ofToInt(s);
@@ -73,9 +76,9 @@ namespace RobotArtists {
 		return ofToFloat(s);
 	}
 
-	int ofRobotSerial::readLine(string &s) {
+	size_t ofRobotSerial::readLine(string &s) {
 		uint8_t bytes[512]; // max size of a line, beyond this things get ignored
-		int c;
+		size_t c;
 		s.clear();
 		if ((c=readLine(bytes, sizeof bytes)) > 0) {
 			for (int i = 0; i < c; ++i) {
@@ -84,13 +87,13 @@ namespace RobotArtists {
 		}
 		return c;
 	}
-	int ofRobotSerial::readLine(uint8_t* bytes, int bytesMax)	{
+	size_t ofRobotSerial::readLine(uint8_t* bytes, size_t bytesMax)	{
 		if (!bytes) {
 			return 0;
 		}
 		// null data in case none is found we always return null termanted data
 		memset(bytes, 0, bytesMax);
-		int i = 0;
+		size_t i = 0;
 		for (; i < bytesMax; ++i) {
 			if (readAllBytes(&bytes[i], 1) == 1) {
 				if (bytes[i] == '\r') {
@@ -107,15 +110,15 @@ namespace RobotArtists {
 		
 		return i;
 	}
-	int ofRobotSerial::readBytesWithoutWaitingForData(uint8_t *bytes, int bytesMax) {
-		int result = 0;
+	size_t ofRobotSerial::readBytesWithoutWaitingForData(uint8_t *bytes, size_t bytesMax) {
+		size_t result = 0;
 		if (available() > 0) {
-			if ((result = readBytes(bytes, bytesMax)) == OF_SERIAL_ERROR) {
+			if ((result = readBytesSizeT(bytes, bytesMax)) == OF_SERIAL_ERROR) {
 				ofRobotTrace(ErrorLog) << "serial failed" << std::endl;
 				return 0;
 			}
 			while (result == OF_SERIAL_NO_DATA) {
-				result = readBytes(bytes, bytesMax);
+				result = readBytesSizeT(bytes, bytesMax);
 				if (result == OF_SERIAL_ERROR) {
 					ofRobotTrace(ErrorLog) << "serial failed" << std::endl;
 					return 0;
@@ -127,21 +130,21 @@ namespace RobotArtists {
 		}
 		return result;
 	}
-	int ofRobotSerial::readAllBytes(uint8_t *bytes, int bytesRequired) {
-		int readIn = 0;
+	size_t ofRobotSerial::readAllBytes(uint8_t *bytes, size_t bytesRequired) {
+		size_t readIn = 0;
 
 		if (bytes) {
 			memset(bytes, 0, bytesRequired); // keep data  clean
 			int tries = 0;
-			int bytesRemaining = bytesRequired;
+			size_t bytesRemaining = bytesRequired;
 			// loop until we've read everything
 			while (bytesRemaining > 0) {
 				// check for data
 				if (available() > 0) {
 					// try to read - note offset into the bytes[] array, this is so
 					// that we don't overwrite the bytes we already have
-					int bytesArrayOffset = bytesRequired - bytesRemaining;
-					int result = readBytes(&bytes[bytesArrayOffset], bytesRemaining);
+					size_t bytesArrayOffset = bytesRequired - bytesRemaining;
+					size_t result = readBytesSizeT(&bytes[bytesArrayOffset], bytesRemaining);
 					// check for error code
 					if (result == OF_SERIAL_ERROR) {
 						// something bad happened
@@ -169,7 +172,7 @@ namespace RobotArtists {
 	}
 
 	// return true if ID packet is value
-	bool ofRobotSerial::idPacket(uint8_t *bytes, int size) {
+	bool ofRobotSerial::idPacket(uint8_t *bytes, size_t size) {
 		ofRobotTrace() << "validate packet" << std::endl;
 		if (bytes[0] == 0xee || bytes[0] == 0xff) {
 			uint8_t chksum = getChkSum(bytes, 1, size - 2);
@@ -184,7 +187,7 @@ namespace RobotArtists {
 	}
 
 	// bool readOnly -- just read serial do not send request
-	robotType ofRobotSerial::IDResponsePacket(uint8_t *bytes, int count) {
+	robotType ofRobotSerial::IDResponsePacket(uint8_t *bytes, size_t count) {
 		if (!idPacket(bytes, count)) {
 			return robotType(IKM_NOT_DEFINED, unknownRobotType);
 		}
@@ -247,7 +250,7 @@ namespace RobotArtists {
 		return false;
 	}
 
-	robotType ofRobotSerial::waitForRobot(string& name, int retries, int packetsize) {
+	robotType ofRobotSerial::waitForRobot(string& name, int retries, size_t packetsize) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
 
 		robotType type = createUndefinedRobotType();
@@ -256,7 +259,7 @@ namespace RobotArtists {
 		if (waitForSerial(retries)) {
 			// somethis is out there, see if we can ID it
 
-			int readin = readAllBytes(bytes, packetsize);
+			size_t readin = readAllBytes(bytes, packetsize);
 			if (readin == packetsize) {
 				type = IDResponsePacket(bytes, packetsize);
 				if (type.first == IKM_NOT_DEFINED) {
@@ -377,13 +380,13 @@ namespace RobotArtists {
 		pose.setLowLevelY(registerNumber);
 		pose.setLowLevelZ(length);
 		
-		int sent = getDriver()->write(&pose);
+		size_t sent = getDriver()->write(&pose);
 		ofSleepMillis(33);
 
 		uint8_t data[500]; // could be lots of sperius data out there, unlikely but if it occurs we want to echo it
 		memset(data, 0, sizeof data);
 		uint16_t val = 0;
-		int readin = getDriver()->readAllBytes(data, 5);
+		size_t readin = getDriver()->readAllBytes(data, 5);
 		if (readin == 5 && data[0] == 255 && data[1] == getServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
@@ -400,7 +403,7 @@ namespace RobotArtists {
 		return 0;
 	}
 
-	int ofRobotSerial::write(SerialData*serial) {
+	size_t ofRobotSerial::write(SerialData*serial) {
 		if (serial) {
 			serial->update();
 			serial->trace();
@@ -409,7 +412,7 @@ namespace RobotArtists {
 		return 0;
 	}
 
-	string xyDataToSend::dataName(int i) {
+	string XYSerialData::dataName(int i) {
 		switch (i) {
 		case 0:
 			return " signature ";
@@ -444,10 +447,10 @@ namespace RobotArtists {
 		setLowLevelWristAngle(dataToSend, 0);
 		
 		getDriver()->flush();   // reset
-		int sent = getDriver()->write(this);
+		size_t sent = getDriver()->write(this);
 		ofSleepMillis(33);
 		uint8_t data[5];
-		int readin = getDriver()->readAllBytes(data, 5);
+		size_t readin = getDriver()->readAllBytes(data, 5);
 		if (readin == 5 && data[0] == 255 && data[1] == setServoRegisterCommand) {
 			uint8_t high = data[2];
 			uint8_t low = data[3];
@@ -464,11 +467,11 @@ namespace RobotArtists {
 	}
 	void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
 		if (data.getData(stepper)->isSetup()) {
-			ofRobotTrace() << "send xyRobot cmd" << data.getCommand(stepper) << " stepper " << stepper << std::endl;
+			ofRobotTrace() << "send xyRobot cmd" << data.getCommand(stepper) << " stepper " << stepper << "parameters: " << data.getParameter(stepper) << std::endl;
 			sendToRobot(data.getData(stepper));
 			driver->write(data.getParameter(stepper));
 			// sign on is a special case, its compatable with other boards
-			if (data.getCommand(stepper) != SignOn) {
+			if (data.getCommand(stepper) == GetState) {
 				readResults(stepper);
 			}
 		}
@@ -497,11 +500,11 @@ namespace RobotArtists {
 				return false;
 			}
 			else if (data[1] == GetState) {
-				maxPositions[IDstepperX] = getDriver()->readInt(); // both values always returned for convience
-				maxPositions[IDstepperY] = getDriver()->readInt();
-				currentPositions[stepper] = getDriver()->readInt();
-				targetPositions[stepper] = getDriver()->readInt();
-				distanceToGo[stepper] = getDriver()->readInt();
+				maxPositions[IDstepperX] = getDriver()->readInt16(); // both values always returned for convience
+				maxPositions[IDstepperY] = getDriver()->readInt16();
+				currentPositions[stepper] = getDriver()->readInt16();
+				targetPositions[stepper] = getDriver()->readInt16();
+				distanceToGo[stepper] = getDriver()->readInt16();
 				speeds[stepper] = getDriver()->readFloat();
 				return true;
 			}
@@ -513,6 +516,13 @@ namespace RobotArtists {
 		}
 		return false;
 	}
+	void iRobot::sendToRobot(SerialData *serial) {
+		if (driver) {
+			driver->write(serial);
+			ofSleepMillis(50);
+		}
+	}
+
 	void xyRobot::add(XYCommands cmd, const ofVec2f& point) {
 		ofVec2f absolutePoint;
 		absolutePoint.x = (int)(maxPositions[IDstepperX] * point.x);
@@ -758,9 +768,9 @@ namespace RobotArtists {
 			ECHO(trChecksum)
 	}
 	
-	uint8_t getChkSum(uint8_t*data, int start, int end) {
+	uint8_t getChkSum(uint8_t*data, size_t start, size_t end) {
 		uint16_t sum = 0;
-		for (int i = start; i <= end; ++i) {
+		for (size_t i = start; i <= end; ++i) {
 			sum += data[i];
 		}
 		uint16_t invertedChecksum = sum % 256;//isolate the lowest byte 8 or 16?
