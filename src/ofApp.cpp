@@ -11,6 +11,7 @@ void ofApp::draw(){
 void ofApp::setup() {
 
 	robot.setup();
+	robot.makerbots[0]->fill();
 
 }
 
@@ -18,15 +19,14 @@ void ofApp::setup() {
 void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
-		robot.makerbots[0]->center();
 		return;
 		
 		robot.makerbots[0]->circleMacro(0.05f);
 		xyDataToSend data;
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMoveTo, ofVec2f(0.5f, 0.5f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMoveTo, ofVec2f(.2f, 0.2f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMoveTo, ofVec2f(0.5f, 0.5f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMoveTo, ofVec2f(.2f, 0.2f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(0.5f, 0.5f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(.2f, 0.2f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(0.5f, 0.5f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(.2f, 0.2f));
 		
 	}
 	return;//just test xy for now

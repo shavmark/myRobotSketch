@@ -302,7 +302,10 @@ namespace RobotArtists {
 		buildDeviceList();
 		return devices;
 	}
-
+	// calc them every time
+	const XYparameters& xyDataToSend::getParameters(Steppers stepperID) {
+		return parameters[stepperID]; 
+	}
 
 	void SerialData::trace() {
 		std::stringstream buffer;
@@ -324,9 +327,9 @@ namespace RobotArtists {
 		setCommand(IDstepperX, NoXYCommand);
 		setCommand(IDstepperY, NoXYCommand);
 	}
-	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t i) {
+	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t steps) {
 		init();
-		setCommand(stepperID, cmd, i);
+		setCommand(stepperID, cmd, steps);
 	}
 	xyDataToSend::xyDataToSend(XYCommands cmd, int16_t x, int16_t y) {
 		init();
@@ -343,21 +346,24 @@ namespace RobotArtists {
 		setCommand(IDstepperY, cmd, point.y);
 	}
 
-	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, int16_t i) {
-		parameters[stepperID] = ofToString(i);
+	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, int16_t steps) {
+		parameters[stepperID].steps = steps;//bugbug figure out delay and the like
 		setCommand(stepperID, cmd);
 	}
-	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, float f) {
-		parameters[stepperID] = ofToString(f);
-		setCommand(stepperID, cmd);
+	void xyDataToSend::trace() {
+		parameters[IDstepperX].trace();
+		parameters[IDstepperY].trace();
+	}
+	void XYparameters::trace() const {
+		ofRobotTrace("XYparameters") << "dir = " << getDirection() << "steps = " << getSteps() << "delaytime = " << getDelay() << std::endl;
 	}
 
 	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd) {
-		ofRobotTrace() << "stepperID = " << (int)stepperID << "cmd = " << (int)cmd << std::endl;
+		ofRobotTrace() << "set command, stepperID = " << (int)stepperID << "cmd = " << (int)cmd << std::endl;
 		steppers[stepperID].set(0, 0xee); 
 		steppers[stepperID].set(1, stepperID); 
 		steppers[stepperID].set(2, cmd);
-		ofRobotTrace() << "parameters [stepperID] " << parameters[stepperID]  << std::endl;
+		trace();
 	}
 
 	int ofRobotSerial::write(uint8_t* data, size_t count) {

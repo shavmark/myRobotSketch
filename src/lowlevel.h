@@ -196,30 +196,42 @@ namespace RobotArtists {
 	*  byte 5 : data for stepper2 (high byte)
 	*  byte 6 : data for stepper2 (low byte)
 	*/
-	enum XYCommands : uint8_t { NoXYCommand, SignOn, SetPin, XYMoveTo, XYMove, Run, RunSpeed, SetMaxSpeed, SetAcceleration, SetSpeed, SetCurrentPosition, RunToPosition, RunSpeedToPosition, DisableOutputs, EnableOutputs, GetState, Crash };
+	enum XYCommands : uint8_t { NoXYCommand, SignOn, XYMove, GetState };
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
+
+	class XYparameters {
+	public:
+		int8_t dir = 0;
+		int8_t steps = 100;
+		int16_t delaytime = 800;
+
+		string getDirection() const { return ofToString(dir); }
+		string getSteps() const { return ofToString(steps); }
+		string getDelay()const { return ofToString(delaytime); }
+
+		void trace()const;
+	};
 
 	class xyDataToSend  {
 	public:
-
 		xyDataToSend();
 		xyDataToSend(Steppers stepperID, XYCommands cmd);
-		xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t);
+		xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t steps);
 		xyDataToSend(XYCommands cmd, int16_t x, int16_t y);
 		xyDataToSend(XYCommands cmd, const ofVec2f& point);
 		
+		void trace();
 		void setCommand(XYCommands cmd, const ofVec2f& point); // send to both
-		void setCommand(Steppers stepperID, XYCommands cmd, int16_t i);
-		void setCommand(Steppers stepperID, XYCommands cmd, float f);
+		void setCommand(Steppers stepperID, XYCommands cmd, int16_t steps);
 		void setCommand(Steppers stepperID, XYCommands cmd);
 		uint8_t getCommand(Steppers stepperID) {	return steppers[stepperID].at(2);	}
-		const string& getParameter(Steppers stepperID) { return parameters[stepperID]; }
+		const XYparameters& getParameters(Steppers stepperID);
 		XYSerialData* getData(Steppers stepperID) { return &steppers[stepperID]; }
 
 	private:
 		void init();
 		array<XYSerialData, 2> steppers; // x and y
-		array<string, 2> parameters; // x and y
+		array<XYparameters, 2> parameters; // x and y
 	};
 
 	/*	byte 0: 0xee

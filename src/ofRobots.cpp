@@ -451,6 +451,14 @@ namespace RobotArtists {
 		}
 	}
 
+	void xyRobot::setup() {
+		add(xyDataToSend(IDstepperX, GetState));
+		add(xyDataToSend(IDstepperY, GetState));
+		draw();
+	}
+	void xyRobot::update(Steppers stepperID,  xyDataToSend& data) {
+		sendit(stepperID, data);
+	}
 	void ofRobot::setup() {
 		
 		ofRobotTrace() << "setup robot" << name << std::endl;
@@ -484,8 +492,7 @@ namespace RobotArtists {
 			}
 			robotType robotType;
 			string robotName;
-			maker->add(xyDataToSend(IDstepperX, SignOn)); // some drivers require a sign on
-			maker->draw();
+			maker->update(IDstepperX, xyDataToSend(IDstepperX, SignOn));// some drivers require a sign on
 
 			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 25, 5))) {
 			
@@ -502,9 +509,7 @@ namespace RobotArtists {
 				case MakerBotXY:
 					maker->setName(robotName);
 					maker->setType(robotType);
-					maker->add(xyDataToSend(IDstepperX, GetState));  
-					maker->add(xyDataToSend(IDstepperY, GetState));  
-					maker->draw();
+					maker->setup();
 					makerbots.push_back(maker);
 					break;
 				}
@@ -636,10 +641,13 @@ void xyRobot::circleMacro(float r, float angle) {
 	}
 }
 void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
-	if (data.getData(stepper)->isSetup()) {
-		ofRobotTrace() << "send xyRobot cmd" << (int)data.getCommand(stepper) << " stepper " << stepper << "parameters: " << data.getParameter(stepper) << std::endl;
+	if (driver && data.getData(stepper)->isSetup()) {
+		ofRobotTrace() << "send xyRobot cmd" << (int)data.getCommand(stepper) << " stepper " << stepper  << std::endl;
+		data.getParameters(stepper).trace();
 		sendToRobot(data.getData(stepper));
-		driver->write(data.getParameter(stepper));
+		driver->write(data.getParameters(stepper).getDirection());
+		driver->write(data.getParameters(stepper).getSteps());
+		driver->write(data.getParameters(stepper).getDelay());
 		// sign on is a special case, its compatable with other boards
 		if (data.getCommand(stepper) == GetState) {
 			readResults(stepper);
@@ -657,7 +665,7 @@ void xyRobot::draw() {
 	}
 	vectorOfCommands.clear();
 }
-// just echo results
+// process results as needed
 bool xyRobot::readResults(Steppers stepper) {
 
 	ofRobotTrace() << "read xyRobot " << std::endl;
@@ -672,6 +680,7 @@ bool xyRobot::readResults(Steppers stepper) {
 		else if (data[1] == GetState) {
 			maxPositions[IDstepperX] = getDriver()->readInt16(); // both values always returned for convience
 			maxPositions[IDstepperY] = getDriver()->readInt16();
+			uint16_t id = getDriver()->readInt16();
 			currentPositions[stepper] = getDriver()->readInt16();
 			targetPositions[stepper] = getDriver()->readInt16();
 			distanceToGo[stepper] = getDriver()->readInt16();
@@ -689,6 +698,11 @@ bool xyRobot::readResults(Steppers stepper) {
 void xyRobot::add(XYCommands cmd, int16_t x, int16_t y) {
 	add(xyDataToSend(cmd, x, y));
 }
+
+void xyRobot::translate(int16_t x, int16_t y) { 
+	add(XYMove, x, y); 
+}
+
 void xyRobot::convertAndAdd(XYCommands cmd, const ofVec2f& point) {
 	ofVec2f absolutePoint;
 	absolutePoint.x = (int)(maxPositions[IDstepperX] * point.x);

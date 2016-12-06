@@ -58,6 +58,8 @@ namespace RobotArtists {
 		xyRobot() : iRobot() {  }
 		xyRobot(shared_ptr<ofRobotSerial>  driver) :iRobot(driver) {  }
 
+		void setup();
+		void update(Steppers stepperID, xyDataToSend&); // direct access, not put in vector
 		void draw();
 		bool readResults(Steppers);
 
@@ -83,11 +85,12 @@ namespace RobotArtists {
 		void rectangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle=0);
 		void triangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle = 0);
 		void polylineMacro(const vector<ofVec2f>&vector, float angle = 0);
-		void translate(int16_t x, int16_t y) { add(XYMoveTo, x, y); }; // ofTranslate
+		void translate(int16_t x, int16_t y); // ofTranslate
 		void center() { translate(getMax(IDstepperX)/2, getMax(IDstepperY)/2); }
+		void fill() { add(XYMove, getMax(IDstepperX), getMax(IDstepperY)); }
 		void rotate(const ofVec2f& center, float angle, ofVec2f& point);
 		void quadraticBezierMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle);
-		void setPosition(const ofVec2f& point) { convertAndAdd(XYMoveTo, point); }; // OF compatable
+		void setPosition(const ofVec2f& point) { convertAndAdd(XYMove, point); }; // OF compatable
 
 		uint16_t getMax(Steppers stepper) { return maxPositions[stepper]; } // bugbug learn the right ranges
 		uint16_t getPosition(Steppers stepper) { return currentPositions[stepper]; }
