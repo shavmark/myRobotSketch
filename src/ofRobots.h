@@ -98,10 +98,9 @@ namespace RobotArtists {
 
 	private:
 		vector<xyDataToSend> vectorOfCommands;
-		array<int16_t, 2> currentPositions; // x and y
-		array<int16_t, 2> targetPositions; // x and y
-		array<int16_t, 2> distanceToGo;
-		array<float, 2> speeds; // x and y
+		array<int16_t, 2> currentPositions; // x and ybugbug not managed yet
+		array<int16_t, 2> targetPositions; // x and y bugbug not managed yet
+		array<float, 2> speeds; // x and ybugbug not managed yet
 		array<int16_t, 2> maxPositions; // x and y
 		void sendit(Steppers stepper, xyDataToSend&data);
 		ofColor currentColor;

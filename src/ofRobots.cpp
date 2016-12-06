@@ -680,11 +680,6 @@ bool xyRobot::readResults(Steppers stepper) {
 		else if (data[1] == GetState) {
 			maxPositions[IDstepperX] = getDriver()->readInt16(); // both values always returned for convience
 			maxPositions[IDstepperY] = getDriver()->readInt16();
-			uint16_t id = getDriver()->readInt16();
-			currentPositions[stepper] = getDriver()->readInt16();
-			targetPositions[stepper] = getDriver()->readInt16();
-			distanceToGo[stepper] = getDriver()->readInt16();
-			speeds[stepper] = getDriver()->readFloat();
 			return true;
 		}
 		else {
