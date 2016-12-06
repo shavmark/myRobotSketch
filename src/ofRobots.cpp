@@ -512,19 +512,127 @@ namespace RobotArtists {
 		}
 	}
 }
+//bugbug need a fill command, setcolor, setpixel? and then tie xy to robot arm  , const ofColor& color
+void xyRobot::rotate(const ofVec2f& center, float angle, ofVec2f& point) {
+	if (!angle) {
+		return;
+	}
+	float s = sin(angle);
+	float c = cos(angle);
 
+	// translate point back to origin:
+	point.x -= center.x;
+	point.y -= center.y;
+
+	// rotate point
+	float xnew = point.x * c - point.y * s;
+	float ynew = point.x * s + point.y * c;
+
+	// translate point back:
+	point.x = xnew + center.x;
+	point.y = ynew + center.y;
+}
+
+void xyRobot::rectangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle){
+	lineMacro(point1, point2, angle);
+	lineMacro(point2, point3, angle);
+	lineMacro(point3, point4, angle);
+	lineMacro(point4, point1, angle);
+}
+void xyRobot::triangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle) {
+	lineMacro(point1, point2, angle);
+	lineMacro(point2, point3, angle);
+	lineMacro(point3, point1, angle);
+}
+void xyRobot::polylineMacro(const vector<ofVec2f>&vector, float angle) {
+	for (auto&a : vector) {
+		ofVec2f point(a.x, a.y);
+		rotate(ofVec2f(0, 0), angle, point);
+		convertAndAdd(XYMove, point);
+	}
+}
+// private helper
+int getPt(float n1, float n2, float perc){
+	return (n1 + ((n2 - n1) * perc));
+}
+//http://stackoverflow.com/questions/785097/how-do-i-implement-a-b%C3%A9zier-curve-in-c
+void xyRobot::quadraticBezierMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle) {
+	for (float f = 0.0f; f < 1.0f; f += 0.01f)	{
+		float xa = getPt(point1.x, point2.x, f);
+		float ya = getPt(point1.y, point2.y, f);
+		float xb = getPt(point2.x, point3.x, f);
+		float yb = getPt(point2.y, point3.y, f);
+		ofVec2f point(getPt(xa, xb, f), getPt(ya, yb, f));
+		convertAndAdd(XYMove, point); //bugbug let this convert to ints
+	}
+}
+// Bresenham's line algorithm started with http://rosettacode.org/wiki/Rosetta_Code
+void xyRobot::lineMacro(ofVec2f point1, ofVec2f point2, float angle){
+	bool steep = (fabs(point2.y - point1.y) > fabs(point2.x - point1.x));
+	if (steep)	{
+		std::swap(point1.x, point1.y);
+		std::swap(point2.x, point2.y);
+	}
+
+	if (point1.x > point2.x) {
+		std::swap(point1.x, point2.x);
+		std::swap(point1.y, point2.y);
+	}
+
+	float dx = point2.x - point1.x;
+	float dy = fabs(point2.y - point1.y);
+
+	float error = dx / 2.0f;
+	int ystep = (point1.y < point2.y) ? 1 : -1;
+	int y = (int)point1.y;
+
+	const int maxX = (int)point2.x;
+
+	for (int x = (int)point1.x; x<maxX; x++)	{
+		if (steep)	{
+			ofVec2f point(y, x); // invert
+			rotate(ofVec2f(0, 0), angle, point);
+			convertAndAdd(XYMove, point); 
+		}
+		else {
+			ofVec2f point(x, y);
+			rotate(ofVec2f(0, 0), angle, point);
+			convertAndAdd(XYMove, point);
+		}
+
+		error -= dy;
+		if (error < 0)		{
+			y += ystep;
+			error += dx;
+		}
+	}
+}
 // create circle data, r is in percent (0.0 to 1.0)
-void xyRobot::circleMacro(float r) {
+//bugbug switch to const ofVec2f& point
+void xyRobot::ellipseMacro(float width, float height, float angle) {
+	ofVec2f point;
+	for (point.y = -height; point.y <= height; point.y++) {
+		for (point.x = -width; point.x <= width; point.x++) {
+			if (point.x*point.x*height*height + point.y*point.y*width*width <= height*height*width*width) {
+				rotate(ofVec2f(0,0), angle, point);
+				convertAndAdd(XYMove, point); // converts
+			}
+		}
+	}
+}
+// create circle data, r is in percent (0.0 to 1.0)
+void xyRobot::circleMacro(float r, float angle) {
 	// do a move like OF does so drawing always starts at current
 	float slice = 2 * M_PI / 10;
 	float rX = r *getMax(IDstepperX);
 	float rY = r *getMax(IDstepperY);
 	for (int i = 0; i < 10; i++) {
 		float angle = slice * i;
-		float newX = rX * cos(angle);
-		float newY = rY * sin(angle);
-		ofRobotTrace() << newX << " " << newY << std::endl;
-		add(XYMove, newX, newY);
+		ofVec2f point;
+		point.x = rX * cos(angle);
+		point.y = rY * sin(angle);
+		rotate(ofVec2f(0, 0), angle, point);
+		convertAndAdd(XYMove, point);//bugbug points are just percents
 	}
 }
 void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
@@ -581,7 +689,7 @@ bool xyRobot::readResults(Steppers stepper) {
 void xyRobot::add(XYCommands cmd, int16_t x, int16_t y) {
 	add(xyDataToSend(cmd, x, y));
 }
-void xyRobot::add(XYCommands cmd, const ofVec2f& point) {
+void xyRobot::convertAndAdd(XYCommands cmd, const ofVec2f& point) {
 	ofVec2f absolutePoint;
 	absolutePoint.x = (int)(maxPositions[IDstepperX] * point.x);
 	absolutePoint.y = (int)(maxPositions[IDstepperY] * point.y);

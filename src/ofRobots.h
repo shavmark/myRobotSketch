@@ -68,8 +68,27 @@ namespace RobotArtists {
 		
 		void add(XYCommands cmd, int16_t x, int16_t y); // can move forward and backword via + and - values
 		// point.x/y are 0 to 1 and all points in between
-		void add(XYCommands cmd, const ofVec2f& point);
-		void circleMacro(float r);
+		void convertAndAdd(XYCommands cmd, const ofVec2f& point);
+		void setColor(const ofColor& color) { currentColor = color; } //bugbug this is big, needs to be designed
+		
+		void setFill(bool fill = true) {} // bugbug big, needs to be figured out
+		void setFillType() {} //bugbug big, needs to be figured, out things like Heavy, light, wait to dry etc
+		void spritz() {} // keep things moist
+		void getStrokeColor() {}
+		void setStrokeWidth() {}
+
+		void circleMacro(float r, float angle=0);
+		void ellipseMacro(float width, float height, float angle=0);
+		void lineMacro(ofVec2f point1, ofVec2f point2, float angle=0);
+		void rectangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle=0);
+		void triangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle = 0);
+		void polylineMacro(const vector<ofVec2f>&vector, float angle = 0);
+		void translate(int16_t x, int16_t y) { add(XYMoveTo, x, y); }; // ofTranslate
+		void center() { translate(getMax(IDstepperX)/2, getMax(IDstepperY)/2); }
+		void rotate(const ofVec2f& center, float angle, ofVec2f& point);
+		void quadraticBezierMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle);
+		void setPosition(const ofVec2f& point) { convertAndAdd(XYMoveTo, point); }; // OF compatable
+
 		uint16_t getMax(Steppers stepper) { return maxPositions[stepper]; } // bugbug learn the right ranges
 		uint16_t getPosition(Steppers stepper) { return currentPositions[stepper]; }
 		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
@@ -82,6 +101,7 @@ namespace RobotArtists {
 		array<float, 2> speeds; // x and y
 		array<int16_t, 2> maxPositions; // x and y
 		void sendit(Steppers stepper, xyDataToSend&data);
+		ofColor currentColor;
 	};
 
 	// helper that masks position (x,y etc)
