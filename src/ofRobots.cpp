@@ -452,10 +452,10 @@ namespace RobotArtists {
 	}
 
 	void xyRobot::setup() {
-		update(IDstepperX, xyDataToSend(IDstepperX, GetState));
+		update(xyDataToSend(GetState));
 	}
-	void xyRobot::update(Steppers stepperID,  xyDataToSend& data) {
-		sendit(stepperID, data);
+	void xyRobot::update(xyDataToSend& data) {
+		sendit(data);
 	}
 	void ofRobot::setup() {
 		
@@ -490,7 +490,7 @@ namespace RobotArtists {
 			}
 			robotType robotType;
 			string robotName;
-			maker->update(IDstepperX, xyDataToSend(IDstepperX, SignOn));// some drivers require a sign on
+			maker->update(xyDataToSend(SignOn));// some drivers require a sign on
 
 			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 25, 5))) {
 			
@@ -619,17 +619,24 @@ void xyRobot::circleMacro(float r, float angle) {
 		convertAndAdd(XYMove, point);//bugbug points are just percents
 	}
 }
-void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
-	if (driver && data.getData(stepper)->isSetup()) {
-		ofRobotTrace() << "send xyRobot cmd" << (int)data.getCommand(stepper) << " stepper " << stepper  << std::endl;
-		data.getParameters(stepper).trace();
-		sendToRobot(data.getData(stepper));
-		if (data.getCommand(stepper) != SignOn) {
-			if (data.getCommand(stepper) == XYMove) {
-				// send move data
-				driver->write(data.getParameters(stepper).getSteps());
+void xyRobot::sendit(xyDataToSend&data) {
+	if (driver && data.getData()->isSetup()) {
+		ofRobotTrace("xyRobot::sendit") << "cmdX:" << (int)data.getCommand(IDstepperX) << " cmdY:" << (int)data.getCommand(IDstepperY) << std::endl;
+		sendToRobot(data.getData());
+		if (data.getCommand(IDstepperX) != SignOn) {
+			string space;// separate from a possible Y
+			if (data.getCommand(IDstepperX) == XYMove) {
+				ofRobotTrace("xyRobot::sendit") << "X Steps:" << data.getParameters(IDstepperX).getSteps() << std::endl;
+				driver->write(data.getParameters(IDstepperX).getSteps());
+				space = " ";// separate from a possibly Y
+				driver->write(data.getParameters(IDstepperX).getSteps());
 			}
-			readResults(stepper, data.getCommand(stepper)); // waits for results bugbug put in a thread?
+			if (data.getCommand(IDstepperY) == XYMove) {
+				ofRobotTrace("xyRobot::sendit") << "Y Steps:" << data.getParameters(IDstepperY).getSteps() << std::endl;
+				driver->write(space);
+				driver->write(data.getParameters(IDstepperY).getSteps());
+			}
+			readResults(); // waits for results bugbug put in a thread?
 		}
 	}
 }
@@ -638,41 +645,43 @@ void xyRobot::draw() {
 
 	if (driver) {
 		for (auto& a : vectorOfCommands) {
-			sendit(IDstepperX, a);
-			sendit(IDstepperY, a);
+			sendit(a);
 		}
 	}
 	vectorOfCommands.clear();
 }
 // process results as needed
-bool xyRobot::readResults(Steppers stepper, uint8_t cmd) {
+bool xyRobot::readResults() {
 
 	ofRobotTrace() << "read xyRobot " << std::endl;
 	SerialData data(2); // results header
 	
-	//bugbug put in thread or such
+	//bugbug put in thread or such?
 	while (getDriver()->available() == 0)
 		;
 
-	if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
-		if (data[0] != 0xee) {
-			// all commands need this header
-			ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
-			return false;
-		}
-		else if (data[1] == GetState) {
-			maxPositions[IDstepperX] = getDriver()->readInt16(); // both values always returned for convience
-			maxPositions[IDstepperY] = getDriver()->readInt16();
-			return true;
-		}
-		else if (data[1] == XYMove) {
-			int steps = getDriver()->readInt16(); 
-			return true;
-		}
-		else {
-			// no matter the input command ACK always echos
-			ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
-			// readline for commands that send lines getDriver()->readLine(s);
+	while (getDriver()->available() > 0) {
+		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
+			if (data[0] != 0xee) {
+				// all commands need this header
+				ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
+				return false;
+			}
+			else if (data[1] == GetState) {
+				maxPositions[IDstepperX] = getDriver()->readInt32(); // both values always returned for convience
+				maxPositions[IDstepperY] = getDriver()->readInt32();
+				return true;
+			}
+			else if (data[1] == XYMove) {
+				int16_t port = getDriver()->readInt16();
+				int32_t steps = getDriver()->readInt32();
+				return true;
+			}
+			else {
+				// no matter the input command ACK always echos
+				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
+				// readline for commands that send lines getDriver()->readLine(s);
+			}
 		}
 	}
 	return false;
@@ -686,9 +695,9 @@ void xyRobot::translate(int16_t x, int16_t y) {
 }
 
 void xyRobot::convertAndAdd(XYCommands cmd, const ofVec2f& point) {
-	ofVec2f absolutePoint;
-	absolutePoint.x = (int)(maxPositions[IDstepperX] * point.x);
-	absolutePoint.y = (int)(maxPositions[IDstepperY] * point.y);
-	add(xyDataToSend(cmd, absolutePoint));
+	
+	int16_t x = (maxPositions[IDstepperX] * point.x);
+	int16_t y = (maxPositions[IDstepperY] * point.y);
+	add(xyDataToSend(cmd, x,y));
 	return;
 }

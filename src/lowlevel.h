@@ -126,7 +126,8 @@ namespace RobotArtists {
 
 		//bugbug OpenFrameworks uses int, not portable I believe but I assume they know what they are doing
 		size_t readBytesSizeT(uint8_t* bytes, size_t bytesRemaining) { return readBytes(bytes, (int)bytesRemaining); };
-		uint16_t readInt16() { return (uint16_t)readInt(); }
+		int16_t readInt16() { return (int16_t)readInt(); }
+		int32_t readInt32() { return (int32_t)readInt(); }
 
 		float readFloat();
 		vector <ofSerialDeviceInfo>& getDevices();
@@ -190,22 +191,17 @@ namespace RobotArtists {
 	/* data - 1 or 2 steppers defined in the data
 	*  byte 0 : 0xee - start of data packet
 	*  byte 1 : cmd for stepper1 (see enum Command)
-	*  byte 2 : data for stepper1 (high byte)
-	*  byte 3 : data for stepper1 (low byte)
 	*  byte 4 : cmd  for stepper2, NoCommand for none
-	*  byte 5 : data for stepper2 (high byte)
-	*  byte 6 : data for stepper2 (low byte)
+	* data follows in command order, command specific parsers used
 	*/
 	enum XYCommands : uint8_t { NoXYCommand, SignOn, XYMove, GetState };
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
 
 	class XYparameters {
 	public:
-		int16_t steps = 0;
-		int16_t delaytime = 800;
+		int32_t steps = 0;
 		 
 		string getSteps() const { return ofToString(steps); }
-		string getDelay()const { return ofToString(delaytime); }
 
 		void trace()const;
 	};
@@ -213,22 +209,18 @@ namespace RobotArtists {
 	class xyDataToSend  {
 	public:
 		xyDataToSend();
-		xyDataToSend(Steppers stepperID, XYCommands cmd);
-		xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t steps);
-		xyDataToSend(XYCommands cmd, int16_t x, int16_t y);
-		xyDataToSend(XYCommands cmd, const ofVec2f& point);
-		
+		xyDataToSend(XYCommands cmdX, XYCommands cmdY=NoXYCommand); // no parameters
+		xyDataToSend(XYCommands cmd, int32_t x, int32_t y=0); // one command, two values
+
 		void trace();
-		void setCommand(XYCommands cmd, const ofVec2f& point); // send to both
-		void setCommand(Steppers stepperID, XYCommands cmd, int16_t steps);
-		void setCommand(Steppers stepperID, XYCommands cmd);
-		uint8_t getCommand(Steppers stepperID) {	return steppers[stepperID].at(2);	}
+		void setCommand(XYCommands cmdX, XYCommands cmdY);
+		uint8_t getCommand(Steppers stepperID) {	return data.at(1+ stepperID);	}
 		const XYparameters& getParameters(Steppers stepperID);
-		XYSerialData* getData(Steppers stepperID) { return &steppers[stepperID]; }
+		XYSerialData* getData() { return &data; }
 
 	private:
 		void init();
-		array<XYSerialData, 2> steppers; // x and y
+		XYSerialData data;
 		array<XYparameters, 2> parameters; // x and y
 	};
 

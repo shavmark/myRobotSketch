@@ -59,15 +59,10 @@ namespace RobotArtists {
 		xyRobot(shared_ptr<ofRobotSerial>  driver) :iRobot(driver) {  }
 
 		void setup();
-		void update(Steppers stepperID, xyDataToSend&); // direct access, not put in vector
+		void update(xyDataToSend&); // direct access, not put in vector
 		void draw();
-		bool readResults(Steppers, uint8_t cmd);
+		bool readResults();
 
-		// value is 0 to 1 and all points in between
-		void add(Steppers stepper, XYCommands cmd, float value) {
-			add(xyDataToSend(stepper, cmd, (int)(maxPositions[stepper] * value)));
-		}
-		
 		void add(XYCommands cmd, int16_t x, int16_t y); // can move forward and backword via + and - values
 		// point.x/y are 0 to 1 and all points in between
 		void convertAndAdd(XYCommands cmd, const ofVec2f& point);
@@ -101,8 +96,8 @@ namespace RobotArtists {
 		array<int16_t, 2> currentPositions; // x and ybugbug not managed yet
 		array<int16_t, 2> targetPositions; // x and y bugbug not managed yet
 		array<float, 2> speeds; // x and ybugbug not managed yet
-		array<int16_t, 2> maxPositions; // x and y
-		void sendit(Steppers stepper, xyDataToSend&data);
+		array<int32_t, 2> maxPositions; // x and y
+		void sendit(xyDataToSend&data);
 		ofColor currentColor;
 	};
 

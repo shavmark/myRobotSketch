@@ -320,54 +320,39 @@ namespace RobotArtists {
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
 	void xyDataToSend::init() {
-		steppers[0].resize(3);
-		steppers[1].resize(3);
-	}
-	xyDataToSend::xyDataToSend(XYCommands cmd, const ofVec2f& point) {
-		init();
-		setCommand(cmd, point);
+		data.resize(3);
 	}
 	xyDataToSend::xyDataToSend() {
 		init();
-		setCommand(IDstepperX, NoXYCommand);
-		setCommand(IDstepperY, NoXYCommand);
+		setCommand(NoXYCommand, NoXYCommand);
 	}
-	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd, int16_t steps) {
+	// no parameters
+	xyDataToSend::xyDataToSend(XYCommands cmdX, XYCommands cmdY) {
 		init();
-		setCommand(stepperID, cmd, steps);
-	}
-	xyDataToSend::xyDataToSend(XYCommands cmd, int16_t x, int16_t y) {
-		init();
-		setCommand(IDstepperX, cmd, x);
-		setCommand(IDstepperY, cmd, y);
-	}
-	xyDataToSend::xyDataToSend(Steppers stepperID, XYCommands cmd)  {
-		init();
-		setCommand(stepperID, cmd);
-	}
-	// send two commands, to X and to Y
-	void xyDataToSend::setCommand(XYCommands cmd, const ofVec2f& point) {
-		setCommand(IDstepperX, cmd, point.x);
-		setCommand(IDstepperY, cmd, point.y);
+		setCommand(cmdX, cmdY);
 	}
 
-	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd, int16_t steps) {
-		parameters[stepperID].steps = steps;//bugbug figure out delay and the like
-		setCommand(stepperID, cmd);
+	// one command, two values
+	xyDataToSend::xyDataToSend(XYCommands cmd, int32_t x, int32_t y) {
+		init();
+		setCommand(cmd, cmd);
+		parameters[IDstepperX].steps = x;
+		parameters[IDstepperY].steps = y;
 	}
+
 	void xyDataToSend::trace() {
 		parameters[IDstepperX].trace();
 		parameters[IDstepperY].trace();
 	}
 	void XYparameters::trace() const {
-		ofRobotTrace("XYparameters") << "steps = " << getSteps() << "delaytime = " << getDelay() << std::endl;
+		ofRobotTrace("XYparameters") << "steps = " << getSteps() << std::endl;
 	}
 
-	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd) {
-		ofRobotTrace() << "set command, stepperID = " << (int)stepperID << "cmd = " << (int)cmd << std::endl;
-		steppers[stepperID].set(0, 0xee); 
-		steppers[stepperID].set(1, stepperID); 
-		steppers[stepperID].set(2, cmd);
+	void xyDataToSend::setCommand(XYCommands cmdX, XYCommands cmdY) {
+		ofRobotTrace() << "set cmdX = " << (int)cmdX << "cmdY = " << (int)cmdY << std::endl;
+		data.set(0, 0xee);
+		data.set(1, cmdX);
+		data.set(2, cmdY);
 		trace();
 	}
 
