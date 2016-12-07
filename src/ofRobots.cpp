@@ -452,9 +452,7 @@ namespace RobotArtists {
 	}
 
 	void xyRobot::setup() {
-		add(xyDataToSend(IDstepperX, GetState));
-		add(xyDataToSend(IDstepperY, GetState));
-		draw();
+		update(IDstepperX, xyDataToSend(IDstepperX, GetState));
 	}
 	void xyRobot::update(Steppers stepperID,  xyDataToSend& data) {
 		sendit(stepperID, data);
@@ -510,6 +508,7 @@ namespace RobotArtists {
 					maker->setName(robotName);
 					maker->setType(robotType);
 					maker->setup();
+					//maker->center();//bugbug too slow while debugging
 					makerbots.push_back(maker);
 					break;
 				}
@@ -538,16 +537,18 @@ void xyRobot::rotate(const ofVec2f& center, float angle, ofVec2f& point) {
 	point.y = ynew + center.y;
 }
 
-void xyRobot::rectangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle){
-	lineMacro(point1, point2, angle);
-	lineMacro(point2, point3, angle);
-	lineMacro(point3, point4, angle);
-	lineMacro(point4, point1, angle);
+void xyRobot::rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle){
+	ofVec2f point1(0, 0);//bugbug need more currency that this
+	lineToMacro(point2, angle);
+	lineToMacro(point3, angle);
+	lineToMacro(point4, angle);
+	lineToMacro(point1, angle);
 }
-void xyRobot::triangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle) {
-	lineMacro(point1, point2, angle);
-	lineMacro(point2, point3, angle);
-	lineMacro(point3, point1, angle);
+void xyRobot::triangleMacro(const ofVec2f& point2, const ofVec2f& point3, float angle) {
+	ofVec2f point1(0, 0);
+	lineToMacro(point2, angle);
+	lineToMacro(point3, angle);
+	lineToMacro(point1, angle);
 }
 void xyRobot::polylineMacro(const vector<ofVec2f>&vector, float angle) {
 	for (auto&a : vector) {
@@ -571,46 +572,24 @@ void xyRobot::quadraticBezierMacro(const ofVec2f& point1, const ofVec2f& point2,
 		convertAndAdd(XYMove, point); //bugbug let this convert to ints
 	}
 }
-// Bresenham's line algorithm started with http://rosettacode.org/wiki/Rosetta_Code
-void xyRobot::lineMacro(ofVec2f point1, ofVec2f point2, float angle){
-	bool steep = (fabs(point2.y - point1.y) > fabs(point2.x - point1.x));
-	if (steep)	{
-		std::swap(point1.x, point1.y);
-		std::swap(point2.x, point2.y);
+
+void xyRobot::lineToMacro(ofVec2f point2, float angle){
+	ofVec2f point1(0, 0);
+	float difX = point2.x - point1.x;
+	float difY = point2.y - point1.y;
+	float dist = abs(difX) + abs(difY);
+
+	float dx = difX / dist;
+	float dy = difY / dist;
+	float inc = dist / 3;
+	for (float i = inc; i <= dist; i += inc) {
+		float x = point1.x + dx * i;
+		float y = point1.y + dy * i;
+		ofVec2f point(x,y);
+		rotate(ofVec2f(0, 0), angle, point);
+		convertAndAdd(XYMove, point);
 	}
-
-	if (point1.x > point2.x) {
-		std::swap(point1.x, point2.x);
-		std::swap(point1.y, point2.y);
-	}
-
-	float dx = point2.x - point1.x;
-	float dy = fabs(point2.y - point1.y);
-
-	float error = dx / 2.0f;
-	int ystep = (point1.y < point2.y) ? 1 : -1;
-	int y = (int)point1.y;
-
-	const int maxX = (int)point2.x;
-
-	for (int x = (int)point1.x; x<maxX; x++)	{
-		if (steep)	{
-			ofVec2f point(y, x); // invert
-			rotate(ofVec2f(0, 0), angle, point);
-			convertAndAdd(XYMove, point); 
-		}
-		else {
-			ofVec2f point(x, y);
-			rotate(ofVec2f(0, 0), angle, point);
-			convertAndAdd(XYMove, point);
-		}
-
-		error -= dy;
-		if (error < 0)		{
-			y += ystep;
-			error += dx;
-		}
-	}
+	
 }
 // create circle data, r is in percent (0.0 to 1.0)
 //bugbug switch to const ofVec2f& point
@@ -645,12 +624,12 @@ void xyRobot::sendit(Steppers stepper, xyDataToSend&data) {
 		ofRobotTrace() << "send xyRobot cmd" << (int)data.getCommand(stepper) << " stepper " << stepper  << std::endl;
 		data.getParameters(stepper).trace();
 		sendToRobot(data.getData(stepper));
-		driver->write(data.getParameters(stepper).getDirection());
-		driver->write(data.getParameters(stepper).getSteps());
-		driver->write(data.getParameters(stepper).getDelay());
-		// sign on is a special case, its compatable with other boards
-		if (data.getCommand(stepper) == GetState) {
-			readResults(stepper);
+		if (data.getCommand(stepper) != SignOn) {
+			if (data.getCommand(stepper) == XYMove) {
+				// send move data
+				driver->write(data.getParameters(stepper).getSteps());
+			}
+			readResults(stepper, data.getCommand(stepper)); // waits for results bugbug put in a thread?
 		}
 	}
 }
@@ -666,10 +645,14 @@ void xyRobot::draw() {
 	vectorOfCommands.clear();
 }
 // process results as needed
-bool xyRobot::readResults(Steppers stepper) {
+bool xyRobot::readResults(Steppers stepper, uint8_t cmd) {
 
 	ofRobotTrace() << "read xyRobot " << std::endl;
 	SerialData data(2); // results header
+	
+	//bugbug put in thread or such
+	while (getDriver()->available() == 0)
+		;
 
 	if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
 		if (data[0] != 0xee) {
@@ -680,6 +663,10 @@ bool xyRobot::readResults(Steppers stepper) {
 		else if (data[1] == GetState) {
 			maxPositions[IDstepperX] = getDriver()->readInt16(); // both values always returned for convience
 			maxPositions[IDstepperY] = getDriver()->readInt16();
+			return true;
+		}
+		else if (data[1] == XYMove) {
+			int steps = getDriver()->readInt16(); 
 			return true;
 		}
 		else {

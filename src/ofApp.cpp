@@ -11,7 +11,6 @@ void ofApp::draw(){
 void ofApp::setup() {
 
 	robot.setup();
-	robot.makerbots[0]->fill();
 
 }
 
@@ -19,6 +18,7 @@ void ofApp::setup() {
 void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
+		robot.makerbots[0]->lineToMacro(ofVec2f(0.24f, 0.14f), 0.0f);
 		return;
 		
 		robot.makerbots[0]->circleMacro(0.05f);

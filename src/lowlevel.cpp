@@ -75,6 +75,11 @@ namespace RobotArtists {
 		readLine(s);
 		return ofToFloat(s);
 	}
+	size_t ofRobotSerial::writeLn(const string&str) { 
+		size_t size = write((uint8_t*)str.c_str(), str.size()); 
+		write((uint8_t*)"\r", 1);
+		return size; 
+	}
 
 	size_t ofRobotSerial::readLine(string &s) {
 		uint8_t bytes[512]; // max size of a line, beyond this things get ignored
@@ -355,7 +360,7 @@ namespace RobotArtists {
 		parameters[IDstepperY].trace();
 	}
 	void XYparameters::trace() const {
-		ofRobotTrace("XYparameters") << "dir = " << getDirection() << "steps = " << getSteps() << "delaytime = " << getDelay() << std::endl;
+		ofRobotTrace("XYparameters") << "steps = " << getSteps() << "delaytime = " << getDelay() << std::endl;
 	}
 
 	void xyDataToSend::setCommand(Steppers stepperID, XYCommands cmd) {
@@ -366,7 +371,7 @@ namespace RobotArtists {
 		trace();
 	}
 
-	int ofRobotSerial::write(uint8_t* data, size_t count) {
+	size_t ofRobotSerial::write(uint8_t* data, size_t count) {
 		// from http://learn.trossenrobotics.com/arbotix/arbotix-communication-controllers/31-arm-link-reference.html
 		if (count <= 0) {
 			return 0;
@@ -374,7 +379,7 @@ namespace RobotArtists {
 		//If you are sending packets at an interval, do not send them faster than 30hz(one packet every 33ms).
 		// no need to hurry packets so just want the minimum amount no matter what
 		ofSleepMillis(100); // 100 ms seems ok, to much less and we start to overrun bugbug is this true?  
-		int sent = writeBytes(data, (int)count);//bugbug of function should e size_t
+		size_t sent = writeBytes(data, (int)count);//bugbug of function should e size_t
 
 		ofRobotTrace() << "write sent = " << sent << std::endl;
 

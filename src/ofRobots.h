@@ -61,7 +61,7 @@ namespace RobotArtists {
 		void setup();
 		void update(Steppers stepperID, xyDataToSend&); // direct access, not put in vector
 		void draw();
-		bool readResults(Steppers);
+		bool readResults(Steppers, uint8_t cmd);
 
 		// value is 0 to 1 and all points in between
 		void add(Steppers stepper, XYCommands cmd, float value) {
@@ -81,9 +81,9 @@ namespace RobotArtists {
 
 		void circleMacro(float r, float angle=0);
 		void ellipseMacro(float width, float height, float angle=0);
-		void lineMacro(ofVec2f point1, ofVec2f point2, float angle=0);
-		void rectangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle=0);
-		void triangleMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle = 0);
+		void lineToMacro(ofVec2f point, float angle=0);
+		void rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle=0);
+		void triangleMacro(const ofVec2f& point2, const ofVec2f& point3, float angle = 0);
 		void polylineMacro(const vector<ofVec2f>&vector, float angle = 0);
 		void translate(int16_t x, int16_t y); // ofTranslate
 		void center() { translate(getMax(IDstepperX)/2, getMax(IDstepperY)/2); }
@@ -118,7 +118,7 @@ namespace RobotArtists {
 		void trace();
 	};
 
-	enum RobotCommand { None, Reset, Push, Pop, Move, LowLevelTest, RegressionTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo};// command and basic commands.  Derive object or create functions to create more commands
+	enum RobotCommand { None, Reset, Push, Pop, TrossenMove, LowLevelTest, RegressionTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo};// command and basic commands.  Derive object or create functions to create more commands
 
 	// high level interface to robot data data
 	class RobotArmCommandData {

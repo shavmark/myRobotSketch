@@ -137,10 +137,10 @@ namespace RobotArtists {
 
 		string deviceName;
 
-		int write(const string&str) { return write((uint8_t*)str.c_str(), str.size()); }
-
+		size_t write(const string&str) { return write((uint8_t*)str.c_str(), str.size()); }
+		size_t writeLn(const string&str);
 	private:
-		int write(uint8_t* data, size_t count);
+		size_t write(uint8_t* data, size_t count);
 		int maxRetries = 25;
 		int waitsleeptime = 100;
 	};
@@ -201,11 +201,9 @@ namespace RobotArtists {
 
 	class XYparameters {
 	public:
-		int8_t dir = 0;
-		int8_t steps = 100;
+		int16_t steps = 0;
 		int16_t delaytime = 800;
-
-		string getDirection() const { return ofToString(dir); }
+		 
 		string getSteps() const { return ofToString(steps); }
 		string getDelay()const { return ofToString(delaytime); }
 
@@ -245,8 +243,6 @@ namespace RobotArtists {
 		
 		virtual string dataName(int id);
 	};
-
-
 
 	// OF Free, Trossen specific so it can be used w/o openframeworks
 
