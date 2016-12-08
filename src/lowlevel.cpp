@@ -307,11 +307,6 @@ namespace RobotArtists {
 		buildDeviceList();
 		return devices;
 	}
-	// calc them every time
-	const XYparameters& xyDataToSend::getParameters(Steppers stepperID) {
-		return parameters[stepperID]; 
-	}
-
 	void SerialData::trace() {
 		std::stringstream buffer;
 		for (int i = 0; i < size(); ++i) {
@@ -324,20 +319,20 @@ namespace RobotArtists {
 	}
 	xyDataToSend::xyDataToSend() {
 		init();
-		setCommand(NoXYCommand, NoXYCommand);
+		setCommand(NoXYCommand);
 	}
 	// no parameters
-	xyDataToSend::xyDataToSend(XYCommands cmdX, XYCommands cmdY) {
+	xyDataToSend::xyDataToSend(XYCommands cmd) {
 		init();
-		setCommand(cmdX, cmdY);
+		setCommand(cmd);
 	}
 
 	// one command, two values
 	xyDataToSend::xyDataToSend(XYCommands cmd, int32_t x, int32_t y) {
 		init();
-		setCommand(cmd, cmd);
-		parameters[IDstepperX].steps = x;
-		parameters[IDstepperY].steps = y;
+		setCommand(cmd);
+		parameters.push_back(XYparameters(x));
+		parameters.push_back(XYparameters(y));
 	}
 
 	void xyDataToSend::trace() {
@@ -345,14 +340,13 @@ namespace RobotArtists {
 		parameters[IDstepperY].trace();
 	}
 	void XYparameters::trace() const {
-		ofRobotTrace("XYparameters") << "steps = " << getSteps() << std::endl;
+		ofRobotTrace("XYparameter") << "value = " << getValue() << std::endl;
 	}
 
-	void xyDataToSend::setCommand(XYCommands cmdX, XYCommands cmdY) {
-		ofRobotTrace() << "set cmdX = " << (int)cmdX << "cmdY = " << (int)cmdY << std::endl;
+	void xyDataToSend::setCommand(XYCommands cmd) {
+		ofRobotTrace() << "set cmd = " << (int)cmd << std::endl;
 		data.set(0, 0xee);
-		data.set(1, cmdX);
-		data.set(2, cmdY);
+		data.set(1, cmd);
 		trace();
 	}
 

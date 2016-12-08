@@ -23,10 +23,10 @@ void ofApp::update() {
 		
 //bugbug just add a command		robot.makerbots[0]->circleMacro(0.05f);
 		xyDataToSend data;
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(0.5f, 0.5f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(.2f, 0.2f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(0.5f, 0.5f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(.2f, 0.2f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(0.5f, 0.5f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(.2f, 0.2f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(0.5f, 0.5f));
+		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(.2f, 0.2f));
 		
 	}
 	return;//just test xy for now

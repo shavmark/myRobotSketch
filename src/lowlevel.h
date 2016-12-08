@@ -190,38 +190,40 @@ namespace RobotArtists {
 
 	/* data - 1 or 2 steppers defined in the data
 	*  byte 0 : 0xee - start of data packet
-	*  byte 1 : cmd for stepper1 (see enum Command)
-	*  byte 4 : cmd  for stepper2, NoCommand for none
+	*  byte 1 : cmd 
 	* data follows in command order, command specific parsers used
 	*/
-	enum XYCommands : uint8_t { NoXYCommand, SignOn, XYMove, GetState };
+	enum XYCommands : uint8_t { NoXYCommand, SignOn, GetState, xyMove, PolyLineBasic, PolyLineFancy, xyEllipse, xyCircle, xyLine, xyBezier };
+	
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
 
 	class XYparameters {
 	public:
-		int32_t steps = 0;
+		XYparameters(int32_t val = 0) { this->val = val; }
 		 
-		string getSteps() const { return ofToString(steps); }
+		string getValue() const { return ofToString(val); }
 
 		void trace()const;
+	private:
+		int32_t val;
+
 	};
 
 	class xyDataToSend  {
 	public:
 		xyDataToSend();
-		xyDataToSend(XYCommands cmdX, XYCommands cmdY=NoXYCommand); // no parameters
+		xyDataToSend(XYCommands cmd); // no parameters
 		xyDataToSend(XYCommands cmd, int32_t x, int32_t y=0); // one command, two values
 
 		void trace();
-		void setCommand(XYCommands cmdX, XYCommands cmdY);
-		uint8_t getCommand(Steppers stepperID) {	return data.at(1+ stepperID);	}
-		const XYparameters& getParameters(Steppers stepperID);
+		void setCommand(XYCommands cmd);
+		uint8_t getCommand() {	return data.at(1);	}
 		XYSerialData* getData() { return &data; }
+		vector<XYparameters> parameters;
 
 	private:
 		void init();
 		XYSerialData data;
-		array<XYparameters, 2> parameters; // x and y
 	};
 
 	/*	byte 0: 0xee

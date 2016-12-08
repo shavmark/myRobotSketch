@@ -540,29 +540,24 @@ void xyRobot::rotate(const ofVec2f& center, float angle, ofVec2f& point) {
 void xyRobot::rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle){
 	ofVec2f point1(0, 0);//bugbug need more currency that this
 	//bugbug use poly line here
-	add(XYMove, point2);
-	add(XYMove, -point2.x, -point2.y); // back to 0
-	add(XYMove, point4);
-	add(XYMove, point3);
-	add(XYMove, point2);
+	add(xyMove, point2);
+	add(xyMove, -point2.x, -point2.y); // back to 0
+	add(xyMove, point4);
+	add(xyMove, point3);
+	add(xyMove, point2);
 }
 void xyRobot::sendit(xyDataToSend&data) {
 	if (driver && data.getData()->isSetup()) {
-		ofRobotTrace("xyRobot::sendit") << "cmdX:" << (int)data.getCommand(IDstepperX) << " cmdY:" << (int)data.getCommand(IDstepperY) << std::endl;
+		ofRobotTrace("xyRobot::sendit") << "cmd:" << (int)data.getCommand() << std::endl;
 		sendToRobot(data.getData());
-		if (data.getCommand(IDstepperX) != SignOn) {
-			string space;// separate from a possible Y
-			if (data.getCommand(IDstepperX) == XYMove) {
-				ofRobotTrace("xyRobot::sendit") << "X Steps:" << data.getParameters(IDstepperX).getSteps() << std::endl;
-				driver->write(data.getParameters(IDstepperX).getSteps());
-				space = " ";// separate from a possibly Y
-				driver->write(data.getParameters(IDstepperX).getSteps());
-			}
-			if (data.getCommand(IDstepperY) == XYMove) {
-				ofRobotTrace("xyRobot::sendit") << "Y Steps:" << data.getParameters(IDstepperY).getSteps() << std::endl;
-				driver->write(space);
-				driver->write(data.getParameters(IDstepperY).getSteps());
-			}
+		string space;// separate from a possible Y
+		for (auto& parm : data.parameters) {
+			parm.trace();
+			driver->write(parm.getValue());
+			driver->write(space);
+			space = " ";// only put out a space if there is more than one parameter
+		}
+		if (data.getCommand() != SignOn) { // signon data is read by the common sign on code
 			readResults(); // waits for results bugbug put in a thread?
 		}
 	}
@@ -599,15 +594,15 @@ bool xyRobot::readResults() {
 				maxPositions[IDstepperY] = getDriver()->readInt32();
 				return true;
 			}
-			else if (data[1] == XYMove) {
+			else {
+				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
 				int16_t port = getDriver()->readInt16();
 				int32_t steps = getDriver()->readInt32();
-				return true;
-			}
-			else {
-				// no matter the input command ACK always echos
-				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
-				// readline for commands that send lines getDriver()->readLine(s);
+				int16_t direction = getDriver()->readInt16();
+				port = getDriver()->readInt16();
+				steps = getDriver()->readInt32();
+				direction = getDriver()->readInt16();
+				return true; //bugbug too much data to echo once things are working
 			}
 		}
 	}
@@ -618,7 +613,7 @@ void xyRobot::add(XYCommands cmd, int32_t x, int32_t y) {
 }
 
 void xyRobot::translate(int32_t x, int32_t y) {
-	add(XYMove, x, y); 
+	add(xyMove, x, y);
 }
 
 void xyRobot::convertAndAdd(XYCommands cmd, const ofVec2f& point) {
