@@ -536,88 +536,15 @@ void xyRobot::rotate(const ofVec2f& center, float angle, ofVec2f& point) {
 	point.x = xnew + center.x;
 	point.y = ynew + center.y;
 }
-
+// create a line to function then use it here, that way driver just needs to do the basics
 void xyRobot::rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle){
 	ofVec2f point1(0, 0);//bugbug need more currency that this
-	lineToMacro(point2, angle);
-	lineToMacro(point3, angle);
-	lineToMacro(point4, angle);
-	lineToMacro(point1, angle);
-}
-void xyRobot::triangleMacro(const ofVec2f& point2, const ofVec2f& point3, float angle) {
-	ofVec2f point1(0, 0);
-	lineToMacro(point2, angle);
-	lineToMacro(point3, angle);
-	lineToMacro(point1, angle);
-}
-void xyRobot::polylineMacro(const vector<ofVec2f>&vector, float angle) {
-	for (auto&a : vector) {
-		ofVec2f point(a.x, a.y);
-		rotate(ofVec2f(0, 0), angle, point);
-		convertAndAdd(XYMove, point);
-	}
-}
-// private helper
-int getPt(float n1, float n2, float perc){
-	return (n1 + ((n2 - n1) * perc));
-}
-//http://stackoverflow.com/questions/785097/how-do-i-implement-a-b%C3%A9zier-curve-in-c
-void xyRobot::quadraticBezierMacro(const ofVec2f& point1, const ofVec2f& point2, const ofVec2f& point3, float angle) {
-	for (float f = 0.0f; f < 1.0f; f += 0.01f)	{
-		float xa = getPt(point1.x, point2.x, f);
-		float ya = getPt(point1.y, point2.y, f);
-		float xb = getPt(point2.x, point3.x, f);
-		float yb = getPt(point2.y, point3.y, f);
-		ofVec2f point(getPt(xa, xb, f), getPt(ya, yb, f));
-		convertAndAdd(XYMove, point); //bugbug let this convert to ints
-	}
-}
-
-void xyRobot::lineToMacro(ofVec2f point2, float angle){
-	ofVec2f point1(0, 0);
-	float difX = point2.x - point1.x;
-	float difY = point2.y - point1.y;
-	float dist = abs(difX) + abs(difY);
-
-	float dx = difX / dist;
-	float dy = difY / dist;
-	float inc = dist / 3;
-	for (float i = inc; i <= dist; i += inc) {
-		float x = point1.x + dx * i;
-		float y = point1.y + dy * i;
-		ofVec2f point(x,y);
-		rotate(ofVec2f(0, 0), angle, point);
-		convertAndAdd(XYMove, point);
-	}
-	
-}
-// create circle data, r is in percent (0.0 to 1.0)
-//bugbug switch to const ofVec2f& point
-void xyRobot::ellipseMacro(float width, float height, float angle) {
-	ofVec2f point;
-	for (point.y = -height; point.y <= height; point.y++) {
-		for (point.x = -width; point.x <= width; point.x++) {
-			if (point.x*point.x*height*height + point.y*point.y*width*width <= height*height*width*width) {
-				rotate(ofVec2f(0,0), angle, point);
-				convertAndAdd(XYMove, point); // converts
-			}
-		}
-	}
-}
-// create circle data, r is in percent (0.0 to 1.0)
-void xyRobot::circleMacro(float r, float angle) {
-	// do a move like OF does so drawing always starts at current
-	float slice = 2 * M_PI / 10;
-	float rX = r *getMax(IDstepperX);
-	float rY = r *getMax(IDstepperY);
-	for (int i = 0; i < 10; i++) {
-		float angle = slice * i;
-		ofVec2f point;
-		point.x = rX * cos(angle);
-		point.y = rY * sin(angle);
-		rotate(ofVec2f(0, 0), angle, point);
-		convertAndAdd(XYMove, point);//bugbug points are just percents
-	}
+	//bugbug use poly line here
+	add(XYMove, point2);
+	add(XYMove, -point2.x, -point2.y); // back to 0
+	add(XYMove, point4);
+	add(XYMove, point3);
+	add(XYMove, point2);
 }
 void xyRobot::sendit(xyDataToSend&data) {
 	if (driver && data.getData()->isSetup()) {
@@ -686,18 +613,18 @@ bool xyRobot::readResults() {
 	}
 	return false;
 }
-void xyRobot::add(XYCommands cmd, int16_t x, int16_t y) {
+void xyRobot::add(XYCommands cmd, int32_t x, int32_t y) {
 	add(xyDataToSend(cmd, x, y));
 }
 
-void xyRobot::translate(int16_t x, int16_t y) { 
+void xyRobot::translate(int32_t x, int32_t y) {
 	add(XYMove, x, y); 
 }
 
 void xyRobot::convertAndAdd(XYCommands cmd, const ofVec2f& point) {
 	
-	int16_t x = (maxPositions[IDstepperX] * point.x);
-	int16_t y = (maxPositions[IDstepperY] * point.y);
+	int16_t x = convertX(point.x);
+	int16_t y = convertY(point.y);
 	add(xyDataToSend(cmd, x,y));
 	return;
 }

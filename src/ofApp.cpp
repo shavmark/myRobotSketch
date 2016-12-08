@@ -18,10 +18,10 @@ void ofApp::setup() {
 void ofApp::update() {
 	
 	if (robot.makerbots.size() > 0) {
-		robot.makerbots[0]->lineToMacro(ofVec2f(0.24f, 0.14f), 0.0f);
+		//bugbug line commmand robot.makerbots[0]->lineToMacro(ofVec2f(0.24f, 0.14f), 0.0f);
 		return;
 		
-		robot.makerbots[0]->circleMacro(0.05f);
+//bugbug just add a command		robot.makerbots[0]->circleMacro(0.05f);
 		xyDataToSend data;
 		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(0.5f, 0.5f));
 		robot.makerbots[0]->convertAndAdd(RobotArtists::XYMove, ofVec2f(.2f, 0.2f));
