@@ -314,39 +314,26 @@ namespace RobotArtists {
 		}
 		ofRobotTrace() << buffer.str() << std::endl;
 	}
-	void xyDataToSend::init() {
-		data.resize(3);
-	}
-	xyDataToSend::xyDataToSend() {
-		init();
-		setCommand(NoXYCommand);
-	}
-	// no parameters
-	xyDataToSend::xyDataToSend(XYCommands cmd) {
-		init();
-		setCommand(cmd);
-	}
-
 	// one command, two values
-	xyDataToSend::xyDataToSend(XYCommands cmd, int32_t x, int32_t y) {
-		init();
+	xyDataToSend::xyDataToSend(XYCommands cmd, float x, float y):SerialData(2) {
 		setCommand(cmd);
-		parameters.push_back(XYparameters(x));
-		parameters.push_back(XYparameters(y));
+		parameters.push_back(XYparameter(x));
+		parameters.push_back(XYparameter(y));
 	}
 
 	void xyDataToSend::trace() {
-		parameters[IDstepperX].trace();
-		parameters[IDstepperY].trace();
+		ofRobotTrace("xyDataToSend") << "cmd = " << (int)getCommand() << std::endl;
+		for (auto&a : parameters) {
+			a.trace();
+		}
 	}
-	void XYparameters::trace() const {
+	void XYparameter::trace() const {
 		ofRobotTrace("XYparameter") << "value = " << getValue() << std::endl;
 	}
 
 	void xyDataToSend::setCommand(XYCommands cmd) {
-		ofRobotTrace() << "set cmd = " << (int)cmd << std::endl;
-		data.set(0, 0xee);
-		data.set(1, cmd);
+		set(0, 0xee);
+		set(1, cmd);
 		trace();
 	}
 
@@ -414,32 +401,7 @@ namespace RobotArtists {
 		return 0;
 	}
 
-	string XYSerialData::dataName(int i) {
-		switch (i) {
-		case 0:
-			return " signature ";
-		case 1:
-			return " stepper index ";
-		case 2:
-			return " cmd ";
-		}
-		return "???";
-	}
-	string xyGetdata::dataName(int i) {
-		switch (i) {
-		case 0:
-			return " signature ";
-		case 1:
-			return " data1 ";
-		case 2:
-			return " data2  ";
-		case 3:
-			return " cmd ";
-		case 4:
-			return " chksum ";
-		}
-		return "???";
-	}
+	
 	// length == 2 for ax12SetRegister2
 	void ofTrRobotArmInternals::setServoRegister(TrossenServoIDs id, AXRegisters registerNumber, int length, int dataToSend) {
 		setLowLevelCommand(setServoRegisterCommand);

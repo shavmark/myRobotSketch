@@ -452,7 +452,6 @@ namespace RobotArtists {
 	}
 
 	void xyRobot::setup() {
-		update(xyDataToSend(GetState));
 	}
 	void xyRobot::update(xyDataToSend& data) {
 		sendit(data);
@@ -546,20 +545,61 @@ void xyRobot::rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const
 	add(xyMove, point3);
 	add(xyMove, point2);
 }
+
+void xyRobot::add(XYCommands cmd, const vector<ofVec2f>& points) {
+	xyDataToSend data(cmd);
+	if (cmd == PolyLineStream || cmd == PolyLineFancy) {
+		data.parameters.push_back(points.size()*2); // function has a variable parameter list started by parm count
+	}
+	for (auto&point : points) {
+		data.parameters.push_back(point.x);
+		data.parameters.push_back(point.y);
+	}
+	add(data);
+
+}
+void xyRobot::add(XYCommands cmd, float x) {
+	xyDataToSend data(cmd);
+	if (cmd == PolyLineStream || cmd == PolyLineFancy) {
+		data.parameters.push_back(1.0f); // function has a variable parameter list started by parm count
+	}
+	data.parameters.push_back(x);
+	add(data);
+}
+
+void xyRobot::add(XYCommands cmd, const ofVec2f& point) { 
+	xyDataToSend data(cmd);
+	if (cmd == PolyLineStream || cmd == PolyLineFancy) {
+		data.parameters.push_back(2.0f); // function has a variable parameter list started by parm count
+	}
+	data.parameters.push_back(point.x);
+	data.parameters.push_back(point.y);
+	add(data);
+}
+
+void xyRobot::add(XYCommands cmd, const vector<float>& floats) {
+	xyDataToSend data(cmd);
+	if (cmd == PolyLineStream || cmd == PolyLineFancy){
+		data.parameters.push_back(floats.size()); // function has a variable parameter list started by parm count
+	}
+	for (auto&f : floats) {
+		data.parameters.push_back(f);
+	}
+	add(data);
+}
+
 void xyRobot::sendit(xyDataToSend&data) {
-	if (driver && data.getData()->isSetup()) {
+	if (driver && data.isSetup()) {
 		ofRobotTrace("xyRobot::sendit") << "cmd:" << (int)data.getCommand() << std::endl;
-		sendToRobot(data.getData());
+		sendToRobot(&data);
 		string space;// separate from a possible Y
 		for (auto& parm : data.parameters) {
 			parm.trace();
 			driver->write(parm.getValue());
-			driver->write(space);
-			space = " ";// only put out a space if there is more than one parameter
+			driver->write(",");
+			//space = ",";// only put out a , if there is more than one parameter
 		}
-		if (data.getCommand() != SignOn) { // signon data is read by the common sign on code
-			readResults(); // waits for results bugbug put in a thread?
-		}
+		readResults(data.getCommand()); // waits for results bugbug put in a thread?
 	}
 }
 void xyRobot::draw() {
@@ -573,8 +613,10 @@ void xyRobot::draw() {
 	vectorOfCommands.clear();
 }
 // process results as needed
-bool xyRobot::readResults() {
-
+bool xyRobot::readResults(int8_t cmd) {
+	if (cmd == SignOn) { // signon data is read by the common sign on code
+		return true;
+	}
 	ofRobotTrace() << "read xyRobot " << std::endl;
 	SerialData data(2); // results header
 	
@@ -589,18 +631,21 @@ bool xyRobot::readResults() {
 				ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
 				return false;
 			}
-			else if (data[1] == GetState) {
-				maxPositions[IDstepperX] = getDriver()->readInt32(); // both values always returned for convience
-				maxPositions[IDstepperY] = getDriver()->readInt32();
-				return true;
+			else if (data[1] == Trace) {
+				int32_t count = getDriver()->readInt32();
+				int32_t index = getDriver()->readInt32();
+				int32_t x = getDriver()->readInt32();
+				int32_t y = getDriver()->readInt32();
+				int i = 0; // place to set a break point
 			}
 			else {
 				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
+				if (cmd != data[1]) {
+					ofRobotTrace() << "invalid ACK expected " << cmd << std::endl;
+				}
 				int16_t port = getDriver()->readInt16();
-				int32_t steps = getDriver()->readInt32();
 				int16_t direction = getDriver()->readInt16();
 				port = getDriver()->readInt16();
-				steps = getDriver()->readInt32();
 				direction = getDriver()->readInt16();
 				return true; //bugbug too much data to echo once things are working
 			}
@@ -608,18 +653,4 @@ bool xyRobot::readResults() {
 	}
 	return false;
 }
-void xyRobot::add(XYCommands cmd, int32_t x, int32_t y) {
-	add(xyDataToSend(cmd, x, y));
-}
 
-void xyRobot::translate(int32_t x, int32_t y) {
-	add(xyMove, x, y);
-}
-
-void xyRobot::convertAndAdd(XYCommands cmd, const ofVec2f& point) {
-	
-	int16_t x = convertX(point.x);
-	int16_t y = convertY(point.y);
-	add(xyDataToSend(cmd, x,y));
-	return;
-}

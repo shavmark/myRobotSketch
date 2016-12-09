@@ -185,7 +185,6 @@ namespace RobotArtists {
 	public:
 		XYSerialData(int setsize) :SerialData(setsize) {  }
 		XYSerialData():SerialData(){ }
-		string dataName(int id);
 	};
 
 	/* data - 1 or 2 steppers defined in the data
@@ -193,49 +192,31 @@ namespace RobotArtists {
 	*  byte 1 : cmd 
 	* data follows in command order, command specific parsers used
 	*/
-	enum XYCommands : uint8_t { NoXYCommand, SignOn, GetState, xyMove, PolyLineBasic, PolyLineFancy, xyEllipse, xyCircle, xyLine, xyBezier };
+	enum XYCommands : uint8_t { NoXYCommand, SignOn, xyMove, PolyLineStream, PolyLineFancy, xyEllipse, xyCircle, xyLine, xyBezier, Trace };
 	
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
 
-	class XYparameters {
+	class XYparameter {
 	public:
-		XYparameters(int32_t val = 0) { this->val = val; }
+		XYparameter(int32_t val = 0) { this->val = val; }
 		 
 		string getValue() const { return ofToString(val); }
 
-		void trace()const;
+		void trace() const;
 	private:
 		int32_t val;
-
 	};
 
-	class xyDataToSend  {
+	class xyDataToSend : public SerialData {
 	public:
-		xyDataToSend();
-		xyDataToSend(XYCommands cmd); // no parameters
-		xyDataToSend(XYCommands cmd, int32_t x, int32_t y=0); // one command, two values
+		xyDataToSend() :SerialData(2) { setCommand(NoXYCommand); };
+		xyDataToSend(XYCommands cmd) :SerialData(2) { setCommand(cmd); }; // no parameters
+		xyDataToSend(XYCommands cmd, float x, float y=0); 
 
 		void trace();
 		void setCommand(XYCommands cmd);
-		uint8_t getCommand() {	return data.at(1);	}
-		XYSerialData* getData() { return &data; }
-		vector<XYparameters> parameters;
-
-	private:
-		void init();
-		XYSerialData data;
-	};
-
-	/*	byte 0: 0xee
-		byte 1: cmd
-		byte 2: data1
-		byte 3: data2
-		byte 4: chksum   */
-	class xyGetdata : public SerialData {
-	public:
-		xyGetdata() : SerialData(5) {  }
-		
-		virtual string dataName(int id);
+		uint8_t getCommand() {	return at(1);	}
+		vector<XYparameter> parameters;
 	};
 
 	// OF Free, Trossen specific so it can be used w/o openframeworks

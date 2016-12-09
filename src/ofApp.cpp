@@ -1,7 +1,8 @@
 #include "ofApp.h"
 #include "lowlevel.h"
 #include <algorithm> 
-
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 //--------------------------------------------------------------
 void ofApp::draw(){
@@ -11,22 +12,39 @@ void ofApp::draw(){
 void ofApp::setup() {
 
 	robot.setup();
-
 }
 
 //--------------------------------------------------------------
 void ofApp::update() {
-	
-	if (robot.makerbots.size() > 0) {
-		//bugbug line commmand robot.makerbots[0]->lineToMacro(ofVec2f(0.24f, 0.14f), 0.0f);
+	static int i = 0;
+	if (robot.makerbots.size() > 0 && i == 0) {
+		i = 1;
+		int count = 10;
+		float slice = 2 * M_PI / count;
+		ofVec2f point;
+		xyDataToSend data(RobotArtists::PolyLineStream);
+		float r = 0.1f;
+		data.parameters.push_back(count); // lots of data coming, but its read 2 at a time by the driver
+		
+		for (int i = 0; i < count; i++) {
+			float theta = slice * i;
+			point.x = r*cos(theta);
+			point.y = r*sin(theta);
+			data.parameters.push_back(point.x*100);
+			data.parameters.push_back(point.y * 100);
+		}
+		robot.makerbots[0]->add(data);
+
+		//bugbug figure out rotate, size, push/pop the canvas like OF does
+		
+		//robot.makerbots[0]->add(RobotArtists::PolyLineStream, 0.09f);
 		return;
 		
 //bugbug just add a command		robot.makerbots[0]->circleMacro(0.05f);
-		xyDataToSend data;
-		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(0.5f, 0.5f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(.2f, 0.2f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(0.5f, 0.5f));
-		robot.makerbots[0]->convertAndAdd(RobotArtists::xyMove, ofVec2f(.2f, 0.2f));
+		robot.makerbots[0]->add(RobotArtists::xyMove, ofVec2f(0.5f, 0.5f));
+		robot.makerbots[0]->add(RobotArtists::xyMove, ofVec2f(.2f, 0.2f));
+		robot.makerbots[0]->add(RobotArtists::xyMove, ofVec2f(0.5f, 0.5f));
+		robot.makerbots[0]->add(RobotArtists::xyMove, ofVec2f(.2f, 0.2f));
 		
 	}
 	return;//just test xy for now

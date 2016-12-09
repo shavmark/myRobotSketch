@@ -61,12 +61,15 @@ namespace RobotArtists {
 		void setup();
 		void update(xyDataToSend&); // direct access, not put in vector
 		void draw();
-		bool readResults();
 
-		void add(XYCommands cmd, int32_t x, int32_t y); // can move forward and backword via + and - values
-		void add(XYCommands cmd, const ofVec2f& point) { add(cmd, point.x, point.y); }
-		// point.x/y are 0 to 1 and all points in between
-		void convertAndAdd(XYCommands cmd, const ofVec2f& point);
+		void translate(float x, float y) {		add(xyMove, x, y);	}
+
+		void add(XYCommands cmd, const vector<float>& floats);
+		void add(XYCommands cmd, const vector<ofVec2f>& points);
+		void add(XYCommands cmd, const ofVec2f& point);
+		void add(XYCommands cmd, float x, float y) { add(cmd, ofVec2f(x,y)); }
+		void add(XYCommands cmd, float x);
+
 		void setColor(const ofColor& color) { currentColor = color; } //bugbug this is big, needs to be designed
 		
 		void setFill(bool fill = true) {} // bugbug big, needs to be figured out
@@ -76,23 +79,16 @@ namespace RobotArtists {
 		void setStrokeWidth() {}
 	
 		void rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle=0);
-		void translate(int32_t x, int32_t y); // ofTranslate
-		void center() { translate(getMax(IDstepperX)/2, getMax(IDstepperY)/2); }
-		void fill() { add(xyMove, getMax(IDstepperX), getMax(IDstepperY)); }
 		void rotate(const ofVec2f& center, float angle, ofVec2f& point);
-		void setPosition(const ofVec2f& point) { convertAndAdd(xyMove, point); }; // OF compatable
+		void setPosition(const ofVec2f& point) { add(xyMove, point); }; // OF compatable
 
-		uint16_t getMax(Steppers stepper) { return maxPositions[stepper]; } // bugbug learn the right ranges
 		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
-
+		size_t getCount() { return vectorOfCommands.size(); }
 	private:
+		bool readResults(int8_t cmd);
 		vector<xyDataToSend> vectorOfCommands;
-		array<float, 2> speeds; // x and ybugbug not managed yet
-		array<int32_t, 2> maxPositions; // x and y
 		void sendit(xyDataToSend&data);
-		ofColor currentColor;
-		int32_t convertX(float val) { return maxPositions[IDstepperX] * val; }
-		int32_t convertY(float val) { return maxPositions[IDstepperY] * val; }
+		ofColor currentColor;//bugbug build color soon...
 	};
 
 	// helper that masks position (x,y etc)
