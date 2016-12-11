@@ -131,8 +131,7 @@ namespace RobotArtists {
 	void ofTrRobotArm::penPose(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)
 	{
 		commands.push_back(ofRobotArmCommand(ArmZ, 0.0f));
-		commands.push_back(ofRobotArmCommand(ArmGripper, 0.0f));
-		commands.push_back(ofRobotArmCommand(ArmGripper, 1.0f));
+		commands.push_back(ofRobotArmCommand(Sleep, 5000));
 		commands.push_back(ofRobotArmCommand(ArmGripper, 0.1f)); // give it some animation
 	}
 
@@ -447,31 +446,17 @@ namespace RobotArtists {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
 			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
-			int baudrate = 38400;// 19200;
-			ofRobotTrace("FindAllMyElements") << "baud rate " << baudrate << device.getDeviceName().c_str();
-
 			shared_ptr<ofRobotSerial> serialdriver = make_shared<ofRobotSerial>();
-			if (!serialdriver->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
+			if (!serialdriver->setup(device.getDeviceName(), 38400)) { // MAKE SURE BAUD RATES ARE THE SAME
 				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
 				return;
 			}
 			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
-			if (!arm) {
-				return; // something is really wrong
-			}
-
-			shared_ptr<xyRobot> maker;
-			/*
-			shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver); // move the driver over
-																				// port found, see what may be on it
-			// start with default mode
-			maker->update(xyDataToSend(SignOn));// some drivers require a sign on
-			*/
+			// if no mem at this point let it just crash
 			robotType robotType;
 			string robotName;
-
-			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 25, 5))) {
-			
+			// try trossen first
+			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 10, 5))) {
 				switch (robotType.second) {
 				case PhantomXReactorArm:
 				case PhantomXPincherArm:
@@ -481,14 +466,27 @@ namespace RobotArtists {
 					arm->setType(robotType);
 					arm->setup(IKM_CYLINDRICAL);
 					arms.push_back(arm);
-					break;
+					continue;
+				}
+			}
+			// try Makebot, Trossen not found
+			serialdriver->close();
+			serialdriver = make_shared<ofRobotSerial>();
+			if (!serialdriver->setup(device.getDeviceName(), 19200)) { // MAKE SURE BAUD RATES ARE THE SAME
+				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
+				return;
+			}
+			shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver);
+			maker->update(xyDataToSend(SignOn));// some drivers require a sign on
+			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 10, 5))) {
+				switch (robotType.second) {
 				case MakerBotXY:
 					maker->setName(robotName);
 					maker->setType(robotType);
 					maker->setup();
 					//maker->center();//bugbug too slow while debugging
 					makerbots.push_back(maker);
-					break;
+					continue;
 				}
 			}
 		}

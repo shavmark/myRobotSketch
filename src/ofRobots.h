@@ -163,7 +163,6 @@ namespace RobotArtists {
 		void addParameter(const ofRobotPosition& position, const ofRobotArmState& state= ofRobotArmState(), uint8_t delta = maxDelta()) {
 			addParameter(RobotArmCommandData(position, state, delta));
 		}
-		static ofRobotArmCommand getSleep(int duration) { return ofRobotArmCommand(Sleep, duration); }
 
 		void set(const RobotCommand& cmd) { this->cmd = cmd; }
 
