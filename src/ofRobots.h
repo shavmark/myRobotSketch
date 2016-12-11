@@ -89,6 +89,8 @@ namespace RobotArtists {
 		vector<xyDataToSend> vectorOfCommands;
 		void sendit(xyDataToSend&data);
 		ofColor currentColor;//bugbug build color soon...
+		int sentAtAtime = 3; // packets to send at one time
+
 	};
 
 	// helper that masks position (x,y etc)
@@ -103,7 +105,7 @@ namespace RobotArtists {
 		void trace();
 	};
 
-	enum RobotCommand { None, Reset, Push, Pop, TrossenMove, LowLevelTest, RegressionTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo};// command and basic commands.  Derive object or create functions to create more commands
+	enum RobotCommand { None, Reset, TrossenMove, LowLevelTest, RegressionTest, UserDefinded, Translate, Sleep, RobotCircle, RobotLineTo, RobotMoveTo, PenPose};// command and basic commands.  Derive object or create functions to create more commands
 
 	// high level interface to robot data data
 	class RobotArmCommandData {
@@ -175,10 +177,12 @@ namespace RobotArtists {
 		bool deleteWhenDone = true; // false to repeat command per every draw occurance
 	};
 
+
 	class ofTrRobotArm : public ofTrRobotArmInternals {
 	public:
+		typedef void(ofTrRobotArm::*pArmfunction)(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
 
-		ofTrRobotArm(const string& name, const robotType& type) :ofTrRobotArmInternals(type) { 
+		ofTrRobotArm(const string& name, const robotType& type) :ofTrRobotArmInternals(type) {
 			setName(name); 
 		}
 		ofTrRobotArm() :ofTrRobotArmInternals() {
@@ -198,16 +202,14 @@ namespace RobotArtists {
 		void add(const ofRobotArmCommand& cmd) {	vectorOfCommands.push_back(cmd);	}
 
 	protected:
-
-		void regressionTest(vector<ofRobotArmCommand>&commands);
-		void circleMacro(vector<ofRobotArmCommand>&commands, float r, uint8_t delta = maxDelta());
-		void lineMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to, uint8_t delta = maxDelta());
-		void moveMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to, uint8_t delta = maxDelta());
-		void penUpMacro(vector<ofRobotArmCommand>&commands, uint8_t delta = maxDelta());
-		void penDownMacro(vector<ofRobotArmCommand>&commands, uint8_t delta = maxDelta());
-		//void translate(float x, float y) { getPose().position.setPercents(x, y);}
-		void pushMatrix() { stack.push(this); }
-		void popMatrix();
+		//bugbug need to get the delta in here too
+		void penPose(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
+		void regressionTest(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
+		void sanityTestLowLevel(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
+		void circleMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
+		void lineMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
+		void moveMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
+		void justSendItNowMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
 
 		void setPoint(ofRobotPosition pt);
 		void setState(ofRobotArmState pt);
@@ -215,15 +217,13 @@ namespace RobotArtists {
 		int servoCount=0;
 
 	private:
+		map<RobotCommand, pArmfunction> funcMap;
 		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr; // none set by default
 		void validate();
 		string name;
 
 		vector<ofRobotArmCommand> vectorOfCommands; // one more more points
 		void testdata();
-		stack<ofTrRobotArm*> stack; // bugbug once working likely to include colors, brush size etc
-									  // built in commands
-		void sanityTestLowLevel();
 		void sendData(vector<RobotArmCommandData>&data);
 		void sendExpandedResults(vector<ofRobotArmCommand>& results);
 		void set(RobotArmCommandData& request);

@@ -128,8 +128,16 @@ namespace RobotArtists {
 		addParameter(data); 
 	}
 
+	void ofTrRobotArm::penPose(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)
+	{
+		commands.push_back(ofRobotArmCommand(ArmZ, 0.0f));
+		commands.push_back(ofRobotArmCommand(ArmGripper, 0.0f));
+		commands.push_back(ofRobotArmCommand(ArmGripper, 1.0f));
+		commands.push_back(ofRobotArmCommand(ArmGripper, 0.1f)); // give it some animation
+	}
+
 	// various tests
-	void ofTrRobotArm::regressionTest(vector<ofRobotArmCommand>&commands) {
+	void ofTrRobotArm::regressionTest(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data) {
 		ofRobotTrace() << "high level sanityTest" << std::endl;
 
 		ofRobotArmCommand sleep(Sleep, 5000);
@@ -161,7 +169,7 @@ namespace RobotArtists {
 	}
 
 	// set basic data that moves a little bit after starting up. does low level writes only. Does not call reset() or any high level function
-	void ofTrRobotArm::sanityTestLowLevel() {
+	void ofTrRobotArm::sanityTestLowLevel(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data) {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
 		sendToRobot(this);
 		setDelta(254);
@@ -184,15 +192,6 @@ namespace RobotArtists {
 		sendToRobot(this);
 	}
 
-	void ofTrRobotArm::popMatrix() {
-		if (stack.size() == 0) {
-			ofRobotTrace(ErrorLog) << "popMatrix on empty stack" << std::endl;
-		}
-		else {
-			//bugbug figure out stack or drop it setPose(stack.top());
-			stack.pop();
-		}
-	}
 	void ofTrRobotArm::setup(robotMode mode) { 
 		ofRobotTrace() << "setup ofTrRobotArm " << name << " type " << info.trace();
 		
@@ -200,6 +199,15 @@ namespace RobotArtists {
 		setUserDefinedRanges(SpecificJoint(info.getType(), ArmX), userDefinedRanges);
 		sendToRobot(this); // send the mode, also resets the robot
 		setDefaultState();
+
+		funcMap[PenPose] = &ofTrRobotArm::penPose; //and so forth
+		funcMap[RegressionTest] = &ofTrRobotArm::regressionTest; 
+		funcMap[LowLevelTest] = &ofTrRobotArm::sanityTestLowLevel;
+		funcMap[RobotCircle] = &ofTrRobotArm::circleMacro;
+		funcMap[RobotLineTo] = &ofTrRobotArm::lineMacro;
+		funcMap[Translate] = &ofTrRobotArm::justSendItNowMacro;
+		funcMap[RobotMoveTo] = &ofTrRobotArm::moveMacro;
+		funcMap[UserDefinded] = &ofTrRobotArm::justSendItNowMacro;
 
 		ClearVector(vectorOfCommands);
 	
@@ -229,25 +237,13 @@ namespace RobotArtists {
 	//ofTranslate(400, 300);
 	//ofPopMatrix();
 
-	void ofTrRobotArm::penUpMacro(vector<ofRobotArmCommand>&commands, uint8_t delta) {
-		ofRobotArmCommand cmd(UserDefinded, delta);
-		
-		cmd.addParameter(ArmZ, getZ()+0.1, delta); // bugbug what if its max,I guess it just ignores the request
-		commands.push_back(cmd);
-	}
-
-	void ofTrRobotArm::penDownMacro(vector<ofRobotArmCommand>&commands, uint8_t delta) {
-		ofRobotArmCommand cmd(UserDefinded, delta);
-		cmd.addParameter(ArmZ, getZ() - 0.1, delta);
-		commands.push_back(cmd);
-	}
 
 	// draw optimized line from current location
-	void ofTrRobotArm::lineMacro(vector<ofRobotArmCommand>&commands, const ofRobotPosition& to, uint8_t delta)	{
-		// drop pen and move
-		penDownMacro(commands, delta);
-		moveMacro(commands, to, delta);
-		penUpMacro(commands, delta);
+	void ofTrRobotArm::lineMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)	{
+		for (auto& a : data) {
+			//bugbug code tghis
+		}
+
 		/*
 		float dx = to.x - currentPosition.x; // delta between x and y
 		float dy = to.x - currentPosition.y;
@@ -262,9 +258,12 @@ namespace RobotArtists {
 	}
 
 	// move arm
-	void ofTrRobotArm::moveMacro(vector<ofRobotArmCommand>&commands,  const ofRobotPosition& to, uint8_t delta) {
+	void ofTrRobotArm::moveMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data) {
+
 		// move arm
-		commands.push_back(ofRobotArmCommand(RobotMoveTo, RobotArmCommandData(to, delta)));
+		for (auto&a : data) {
+			commands.push_back(ofRobotArmCommand(RobotMoveTo, a));
+		}
 	}
 	
 	ofRobotPosition& ofRobotPosition::operator=(const ofRobotPosition&newpos) {
@@ -281,17 +280,20 @@ namespace RobotArtists {
 	}
 
 	// create circle data
-	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, float r, uint8_t delta)	{
-		// do a move like OF does so drawing always starts at current
-		float slice = 2 * M_PI / 10;
-		for (int i = 0; i < 10; i++) {
-			float angle = slice * i;
-			float newX = r * cos(angle);
-			float newY = r * sin(angle);
-			ofRobotTrace() << newX << " " << newY << std::endl; 
-			ofRobotArmCommand cmd(RobotArmCommandData(ofRobotPosition(newX, newY), delta));
-			commands.push_back(cmd);
+	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)	{
+		for (auto& a : data) {
+			float slice = 2 * M_PI / 10;
+			float r = a.float1;
+			for (int i = 0; i < 10; i++) {
+				float angle = slice * i;
+				float newX = r * cos(angle);
+				float newY = r * sin(angle);
+				ofRobotTrace() << newX << " " << newY << std::endl;
+				ofRobotArmCommand cmd(RobotArmCommandData(ofRobotPosition(newX, newY))); //bugbug figure out how to pass delta
+				commands.push_back(cmd);
+			}
 		}
+		// do a move like OF does so drawing always starts at current
 	}
 
 	void ofTrRobotArm::testdata() {
@@ -327,54 +329,28 @@ namespace RobotArtists {
 	}
 
 	void ofTrRobotArm::update() {
-		
+		Pose::update();
+	}
+	//parameters compatable with function call table
+	void ofTrRobotArm::justSendItNowMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data) {
+		sendData(data);
 	}
 
+	//pArmfunction
 	// drawing occurs here as its tied to the robot directly
 	void ofTrRobotArm::draw() {
 
-		vector< ofRobotArmCommand >::iterator it = vectorOfCommands.begin();
+		auto  it = vectorOfCommands.begin();
 		while (it != vectorOfCommands.end()) {
-			vector<ofRobotArmCommand> expandedResults;
-
-			switch (it->getCommand()) {
-			case RegressionTest:
-				regressionTest(expandedResults);
-				break;
-			case RobotCircle:
-				for (auto& a : it->getVectorOfParameters()) {
-					circleMacro(expandedResults, a.float1);
-				}
-				break;
-			case RobotLineTo:
-				for (auto& a : it->getVectorOfParameters()) {
-					lineMacro(expandedResults, a.position);
-				}
-				break;
-			case RobotMoveTo:
-				for (auto& a : it->getVectorOfParameters()) {
-					moveMacro(expandedResults, a.position);
-				}
-				break;
-			case LowLevelTest:
-				sanityTestLowLevel(); // special case, does not use data or other objects, used to test/debug
-				break;
-			case UserDefinded:
-				// no processing needed, just send it on. Low level, no commands parsed such as sleep, assuming that is done else where
-				sendData(it->getVectorOfParameters());
-				break;
-			case Translate:
-				sendData(it->getVectorOfParameters());
-				break;
-			case Push:
-				pushMatrix();
-				break;
-			case Pop:
-				popMatrix();
-				break;
+			// execute if from table, otherwise see if its a special case
+			auto itr = funcMap.find(it->getCommand());
+			if (itr != funcMap.end()) {
+				vector<ofRobotArmCommand> expandedResults;
+				//C++ is so awesome...
+				(this->*funcMap[it->getCommand()])(expandedResults, it->getVectorOfParameters());
+				sendExpandedResults(expandedResults);
 			}
 
-			sendExpandedResults(expandedResults);
 
 			if (it->OKToDelete()) {
 				it = vectorOfCommands.erase(it);
@@ -471,7 +447,7 @@ namespace RobotArtists {
 				continue;//bugbug skipping com1, not sure whats on it
 			}
 			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
-			int baudrate = 19200;
+			int baudrate = 38400;// 19200;
 			ofRobotTrace("FindAllMyElements") << "baud rate " << baudrate << device.getDeviceName().c_str();
 
 			shared_ptr<ofRobotSerial> serialdriver = make_shared<ofRobotSerial>();
@@ -479,17 +455,20 @@ namespace RobotArtists {
 				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
 				return;
 			}
-
-			shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver); // move the driver over
-																				// port found, see what may be on it
-			// start with default mode
 			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
 			if (!arm) {
 				return; // something is really wrong
 			}
+
+			shared_ptr<xyRobot> maker;
+			/*
+			shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver); // move the driver over
+																				// port found, see what may be on it
+			// start with default mode
+			maker->update(xyDataToSend(SignOn));// some drivers require a sign on
+			*/
 			robotType robotType;
 			string robotName;
-			maker->update(xyDataToSend(SignOn));// some drivers require a sign on
 
 			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 25, 5))) {
 			
@@ -549,7 +528,7 @@ void xyRobot::rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const
 void xyRobot::add(XYCommands cmd, const vector<ofVec2f>& points) {
 	xyDataToSend data(cmd);
 	if (cmd == PolyLineStream || cmd == PolyLineFancy) {
-		data.parameters.push_back(points.size()*2); // function has a variable parameter list started by parm count
+		data.parameters.push_back((int32_t)points.size()*2); // function has a variable parameter list started by parm count
 	}
 	for (auto&point : points) {
 		data.parameters.push_back(point.x);
@@ -580,7 +559,7 @@ void xyRobot::add(XYCommands cmd, const ofVec2f& point) {
 void xyRobot::add(XYCommands cmd, const vector<float>& floats) {
 	xyDataToSend data(cmd);
 	if (cmd == PolyLineStream || cmd == PolyLineFancy){
-		data.parameters.push_back(floats.size()); // function has a variable parameter list started by parm count
+		data.parameters.push_back((int32_t)floats.size()); // function has a variable parameter list started by parm count
 	}
 	for (auto&f : floats) {
 		data.parameters.push_back(f);
@@ -606,7 +585,12 @@ void xyRobot::draw() {
 	ofRobotTrace() << "draw xyRobot" << name << std::endl;
 
 	if (driver) {
+		int count = 0;
 		for (auto& a : vectorOfCommands) {
+			++count;
+			if ((count % 3) == 0) {
+				ofSleepMillis(3000); // do not push data too fast bugbug make this a value retured by the driver once its understood
+			}
 			sendit(a);
 		}
 	}

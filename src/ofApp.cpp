@@ -17,8 +17,13 @@ void ofApp::setup() {
 //--------------------------------------------------------------
 void ofApp::update() {
 	static int i = 0;
-	if (robot.makerbots.size() > 0 && i == 0) {
-		i = 1;
+	if (i == 0) {
+		ofRobotArmCommand cmd(PenPose);
+		robot.arms[0]->add(ofRobotArmCommand(PenPose));
+	}
+	i = 1;
+	return;
+	if (robot.makerbots.size() > 0) {
 		int count = 10;
 		float slice = 2 * M_PI / count;
 		ofVec2f point;
@@ -31,10 +36,9 @@ void ofApp::update() {
 			point.x = r*cos(theta);
 			point.y = r*sin(theta);
 			data.parameters.push_back(point.x*100);
-			data.parameters.push_back(point.y * 100);
+			data.parameters.push_back(point.y*100);
 		}
 		robot.makerbots[0]->add(data);
-
 		//bugbug figure out rotate, size, push/pop the canvas like OF does
 		
 		//robot.makerbots[0]->add(RobotArtists::PolyLineStream, 0.09f);

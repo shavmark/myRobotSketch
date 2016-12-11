@@ -172,7 +172,6 @@ namespace RobotArtists {
 		// basic commands common across all robots
 		uint8_t noCommand() { return 0; }
 
-		virtual void trace();
 		virtual string dataName(int id) { return "none"; };
 		bool isSetup() { return datasetup; }
 	protected:
@@ -195,7 +194,7 @@ namespace RobotArtists {
 	enum XYCommands : uint8_t { NoXYCommand, SignOn, xyMove, PolyLineStream, PolyLineFancy, xyEllipse, xyCircle, xyLine, xyBezier, Trace };
 	
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
-
+	// 32 bits only to be compatable with small devices
 	class XYparameter {
 	public:
 		XYparameter(int32_t val = 0) { this->val = val; }

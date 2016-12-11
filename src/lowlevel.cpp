@@ -29,37 +29,37 @@ namespace RobotArtists {
 	string Pose::dataName(int id) {
 		switch (id) {
 		case headerByteOffset:
-			return " headerByteOffset";
+			return " headerByte";
 		case xHighByteOffset:
-			return " xHighByteOffset";
+			return " xHighByte";
 		case xLowByteOffset:
-			return " xLowByteOffset";
+			return " xLowByte";
 		case yHighByteOffset:
-			return " yHighByteOffset";
+			return " yHighByte";
 		case yLowByteOffset:
-			return " yLowByteOffset";
+			return " yLowByte";
 		case zHighByteOffset:
-			return " zHighByteOffset";
+			return " zHighByte";
 		case zLowByteOffset:
-			return " zLowByteOffset";
+			return " zLowByte";
 		case wristAngleHighByteOffset:
-			return " wristAngleHighByteOffset";
+			return " wristAngleHighByte";
 		case wristAngleLowByteOffset:
-			return " wristAngleLowByteOffset";
+			return " wristAngleLowByte";
 		case wristRotateHighByteOffset:
-			return " wristRotateHighByteOffset";
+			return " wristRotateHighByte";
 		case wristRotateLowByteOffset:
-			return " wristRotateLowByteOffset";
+			return " wristRotateLowByte";
 		case gripperHighByteOffset:
-			return " gripperHighByteOffset";
+			return " gripperHighByte";
 		case gripperLowByteOffset:
-			return " gripperLowByteOffset";
+			return " gripperLowByte";
 		case deltaValBytesOffset:
-			return " deltaValBytesOffset";
+			return " deltaValBytes";
 		case buttonByteOffset:
-			return " buttonByteOffset";
+			return " buttonByte";
 		case extValBytesOffset:
-			return " extValBytesOffset";
+			return " extValBytes";
 		case trChecksum:
 			return " checksum";
 		}
@@ -307,13 +307,6 @@ namespace RobotArtists {
 		buildDeviceList();
 		return devices;
 	}
-	void SerialData::trace() {
-		std::stringstream buffer;
-		for (int i = 0; i < size(); ++i) {
-			buffer << " bytes[" << i << "] = " << (int)at(i) << dataName(i) << std::endl; // echo in one line
-		}
-		ofRobotTrace() << buffer.str() << std::endl;
-	}
 	// one command, two values
 	xyDataToSend::xyDataToSend(XYCommands cmd, float x, float y):SerialData(2) {
 		setCommand(cmd);
@@ -395,7 +388,9 @@ namespace RobotArtists {
 	size_t ofRobotSerial::write(SerialData*serial) {
 		if (serial) {
 			serial->update();
-			serial->trace();
+			for (int i = 0; i < serial->size(); ++i) {
+				ofRobotTrace() << " bytes[" << i << "] = " << (int)serial->at(i) << serial->dataName(i) << std::endl; 
+			}
 			return write(serial->data(), serial->size());
 		}
 		return 0;
