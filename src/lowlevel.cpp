@@ -175,11 +175,13 @@ namespace RobotArtists {
 		}
 		return readIn;
 	}
-	void iRobot::sendToRobot(SerialData *serial) {
+	size_t iRobot::sendToRobot(SerialData *serial) {
+		size_t size = 0;
 		if (driver) {
-			driver->write(serial);
+			size = driver->write(serial);
 			ofSleepMillis(50);
 		}
+		return size;
 	}
 
 
@@ -433,40 +435,30 @@ namespace RobotArtists {
 		set(high, highByte(val));
 		set(low, lowByte(val));
 	}
-	void ofTrRobotArmInternals::setX(int x) {
-		ofRobotTrace() << "try to set x=" << x << std::endl;
-		if (inRange(ArmX, x)) {
-			setLowLevelX(x, addMagicNumber());
-		}
-	}
-	void ofTrRobotArmInternals::setY(int y) {
-		ofRobotTrace() << "try to set y=" << y << std::endl;
-		if (inRange(ArmY, y)) {
-			setLowLevelY(y);
-		}
-	}
-	void ofTrRobotArmInternals::setZ(int z) {
-		ofRobotTrace() << "try to set z=" << z << std::endl;
-		if (inRange(ArmZ, z)) {
-			setLowLevelZ(z);
-		}
-	}
-	void ofTrRobotArmInternals::setWristAngle(int a) {
-		ofRobotTrace() << "try to set setWristAngle=" << a << std::endl;
-		if (inRange(wristAngle, a)) {
-			setLowLevelWristAngle(a);
-		}
-	}
-	void ofTrRobotArmInternals::setWristRotate(int a) {
-		ofRobotTrace() << "try to set setWristRotate=" << a << std::endl;
-		if (inRange(wristRotate, a)) {
-			setLowLevelWristRotate(a);
-		}
-	}
-	void ofTrRobotArmInternals::setGripper(int distance) {
-		ofRobotTrace() << "try to set setGripper=" << distance << std::endl;
-		if (inRange(ArmGripper, distance)) {
-			setLowLevelGripper(distance);
+	// set if in valid range
+	void ofTrRobotArmInternals::setJointValue(robotArmJointType type, int val) {
+		ofRobotTrace() << "try to set val=" << val << " type: " << type << std::endl;
+		if (inRange(type, val)) {
+			switch (type) {
+			case ArmX:
+				setLowLevelX(val, addMagicNumber());
+				return;
+			case ArmY:
+				setLowLevelY(val);
+				return;
+			case ArmZ:
+				setLowLevelZ(val);
+				return;
+			case wristAngle:
+				setLowLevelWristAngle(val);
+				return;
+			case wristRotate:
+				setLowLevelWristRotate(val);
+				return;
+			case ArmGripper:
+				setLowLevelGripper(val);
+				return;
+			}
 		}
 	}
 	void ofTrRobotArmInternals::setMin(SpecificJoint joint, int value) {
@@ -622,12 +614,12 @@ namespace RobotArtists {
 	// "home" and set data matching state
 	void ofTrRobotArmInternals::setDefaultState() {
 		ofRobotTrace() << "setDefaults";
-		setX(getDefaultValue(ArmX));
-		setY(getDefaultValue(ArmY));
-		setZ(getDefaultValue(ArmZ));
-		setWristAngle(getDefaultValue(wristAngle));
-		setWristRotate(getDefaultValue(wristRotate));
-		setGripper(getDefaultValue(ArmGripper));
+		setJointValue(ArmX, getDefaultValue(ArmX));
+		setJointValue(ArmY, getDefaultValue(ArmY));
+		setJointValue(ArmZ, getDefaultValue(ArmZ));
+		setJointValue(wristAngle, getDefaultValue(wristAngle));
+		setJointValue(wristRotate, getDefaultValue(wristRotate));
+		setJointValue(ArmGripper, getDefaultValue(ArmGripper));
 		setDelta();
 		setLowLevelCommand(noCommand());
 		setButton();

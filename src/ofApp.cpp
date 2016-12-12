@@ -10,8 +10,30 @@ void ofApp::draw(){
 }
 //--------------------------------------------------------------
 void ofApp::setup() {
+	// examle -trossen 1
+	for (int i = 1; i < arguments.size(); ++i) {
+		int port = -1; // unknown
+		int baudrate = 38400;
+		RobotArtists::RobotBrand id =  RobotArtists::Trossen;
+		if (arguments.at(i) != "-trossen") {
+			baudrate = 19200;
+			id = RobotArtists::MakeBlock;
+		}
+		++i;
+		if (i < arguments.size()) {
+			// something is out there, see if its a parameter or parameter data (ie -troseen 1 or -trossen -makeblock)
+			// at least one char must be out there if its a string from the command line
+			if (arguments.at(i)[0] == '-') {
+				--i; // its a new parameter, put it back 
+			}
+			else {
+				port = ofToInt(arguments.at(i));
+			}
+		}
 
-	robot.setup();
+		robot.setup(id, port, baudrate);
+	}
+	
 }
 
 //--------------------------------------------------------------
@@ -19,7 +41,7 @@ void ofApp::update() {
 	static int i = 0;
 	if (i == 0) {
 		ofRobotArmCommand cmd(PenPose);
-		robot.arms[0]->add(ofRobotArmCommand(PenPose));
+		robot.trossens[0]->add(ofRobotArmCommand(PenPose));
 	}
 	i = 1;
 	return;
@@ -52,10 +74,10 @@ void ofApp::update() {
 		
 	}
 	return;//just test xy for now
-	if (robot.arms.size() > 0) {
+	if (robot.trossens.size() > 0) {
 		//HighLevelTest
 		ofRobotArmCommand cmd(RegressionTest);
-		robot.arms[0]->add(cmd);
+		robot.trossens[0]->add(cmd);
 		/*
 		ofRobotCommand cmd(RobotMoveTo, RobotCommandData(ofRobotPosition(0.0f)));
 		robot->commands.add(cmd);

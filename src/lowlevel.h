@@ -36,7 +36,7 @@ namespace RobotArtists {
 
 	// only 1 supported
 	enum RobotTypeID { PhantomXReactorArm, PhantomXPincherArm, WidowX, MakerBotXY, unknownRobotType, AllRobotTypes }; // the MakeBot is coming too...
-
+	enum RobotBrand {Trossen, MakeBlock};
 	typedef std::pair<robotMode, RobotTypeID> robotType;
 	typedef std::pair<robotType, robotArmJointType> SpecificJoint; // backhoe gets different handling, see is spec. Its not fully supported here
 
@@ -70,7 +70,7 @@ namespace RobotArtists {
 		AX_PAUSE_TIME, AX_MOVING, AX_LOCK, AX_PUNCH_L, AX_PUNCH_H
 	};
 
-	enum ArmIDs { PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX, MAKERBOT_ID }; // can add more types here
+	enum RobotIDs { PINCHER_ARMID = 1, REACTOR_ARMID, WIDOWX, MAKERBOT_ID }; // can add more types here
 
 	enum ArmServoCounts { PINCHER_SERVO_COUNT = 5, REACTOR_SERVO_COUNT = 8, WIDOWX_SERVO_COUNT = 6 };
 
@@ -284,7 +284,7 @@ namespace RobotArtists {
 		iRobot() {  driver = make_shared<ofRobotSerial>(); }
 		iRobot(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
 		shared_ptr<ofRobotSerial> getDriver() { return driver; }
-		void sendToRobot(SerialData *serial);
+		size_t sendToRobot(SerialData *serial);
 		void setSerial(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
 		shared_ptr<ofRobotSerial>  driver;
 		void setName(const string&name) { this->name = name; }
@@ -310,12 +310,7 @@ namespace RobotArtists {
 		void setMin(SpecificJoint joint, int value);
 		void setMax(SpecificJoint joint, int value);
 
-		void setX(int x);
-		void setY(int y);
-		void setZ(int z);
-		void setWristAngle(int a);
-		void setWristRotate(int a);
-		void setGripper(int distance);
+		void setJointValue(robotArmJointType, int value);
 
 		static void oneTimeSetup();
 

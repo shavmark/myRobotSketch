@@ -181,11 +181,9 @@ namespace RobotArtists {
 	public:
 		typedef void(ofTrRobotArm::*pArmfunction)(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data);
 
-		ofTrRobotArm(const string& name, const robotType& type) :ofTrRobotArmInternals(type) {
-			setName(name); 
-		}
-		ofTrRobotArm() :ofTrRobotArmInternals() {
-		}
+		ofTrRobotArm(const string& name, const robotType& type) :ofTrRobotArmInternals(type) {	setName(name); 		}
+		ofTrRobotArm() :ofTrRobotArmInternals() {	}
+
 		void trace(); 
 
 		// put command data in a known state
@@ -236,7 +234,7 @@ namespace RobotArtists {
 		ofRobot() {}
 		ofRobot(const string& name) { 	this->name = name;  }
 
-		void setup();
+		void setup(RobotBrand id, int port, int baudrate);
 		void update();
 		void draw();
 		void trace(); // echos positions
@@ -244,7 +242,7 @@ namespace RobotArtists {
 		void setName(const string&name) { this->name = name; }
 		string& getName() { return name; }
 
-		vector<shared_ptr<ofTrRobotArm>> arms; // bugbug at some point maybe add wrappers etc when more is known
+		vector<shared_ptr<ofTrRobotArm>> trossens; // bugbug at some point maybe add wrappers etc when more is known
 		vector<shared_ptr<xyRobot>> makerbots;
 	private:
 		string name;

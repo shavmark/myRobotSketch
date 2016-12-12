@@ -64,13 +64,13 @@ namespace RobotArtists {
 	// x - wrist angle, y is wrist rotate, z is gripper (using ofVec3f so its features can be leverage)
 	void ofTrRobotArm::setState(ofRobotArmState statePercent) {
 		if (valueIsSet(statePercent.getWristAngle())) {
-			setWristAngle(getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
+			setJointValue(wristAngle, getMin(wristAngle) + (statePercent.getWristAngle() * (getMax(wristAngle) - getMin(wristAngle))));
 		}
 		if (valueIsSet(statePercent.getWristRotation())) {
-			setWristRotate(getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
+			setJointValue(wristRotate, getMin(wristRotate) + (statePercent.getWristRotation() * (getMax(wristRotate) - getMin(wristRotate))));
 		}
 		if (valueIsSet(statePercent.getGripper())) {
-			setGripper(getMin(ArmGripper) + (statePercent.getGripper() * (getMax(ArmGripper) - getMin(ArmGripper))));
+			setJointValue(ArmGripper, getMin(ArmGripper) + (statePercent.getGripper() * (getMax(ArmGripper) - getMin(ArmGripper))));
 		}
 	}
 
@@ -80,13 +80,13 @@ namespace RobotArtists {
 		if (info.isCylindrical()) {
 			//ofMap
 			if (valueIsSet(ptPercent.getX())) {
-				setX(getMin(ArmX) + (ptPercent.getX() * (getMax(ArmX) - getMin(ArmX))));
+				setJointValue(ArmX, getMin(ArmX) + (ptPercent.getX() * (getMax(ArmX) - getMin(ArmX))));
 			}
 			if (valueIsSet(ptPercent.getY())) {
-				setY(getMin(ArmY) + (ptPercent.getY() * (getMax(ArmY) - getMin(ArmY))));
+				setJointValue(ArmY, getMin(ArmY) + (ptPercent.getY() * (getMax(ArmY) - getMin(ArmY))));
 			}
 			if (valueIsSet(ptPercent.getZ())) {
-				setZ(getMin(ArmZ) + (ptPercent.getZ() * (getMax(ArmZ) - getMin(ArmZ))));
+				setJointValue(ArmZ, getMin(ArmZ) + (ptPercent.getZ() * (getMax(ArmZ) - getMin(ArmZ))));
 			}
 		}
 		else {
@@ -99,7 +99,7 @@ namespace RobotArtists {
 		set(UserDefinded);
 		addParameter(type, value, delta);
 	}
-
+	// parameters are values of 0.0 to 1.0 at this level, lower level code translates them to robot specific values
 	void ofRobotArmCommand::addParameter(robotArmJointType type, float value, uint8_t delta) {
 		switch (type) {
 		case ArmX:
@@ -130,9 +130,11 @@ namespace RobotArtists {
 
 	void ofTrRobotArm::penPose(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)
 	{
+		// next: is there a way to wait for a command to complete?
 		commands.push_back(ofRobotArmCommand(ArmZ, 0.0f));
-		commands.push_back(ofRobotArmCommand(Sleep, 5000));
-		commands.push_back(ofRobotArmCommand(ArmGripper, 0.1f)); // give it some animation
+		commands.push_back(ofRobotArmCommand(ArmGripper, 0.0f, 10)); // give it some animation
+		commands.push_back(ofRobotArmCommand(ArmGripper, 1.0f, 10));
+		commands.push_back(ofRobotArmCommand(ArmGripper, 0.1f, 20)); 
 	}
 
 	// various tests
@@ -172,22 +174,23 @@ namespace RobotArtists {
 		ofRobotTrace() << "low level sanityTest" << std::endl;
 		sendToRobot(this);
 		setDelta(254);
-		setX(100); // absolution position vs. percentages
-		setY(100);
+
+		setJointValue(ArmX, 100); // absolution position vs. percentages
+		setJointValue(ArmY, 100);
 		//setZ(50);
-		setWristAngle(30);
+		setJointValue(wristAngle, 30);
 		//setWristRotate(120);
-		setGripper(10);
+		setJointValue(ArmGripper, 10);
 		setButton();
 		sendToRobot(this);
-		setGripper(100);
+		setJointValue(ArmGripper, 100);
 		sendToRobot(this);
-		setGripper(511);
+		setJointValue(ArmGripper, 511);
 		sendToRobot(this);
 		ofSleepMillis(1000);
-		setX(200);
+		setJointValue(ArmX, 200);
 		sendToRobot(this);
-		setX(0);
+		setJointValue(ArmX, 0);
 		sendToRobot(this);
 	}
 
@@ -308,8 +311,9 @@ namespace RobotArtists {
 	void ofTrRobotArm::sendData(vector<RobotArmCommandData>&data) {
 		for (auto& a : data) {
 			set(a);
-			sendToRobot(this);
-
+			if (sendToRobot(this)) {
+				readResults();
+			}
 		}
 	}
 
@@ -403,7 +407,7 @@ namespace RobotArtists {
 
 	void ofRobot::trace() {
 		ofRobotTrace() << "trace robot " << name << std::endl;
-		for (auto arm : arms) {
+		for (auto arm : trossens) {
 			arm->trace();
 		}
 	}
@@ -415,13 +419,13 @@ namespace RobotArtists {
 			bot->draw();
 		}
 		
-		for (auto arm : arms) {
-			arm->draw();
+		for (auto bot : trossens) {
+			bot->draw();
 		}
 	}
 	void ofRobot::update() {
 		ofRobotTrace() << "update robot" << name << std::endl;
-		for (auto arm : arms) {
+		for (auto arm : trossens) {
 			arm->update();
 		}
 	}
@@ -431,62 +435,73 @@ namespace RobotArtists {
 	void xyRobot::update(xyDataToSend& data) {
 		sendit(data);
 	}
-	void ofRobot::setup() {
+	void ofRobot::setup(RobotBrand id, int port, int baudrate) {
 		
 		ofRobotTrace() << "setup robot" << name << std::endl;
 		
 		// do one time setup
-		ofTrRobotArmInternals::oneTimeSetup(); // do one time setup of static data
+		if (id == Trossen) {
+			ofTrRobotArmInternals::oneTimeSetup(); // do one time setup of static data
+		}
 
 		ofRobotSerial serial;
 		serial.listDevices(); // let viewer see thats out there
 
 		for (auto&device : serial.getDevices()) {
-			if (device.getDeviceID() == 0) {
-				continue;//bugbug skipping com1, not sure whats on it
+			if (device.getDeviceID() == 0 || (port != -1 && device.getDeviceID() != port)) {
+				continue;//bugbug skipping com1, not sure whats on it, or unwanted port if port is known
 			}
-			ofRobotTrace("FindAllMyElements") << "[" << device.getDeviceID() << "] = " << device.getDeviceName().c_str();
 			shared_ptr<ofRobotSerial> serialdriver = make_shared<ofRobotSerial>();
-			if (!serialdriver->setup(device.getDeviceName(), 38400)) { // MAKE SURE BAUD RATES ARE THE SAME
-				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
-				return;
-			}
-			shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
-			// if no mem at this point let it just crash
 			robotType robotType;
 			string robotName;
-			// try trossen first
-			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 10, 5))) {
-				switch (robotType.second) {
-				case PhantomXReactorArm:
-				case PhantomXPincherArm:
-				case WidowX:
-					arm->setSerial(serialdriver);
-					arm->setName(robotName);
-					arm->setType(robotType);
-					arm->setup(IKM_CYLINDRICAL);
-					arms.push_back(arm);
-					continue;
+			if (id == Trossen) {
+				if (!serialdriver->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
+					ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
+					return;
+				}
+				shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
+				// if no mem at this point let it just crash
+				// try trossen first
+				if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 10, 5))) {
+					switch (robotType.second) {
+					case PhantomXReactorArm:
+					case PhantomXPincherArm:
+					case WidowX:
+						arm->setSerial(serialdriver);
+						arm->setName(robotName);
+						arm->setType(robotType);
+						arm->setup(IKM_CYLINDRICAL);
+						trossens.push_back(arm);
+						break;
+					}
+				}
+				if (port > -1) {
+					// port is known, only one robut, return now
+					return;
 				}
 			}
-			// try Makebot, Trossen not found
-			serialdriver->close();
-			serialdriver = make_shared<ofRobotSerial>();
-			if (!serialdriver->setup(device.getDeviceName(), 19200)) { // MAKE SURE BAUD RATES ARE THE SAME
-				ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
-				return;
-			}
-			shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver);
-			maker->update(xyDataToSend(SignOn));// some drivers require a sign on
-			if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 10, 5))) {
-				switch (robotType.second) {
-				case MakerBotXY:
-					maker->setName(robotName);
-					maker->setType(robotType);
-					maker->setup();
-					//maker->center();//bugbug too slow while debugging
-					makerbots.push_back(maker);
-					continue;
+			else {
+				serialdriver = make_shared<ofRobotSerial>();
+				if (!serialdriver->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
+					ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
+					return;
+				}
+				shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver);
+				maker->update(xyDataToSend(SignOn));// some drivers require a sign on
+				if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 10, 5))) {
+					switch (robotType.second) {
+					case MakerBotXY:
+						maker->setName(robotName);
+						maker->setType(robotType);
+						maker->setup();
+						//maker->center();//bugbug too slow while debugging
+						makerbots.push_back(maker);
+						break;
+					}
+					if (port > -1) {
+						// port is known, only one robut, return now
+						return;
+					}
 				}
 			}
 		}
