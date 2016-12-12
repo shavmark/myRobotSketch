@@ -28,8 +28,8 @@ namespace RobotArtists {
 		ofRobotTrace() << "WristRotatation=" << (valueIsSet(getWristRotation()) ? ofToString(getWristRotation()) : "<not set>") << std::endl;
 		ofRobotTrace() << "Gripper=" << (valueIsSet(getGripper()) ? ofToString(getGripper()) : "<not set>") << std::endl;
 	}
-	
-	void ofRobotPosition::trace()  {
+
+	void ofRobotPosition::trace() {
 		ofRobotTrace() << "x=" << (valueIsSet(x) ? ofToString(x) : "<not set>") << std::endl;
 		ofRobotTrace() << "y=" << (valueIsSet(y) ? ofToString(y) : "<not set>") << std::endl;
 		ofRobotTrace() << "z=" << (valueIsSet(z) ? ofToString(z) : "<not set>") << std::endl;
@@ -55,8 +55,8 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofTrRobotArm::trace()  {
-		for ( auto& cmd : vectorOfCommands) {
+	void ofTrRobotArm::trace() {
+		for (auto& cmd : vectorOfCommands) {
 			cmd.trace();
 		}
 	}
@@ -124,8 +124,8 @@ namespace RobotArtists {
 	}
 	void ofRobotArmCommand::setup(const RobotCommand&cmd, const RobotArmCommandData& data) {
 		ClearVector(vectorOfCommandData);
-		set(cmd); 
-		addParameter(data); 
+		set(cmd);
+		addParameter(data);
 	}
 
 	void ofTrRobotArm::penPose(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)
@@ -134,7 +134,7 @@ namespace RobotArtists {
 		commands.push_back(ofRobotArmCommand(ArmZ, 0.0f));
 		commands.push_back(ofRobotArmCommand(ArmGripper, 0.0f, 10)); // give it some animation
 		commands.push_back(ofRobotArmCommand(ArmGripper, 1.0f, 10));
-		commands.push_back(ofRobotArmCommand(ArmGripper, 0.1f, 20)); 
+		commands.push_back(ofRobotArmCommand(ArmGripper, 0.1f, 20));
 	}
 
 	// various tests
@@ -162,7 +162,7 @@ namespace RobotArtists {
 		ofRobotArmCommand cmd3(NoRobotValue, 0.10f);
 		cmd3.add(NoRobotValue, 1.0f);
 		commands.push_back(cmd3);
-		commands.push_back(ofRobotArmCommand::getSleep(1000)); 
+		commands.push_back(ofRobotArmCommand::getSleep(1000));
 		ofRobotArmCommand cmd3(NoRobotValue, NoRobotValue, 0.0f);
 		cmd3.add(NoRobotValue, NoRobotValue, 1.0f);
 		commands.push_back(cmd3);
@@ -194,16 +194,16 @@ namespace RobotArtists {
 		sendToRobot(this);
 	}
 
-	void ofTrRobotArm::setup(robotMode mode) { 
-		ofRobotTrace() << "setup ofTrRobotArm " << name << " type " << info.trace();
-		
+	void ofTrRobotArm::setup(robotMode mode) {
+		ofRobotTrace() << "setup ofTrRobotArm " << getName() << " type " << info.trace();
+
 		setStartState(mode);
 		setUserDefinedRanges(SpecificJoint(info.getType(), ArmX), userDefinedRanges);
 		sendToRobot(this); // send the mode, also resets the robot
 		setDefaultState();
 
 		funcMap[PenPose] = &ofTrRobotArm::penPose; //and so forth
-		funcMap[RegressionTest] = &ofTrRobotArm::regressionTest; 
+		funcMap[RegressionTest] = &ofTrRobotArm::regressionTest;
 		funcMap[LowLevelTest] = &ofTrRobotArm::sanityTestLowLevel;
 		funcMap[RobotCircle] = &ofTrRobotArm::circleMacro;
 		funcMap[RobotLineTo] = &ofTrRobotArm::lineMacro;
@@ -212,7 +212,7 @@ namespace RobotArtists {
 		funcMap[UserDefinded] = &ofTrRobotArm::justSendItNowMacro;
 
 		ClearVector(vectorOfCommands);
-	
+
 		// setup the robot
 		switch (info.getTypeID()) {
 		case PhantomXReactorArm:
@@ -241,7 +241,7 @@ namespace RobotArtists {
 
 
 	// draw optimized line from current location
-	void ofTrRobotArm::lineMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)	{
+	void ofTrRobotArm::lineMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data) {
 		for (auto& a : data) {
 			//bugbug code tghis
 		}
@@ -267,7 +267,7 @@ namespace RobotArtists {
 			commands.push_back(ofRobotArmCommand(RobotMoveTo, a));
 		}
 	}
-	
+
 	ofRobotPosition& ofRobotPosition::operator=(const ofRobotPosition&newpos) {
 		if (valueIsSet(newpos.x)) {
 			x = newpos.x;
@@ -282,7 +282,7 @@ namespace RobotArtists {
 	}
 
 	// create circle data
-	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data)	{
+	void ofTrRobotArm::circleMacro(vector<ofRobotArmCommand>&commands, vector<RobotArmCommandData>&data) {
 		for (auto& a : data) {
 			float slice = 2 * M_PI / 10;
 			float r = a.float1;
@@ -364,8 +364,8 @@ namespace RobotArtists {
 		}
 	}
 
-	void ofRobotArmCommand::trace()  {
-		for ( auto& a : vectorOfCommandData) {
+	void ofRobotArmCommand::trace() {
+		for (auto& a : vectorOfCommandData) {
 			a.getPoint().trace();
 			a.getState().trace();
 		}
@@ -375,7 +375,7 @@ namespace RobotArtists {
 		return;// do not bother when debugging
 
 		ofRobotTrace() << "valiate ofTrRobotArm" << std::endl;
-		
+
 		for (int i = FIRST_SERVO; i < servoCount; ++i) {
 			for (int j = 1; j <= 5; ++j) { // flash a bit
 				setLED(static_cast<TrossenServoIDs>(i), 1);
@@ -399,46 +399,116 @@ namespace RobotArtists {
 				int tmp = getTempature(static_cast<TrossenServoIDs>(i));
 				ofRobotTrace() << " temp. " << tmp;
 
-				float v = getVoltage(static_cast<TrossenServoIDs>(i))/10;
+				float v = getVoltage(static_cast<TrossenServoIDs>(i)) / 10;
 				ofRobotTrace() << " voltage " << v << std::endl;
 			}
 		}
 	}
 
-	void ofRobot::trace() {
-		ofRobotTrace() << "trace robot " << name << std::endl;
-		for (auto arm : trossens) {
-			arm->trace();
+	void ofMasterRobot::trace() const {
+		ofRobotTrace() << "trace robot " << getName() << std::endl;
+		for (const auto& bot : robotHelpers) {
+			bot->trace();
 		}
 	}
 
-	void ofRobot::draw() {
-		ofRobotTrace() << "draw robot" << name << std::endl;
-
-		for (auto bot : makerbots) {
-			bot->draw();
-		}
-		
-		for (auto bot : trossens) {
+	void ofMasterRobot::draw() {
+		for (auto& bot : robotHelpers) {
 			bot->draw();
 		}
 	}
-	void ofRobot::update() {
-		ofRobotTrace() << "update robot" << name << std::endl;
-		for (auto arm : trossens) {
-			arm->update();
+	void ofMasterRobot::update() {
+		for (auto& bot : robotHelpers) {
+			bot->update();
 		}
 	}
 
 	void xyRobot::setup() {
 	}
+
 	void xyRobot::update(xyDataToSend& data) {
 		sendit(data);
 	}
-	void ofRobot::setup(RobotBrand id, int port, int baudrate) {
-		
-		ofRobotTrace() << "setup robot" << name << std::endl;
-		
+	shared_ptr<ofTrRobotArm>ofMasterRobot::getTrossen(int index) {
+		if (index < robotHelpers.size()) {
+			return std::dynamic_pointer_cast<ofTrRobotArm>(robotHelpers[index]);
+		}
+		return nullptr;
+	}
+	shared_ptr<xyRobot>ofMasterRobot::getXyRobot(int index) {
+		if (index < robotHelpers.size()) {
+			return std::dynamic_pointer_cast<xyRobot>(robotHelpers[index]);
+		}
+		return nullptr;
+	}
+
+	// external setup, tied to command line
+	void ofMasterRobot::setup(const vector<string>& arguments) {
+		// example -trossen 1
+		for (int i = 1; i < arguments.size(); ++i) {
+			int port = -1; // unknown
+			int baudrate = 38400;
+			RobotBrand id = RobotArtists::Trossen;
+			if (arguments.at(i) != "-trossen") {
+				baudrate = 19200;
+				id = RobotArtists::MakeBlock;
+			}
+			++i;
+			if (i < arguments.size()) {
+				// something is out there, see if its a parameter or parameter data (ie -troseen 1 or -trossen -makeblock)
+				// at least one char must be out there if its a string from the command line
+				if (arguments.at(i)[0] == '-') {
+					--i; // its a new parameter, put it back 
+				}
+				else {
+					port = ofToInt(arguments.at(i));
+				}
+			}
+
+			if (setup(id, port, baudrate)) {
+				if (getTrossen(0)) {
+					ofRobotArmCommand cmd(PenPose);
+					getTrossen(0)->add(ofRobotArmCommand(PenPose));
+				}
+				if (getXyRobot(0)) {
+					xyDataToSend data(RobotArtists::PolyLineStream);
+					data.add(xyMotion(0.5f, 0.1f)); // move x steps in this direction
+					data.add(xyMotion(0.1f, 1.0f));
+					getXyRobot(0)->add(data);
+					return;
+					int count = 10;
+					float slice = 2 * M_PI / count;
+					xyMotion point;
+					float r = 0.1f;
+					for (int i = 0; i < count; i++) {
+						float theta = slice * i;
+						point.x = r*cos(theta);
+						point.y = r*sin(theta);
+						data.add(point);
+					}
+					getXyRobot(0)->add(data);
+					//bugbug figure out rotate, size, push/pop the canvas like OF does
+
+					//robot.makerbots[0]->add(RobotArtists::PolyLineStream, 0.09f);
+					return;
+
+					//bugbug just add a command		robot.makerbots[0]->circleMacro(0.05f);
+					getXyRobot(0)->add(xyMove, xyMotion(0.5f, 0.5f));
+					getXyRobot(0)->add(xyMove, xyMotion(.2f, 0.2f));
+					getXyRobot(0)->add(xyMove, xyMotion(0.5f, 0.5f));
+					getXyRobot(0)->add(xyMove, xyMotion(.2f, 0.2f));
+
+				}
+			}
+		}
+	}
+
+
+	// setup
+	bool ofMasterRobot::setup(RobotBrand id, int port, int baudrate) {
+
+		ofRobotTrace() << "setup robot" << getName() << std::endl;
+
 		// do one time setup
 		if (id == Trossen) {
 			ofTrRobotArmInternals::oneTimeSetup(); // do one time setup of static data
@@ -457,9 +527,8 @@ namespace RobotArtists {
 			if (id == Trossen) {
 				if (!serialdriver->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
 					ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
-					return;
+					return false;
 				}
-				shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
 				// if no mem at this point let it just crash
 				// try trossen first
 				if (!robotTypeIsError(robotType = serialdriver->waitForRobot(robotName, 10, 5))) {
@@ -467,24 +536,24 @@ namespace RobotArtists {
 					case PhantomXReactorArm:
 					case PhantomXPincherArm:
 					case WidowX:
+						shared_ptr<ofTrRobotArm> arm = make_shared<ofTrRobotArm>();
 						arm->setSerial(serialdriver);
 						arm->setName(robotName);
 						arm->setType(robotType);
 						arm->setup(IKM_CYLINDRICAL);
-						trossens.push_back(arm);
+						robotHelpers.push_back(arm);
 						break;
 					}
 				}
 				if (port > -1) {
 					// port is known, only one robut, return now
-					return;
+					return robotType != createUndefinedRobotType();
 				}
 			}
 			else {
-				serialdriver = make_shared<ofRobotSerial>();
 				if (!serialdriver->setup(device.getDeviceName(), baudrate)) { // MAKE SURE BAUD RATES ARE THE SAME
 					ofRobotTrace(FatalErrorLog) << device.getDeviceName() << std::endl;
-					return;
+					return false;
 				}
 				shared_ptr<xyRobot> maker = make_shared<xyRobot>(serialdriver);
 				maker->update(xyDataToSend(SignOn));// some drivers require a sign on
@@ -495,159 +564,130 @@ namespace RobotArtists {
 						maker->setType(robotType);
 						maker->setup();
 						//maker->center();//bugbug too slow while debugging
-						makerbots.push_back(maker);
+						robotHelpers.push_back(maker);
 						break;
 					}
 					if (port > -1) {
 						// port is known, only one robut, return now
-						return;
+						return robotType != createUndefinedRobotType();
 					}
 				}
 			}
 		}
+		return false;
 	}
-}
-//bugbug need a fill command, setcolor, setpixel? and then tie xy to robot arm  , const ofColor& color
-void xyRobot::rotate(const ofVec2f& center, float angle, ofVec2f& point) {
-	if (!angle) {
-		return;
-	}
-	float s = sin(angle);
-	float c = cos(angle);
-
-	// translate point back to origin:
-	point.x -= center.x;
-	point.y -= center.y;
-
-	// rotate point
-	float xnew = point.x * c - point.y * s;
-	float ynew = point.x * s + point.y * c;
-
-	// translate point back:
-	point.x = xnew + center.x;
-	point.y = ynew + center.y;
-}
-// create a line to function then use it here, that way driver just needs to do the basics
-void xyRobot::rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle){
-	ofVec2f point1(0, 0);//bugbug need more currency that this
-	//bugbug use poly line here
-	add(xyMove, point2);
-	add(xyMove, -point2.x, -point2.y); // back to 0
-	add(xyMove, point4);
-	add(xyMove, point3);
-	add(xyMove, point2);
-}
-
-void xyRobot::add(XYCommands cmd, const vector<ofVec2f>& points) {
-	xyDataToSend data(cmd);
-	if (cmd == PolyLineStream || cmd == PolyLineFancy) {
-		data.parameters.push_back((int32_t)points.size()*2); // function has a variable parameter list started by parm count
-	}
-	for (auto&point : points) {
-		data.parameters.push_back(point.x);
-		data.parameters.push_back(point.y);
-	}
-	add(data);
-
-}
-void xyRobot::add(XYCommands cmd, float x) {
-	xyDataToSend data(cmd);
-	if (cmd == PolyLineStream || cmd == PolyLineFancy) {
-		data.parameters.push_back(1.0f); // function has a variable parameter list started by parm count
-	}
-	data.parameters.push_back(x);
-	add(data);
-}
-
-void xyRobot::add(XYCommands cmd, const ofVec2f& point) { 
-	xyDataToSend data(cmd);
-	if (cmd == PolyLineStream || cmd == PolyLineFancy) {
-		data.parameters.push_back(2.0f); // function has a variable parameter list started by parm count
-	}
-	data.parameters.push_back(point.x);
-	data.parameters.push_back(point.y);
-	add(data);
-}
-
-void xyRobot::add(XYCommands cmd, const vector<float>& floats) {
-	xyDataToSend data(cmd);
-	if (cmd == PolyLineStream || cmd == PolyLineFancy){
-		data.parameters.push_back((int32_t)floats.size()); // function has a variable parameter list started by parm count
-	}
-	for (auto&f : floats) {
-		data.parameters.push_back(f);
-	}
-	add(data);
-}
-
-void xyRobot::sendit(xyDataToSend&data) {
-	if (driver && data.isSetup()) {
-		ofRobotTrace("xyRobot::sendit") << "cmd:" << (int)data.getCommand() << std::endl;
-		sendToRobot(&data);
-		string space;// separate from a possible Y
-		for (auto& parm : data.parameters) {
-			parm.trace();
-			driver->write(parm.getValue());
-			driver->write(",");
-			//space = ",";// only put out a , if there is more than one parameter
+	//bugbug need a fill command, setcolor, setpixel? and then tie xy to robot arm  , const ofColor& color
+	void xyRobot::rotate(const xyMotion& center, float angle, xyMotion& point) {
+		if (!angle) {
+			return;
 		}
-		readResults(data.getCommand()); // waits for results bugbug put in a thread?
-	}
-}
-void xyRobot::draw() {
-	ofRobotTrace() << "draw xyRobot" << name << std::endl;
+		float s = sin(angle);
+		float c = cos(angle);
 
-	if (driver) {
-		int count = 0;
-		for (auto& a : vectorOfCommands) {
-			++count;
-			if ((count % 3) == 0) {
-				ofSleepMillis(3000); // do not push data too fast bugbug make this a value retured by the driver once its understood
-			}
-			sendit(a);
+		// translate point back to origin:
+		point.x -= center.x;
+		point.y -= center.y;
+
+		// rotate point
+		float xnew = point.x * c - point.y * s;
+		float ynew = point.x * s + point.y * c;
+
+		// translate point back:
+		point.x = xnew + center.x;
+		point.y = ynew + center.y;
+	}
+	// create a line to function then use it here, that way driver just needs to do the basics
+	void xyRobot::rectangleMacro(const xyMotion& point2, const xyMotion& point3, const xyMotion& point4, float angle) {
+		ofVec2f point1(0, 0);//bugbug need more currency that this
+		//bugbug use poly line here
+		add(xyMove, point2);
+		xyMotion backPoint2;
+		backPoint2.x = -point2.x;
+		backPoint2.y = -point2.y;
+		add(xyMove, backPoint2); // back to 0
+		add(xyMove, point4);
+		add(xyMove, point3);
+		add(xyMove, point2);
+	}
+
+	void xyRobot::add(XYCommands cmd, const vector<xyMotion>& points) {
+		xyDataToSend data(cmd);
+		for (const auto& point : points) {
+			add(data);
 		}
 	}
-	vectorOfCommands.clear();
-}
-// process results as needed
-bool xyRobot::readResults(int8_t cmd) {
-	if (cmd == SignOn) { // signon data is read by the common sign on code
-		return true;
+	void xyRobot::add(XYCommands cmd, const xyMotion& point) {
+		xyDataToSend data(cmd);
+		add(data);
 	}
-	ofRobotTrace() << "read xyRobot " << std::endl;
-	SerialData data(2); // results header
-	
-	//bugbug put in thread or such?
-	while (getDriver()->available() == 0)
-		;
 
-	while (getDriver()->available() > 0) {
-		if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
-			if (data[0] != 0xee) {
-				// all commands need this header
-				ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
-				return false;
+	void xyRobot::sendit(xyDataToSend&data) {
+		if (driver && data.isSetup()) {
+			ofRobotTrace("xyRobot::sendit") << "cmd:" << (int)data.getCommand() << std::endl;
+			sendToRobot(&data);
+			driver->write((int32_t)data.getParameters().size());
+			for (const auto& parm : data.getParameters()) {
+				parm.trace();
+				driver->write(parm);
 			}
-			else if (data[1] == Trace) {
-				int32_t count = getDriver()->readInt32();
-				int32_t index = getDriver()->readInt32();
-				int32_t x = getDriver()->readInt32();
-				int32_t y = getDriver()->readInt32();
-				int i = 0; // place to set a break point
-			}
-			else {
-				ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
-				if (cmd != data[1]) {
-					ofRobotTrace() << "invalid ACK expected " << cmd << std::endl;
+			readResults(data.getCommand()); // waits for results bugbug put in a thread?
+		}
+	}
+	void xyRobot::draw() {
+		ofRobotTrace() << "draw xyRobot" << getName() << std::endl;
+
+		if (driver) {
+			int count = 0;
+			for (auto& a : vectorOfCommands) {
+				++count;
+				if ((count % 3) == 0) {
+					ofSleepMillis(3000); // do not push data too fast bugbug make this a value retured by the driver once its understood
 				}
-				int16_t port = getDriver()->readInt16();
-				int16_t direction = getDriver()->readInt16();
-				port = getDriver()->readInt16();
-				direction = getDriver()->readInt16();
-				return true; //bugbug too much data to echo once things are working
+				sendit(a);
 			}
 		}
+		vectorOfCommands.clear();
 	}
-	return false;
-}
+	// process results as needed
+	bool xyRobot::readResults(int8_t cmd) {
+		if (cmd == SignOn) { // signon data is read by the common sign on code
+			return true;
+		}
+		ofRobotTrace() << "read xyRobot " << std::endl;
+		SerialData data(2); // results header
 
+		//bugbug put in thread or such?
+		while (getDriver()->available() == 0)
+			;
+
+		while (getDriver()->available() > 0) {
+			if (getDriver()->readAllBytes(data.data(), data.size()) == data.size()) {
+				if (data[0] != 0xee) {
+					// all commands need this header
+					ofRobotTrace() << "unknown readResults " << data.data() << std::endl;
+					return false;
+				}
+				else if (data[1] == Trace) {
+					int32_t count = getDriver()->readInt32();
+					int32_t index = getDriver()->readInt32();
+					int32_t x = getDriver()->readInt32();
+					int32_t y = getDriver()->readInt32();
+					int i = 0; // place to set a break point
+				}
+				else {
+					ofRobotTrace() << "xyRobot ACK for " << (int)data[1] << std::endl;
+					if (cmd != data[1]) {
+						ofRobotTrace() << "invalid ACK expected " << cmd << std::endl;
+					}
+					int16_t port = getDriver()->readInt16();
+					int16_t direction = getDriver()->readInt16();
+					port = getDriver()->readInt16();
+					direction = getDriver()->readInt16();
+					return true; //bugbug too much data to echo once things are working
+				}
+			}
+		}
+		return false;
+	}
+
+}

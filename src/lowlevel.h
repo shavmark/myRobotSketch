@@ -138,8 +138,14 @@ namespace RobotArtists {
 
 		string deviceName;
 
-		size_t write(const string&str) { return write((uint8_t*)str.c_str(), str.size()); }
 		size_t writeLn(const string&str);
+		size_t write(const ofVec2f& motion);
+		template <typename T> size_t write(T val) {
+			string s = ofToString(val);
+			size_t count = write((uint8_t*)s.c_str(), s.size());
+			write((uint8_t*)",", 1);
+			return count;
+		}
 	private:
 		size_t write(uint8_t* data, size_t count);
 		int maxRetries = 25;
@@ -194,28 +200,32 @@ namespace RobotArtists {
 	enum XYCommands : uint8_t { NoXYCommand, SignOn, xyMove, PolyLineStream, PolyLineFancy, xyEllipse, xyCircle, xyLine, xyBezier, Trace };
 	
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
-	// 32 bits only to be compatable with small devices
-	class XYparameter {
+	
+	// move x and y 
+	class xyMotion : public ofVec2f {
 	public:
-		XYparameter(int32_t val = 0) { this->val = val; }
-		 
-		string getValue() const { return ofToString(val); }
+		xyMotion() :ofVec2f() {}
+		xyMotion(float x, float y):ofVec2f(x,y){}
 
-		void trace() const;
-	private:
-		int32_t val;
+		void trace() const {
+			ofRobotTrace() << " xyMotion " << x << ", " << y << std::endl;
+		}
+
 	};
-
 	class xyDataToSend : public SerialData {
 	public:
 		xyDataToSend() :SerialData(2) { setCommand(NoXYCommand); };
 		xyDataToSend(XYCommands cmd) :SerialData(2) { setCommand(cmd); }; // no parameters
-		xyDataToSend(XYCommands cmd, float x, float y=0); 
+		xyDataToSend(XYCommands cmd, const xyMotion&);
 
 		void trace();
 		void setCommand(XYCommands cmd);
 		uint8_t getCommand() {	return at(1);	}
-		vector<XYparameter> parameters;
+		const vector<xyMotion>&getParameters() { return parameters; }
+		void add(const xyMotion& point) { parameters.push_back(point); }
+
+	private:
+		vector<xyMotion> parameters;
 	};
 
 	// OF Free, Trossen specific so it can be used w/o openframeworks
@@ -277,23 +287,38 @@ namespace RobotArtists {
 		std::map<SpecificJoint, int> maxValue;
 		std::map<SpecificJoint, int> defaultValue;
 	};
-	// base class helper
-	class iRobot {
+
+	// put bot basics here, stuff true for all bots like a name
+	class BasicBot {
 	public:
-		iRobot(const robotType& type) { setType(type); driver = make_shared<ofRobotSerial>(); }
-		iRobot() {  driver = make_shared<ofRobotSerial>(); }
-		iRobot(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
+		BasicBot() {}
+		BasicBot(const string& name) { this->name = name; }
+
+		void setName(const string&name) { this->name = name; }
+		const string& getName() const { return name; }
+	private:
+		string name;
+	};
+	// base class helper
+	class iRobot : public BasicBot {
+	public:
+		iRobot(const robotType& type) : BasicBot(){ setType(type); driver = make_shared<ofRobotSerial>(); }
+		iRobot() : BasicBot() {  driver = make_shared<ofRobotSerial>(); }
+		iRobot(shared_ptr<ofRobotSerial>  driver) : BasicBot() { this->driver = driver; }
+
+		virtual void setup() {}
+		virtual void draw() {}
+		virtual void update() {}
+		virtual void trace() const {}
+
 		shared_ptr<ofRobotSerial> getDriver() { return driver; }
 		size_t sendToRobot(SerialData *serial);
 		void setSerial(shared_ptr<ofRobotSerial>  driver) { this->driver = driver; }
-		shared_ptr<ofRobotSerial>  driver;
-		void setName(const string&name) { this->name = name; }
-		string& getName() { return name; }
 		void setType(robotType type) { info.setType(type); }
 
+	protected:
+		shared_ptr<ofRobotSerial>  driver;
 		BotInfo info;
-
-		string name;
 	};
 
 

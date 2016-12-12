@@ -31,5 +31,5 @@ class ofApp : public ofBaseApp{
 
 		vector<string> arguments;
 
-		ofRobot robot;
+		ofMasterRobot robot;
 };

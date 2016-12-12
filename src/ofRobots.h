@@ -53,46 +53,6 @@ namespace RobotArtists {
 
 	};
 
-	class xyRobot : public iRobot {
-	public:
-		xyRobot() : iRobot() {  }
-		xyRobot(shared_ptr<ofRobotSerial>  driver) :iRobot(driver) {  }
-
-		void setup();
-		void update(xyDataToSend&); // direct access, not put in vector
-		void draw();
-
-		void translate(float x, float y) {		add(xyMove, x, y);	}
-
-		void add(XYCommands cmd, const vector<float>& floats);
-		void add(XYCommands cmd, const vector<ofVec2f>& points);
-		void add(XYCommands cmd, const ofVec2f& point);
-		void add(XYCommands cmd, float x, float y) { add(cmd, ofVec2f(x,y)); }
-		void add(XYCommands cmd, float x);
-
-		void setColor(const ofColor& color) { currentColor = color; } //bugbug this is big, needs to be designed
-		
-		void setFill(bool fill = true) {} // bugbug big, needs to be figured out
-		void setFillType() {} //bugbug big, needs to be figured, out things like Heavy, light, wait to dry etc
-		void spritz() {} // keep things moist
-		void getStrokeColor() {}
-		void setStrokeWidth() {}
-	
-		void rectangleMacro(const ofVec2f& point2, const ofVec2f& point3, const ofVec2f& point4, float angle=0);
-		void rotate(const ofVec2f& center, float angle, ofVec2f& point);
-		void setPosition(const ofVec2f& point) { add(xyMove, point); }; // OF compatable
-
-		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
-		size_t getCount() { return vectorOfCommands.size(); }
-	private:
-		bool readResults(int8_t cmd);
-		vector<xyDataToSend> vectorOfCommands;
-		void sendit(xyDataToSend&data);
-		ofColor currentColor;//bugbug build color soon...
-		int sentAtAtime = 3; // packets to send at one time
-
-	};
-
 	// helper that masks position (x,y etc)
 	class ofRobotArmState : public ofRobotPosition {
 	public:
@@ -193,8 +153,6 @@ namespace RobotArtists {
 		// move or draw based on the value in moveOrDraw
 		void draw();
 		void update();
-		void setName(const string&name) { this->name = name; }
-		string& getName() { return name; }
 
 		void add(const ofRobotArmCommand& cmd) {	vectorOfCommands.push_back(cmd);	}
 
@@ -217,7 +175,6 @@ namespace RobotArtists {
 		map<RobotCommand, pArmfunction> funcMap;
 		shared_ptr<RobotValueRanges> userDefinedRanges = nullptr; // none set by default
 		void validate();
-		string name;
 
 		vector<ofRobotArmCommand> vectorOfCommands; // one more more points
 		void testdata();
@@ -227,25 +184,61 @@ namespace RobotArtists {
 
 	};
 	
-	// the robot itself
-	class ofRobot {
+	class xyRobot : public iRobot {
 	public:
-		
-		ofRobot() {}
-		ofRobot(const string& name) { 	this->name = name;  }
+		xyRobot() : iRobot() {  }
+		xyRobot(shared_ptr<ofRobotSerial>  driver) :iRobot(driver) {  }
 
-		void setup(RobotBrand id, int port, int baudrate);
+		void setup();
+		void update(xyDataToSend&); // direct access, not put in vector
+		void draw();
+
+		void add(XYCommands cmd, const xyMotion& point);
+		void add(XYCommands cmd, const vector<xyMotion>& points);
+		void setColor(const ofColor& color) { currentColor = color; } //bugbug this is big, needs to be designed
+
+		void setFill(bool fill = true) {} // bugbug big, needs to be figured out
+		void setFillType() {} //bugbug big, needs to be figured, out things like Heavy, light, wait to dry etc
+		void spritz() {} // keep things moist
+		void getStrokeColor() {}
+		void setStrokeWidth() {}
+
+		void rectangleMacro(const xyMotion& point2, const xyMotion& point3, const xyMotion& point4, float angle = 0);
+		void rotate(const xyMotion& center, float angle, xyMotion& point);
+		void setPosition(const xyMotion& point) { add(xyMove, point); }; // OF compatable
+
+		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
+		size_t getCount() { return vectorOfCommands.size(); }
+
+	private:
+		bool readResults(int8_t cmd);
+		vector<xyDataToSend> vectorOfCommands;
+		void sendit(xyDataToSend&data);
+		ofColor currentColor;//bugbug build color soon...
+		int sentAtAtime = 3; // packets to send at one time
+
+	};
+
+
+	// the robot itself
+	class ofMasterRobot : public BasicBot {
+	public:
+		ofMasterRobot() : BasicBot() {}
+		ofMasterRobot(const string& name) : BasicBot(name) {  }
+
+		void setup(const vector<string>& arguments);
+		bool setup(RobotBrand id, int port, int baudrate);
+
 		void update();
 		void draw();
-		void trace(); // echos positions
+		void trace() const;
 
-		void setName(const string&name) { this->name = name; }
-		string& getName() { return name; }
+		shared_ptr<ofTrRobotArm>getTrossen(int index);
+		shared_ptr<xyRobot>getXyRobot(int index);
 
-		vector<shared_ptr<ofTrRobotArm>> trossens; // bugbug at some point maybe add wrappers etc when more is known
-		vector<shared_ptr<xyRobot>> makerbots;
 	private:
-		string name;
+		// a robot contains other robots
+		vector<shared_ptr<iRobot>> robotHelpers; // bugbug at some point maybe add wrappers etc when more is known
 		vector<ofRobotVoice> voices;//bugbug can be anywhere and also add ofEyes (Kinetc, CV etc)
 	};
 

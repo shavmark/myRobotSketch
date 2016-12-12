@@ -80,7 +80,11 @@ namespace RobotArtists {
 		write((uint8_t*)"\r", 1);
 		return size; 
 	}
-
+	size_t ofRobotSerial::write(const ofVec2f& motion) {
+		size_t count = write(motion.x);
+		count += write(motion.y);
+		return count;
+	}
 	size_t ofRobotSerial::readLine(string &s) {
 		uint8_t bytes[512]; // max size of a line, beyond this things get ignored
 		size_t c;
@@ -310,10 +314,9 @@ namespace RobotArtists {
 		return devices;
 	}
 	// one command, two values
-	xyDataToSend::xyDataToSend(XYCommands cmd, float x, float y):SerialData(2) {
+	xyDataToSend::xyDataToSend(XYCommands cmd, const xyMotion& point):SerialData(2) {
 		setCommand(cmd);
-		parameters.push_back(XYparameter(x));
-		parameters.push_back(XYparameter(y));
+		parameters.push_back(point);
 	}
 
 	void xyDataToSend::trace() {
@@ -322,10 +325,6 @@ namespace RobotArtists {
 			a.trace();
 		}
 	}
-	void XYparameter::trace() const {
-		ofRobotTrace("XYparameter") << "value = " << getValue() << std::endl;
-	}
-
 	void xyDataToSend::setCommand(XYCommands cmd) {
 		set(0, 0xee);
 		set(1, cmd);
