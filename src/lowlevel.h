@@ -140,18 +140,17 @@ namespace RobotArtists {
 
 		size_t writeLn(const string&str);
 		size_t write(const ofVec2f& motion);
+	
 		template <typename T> size_t write(T val) {
-			string s = ofToString(val);
+			string s = ofToString(val)+ ",";
 			size_t count = write((uint8_t*)s.c_str(), s.size());
-			write((uint8_t*)",", 1);
 			return count;
 		}
-	private:
 		size_t write(uint8_t* data, size_t count);
+	private:
 		int maxRetries = 25;
 		int waitsleeptime = 100;
 	};
-
 	// read from controllers
 	class SerialData : public vector<uint8_t> {
 	public:
@@ -197,7 +196,7 @@ namespace RobotArtists {
 	*  byte 1 : cmd 
 	* data follows in command order, command specific parsers used
 	*/
-	enum XYCommands : uint8_t { NoXYCommand, SignOn, xyMove, PolyLineStream, PolyLineFancy, xyEllipse, xyCircle, xyLine, xyBezier, Trace };
+	enum XYCommands : uint8_t { NoXYCommand, SignOn, xyPolyLine, xyEllipse, xyCircle, xyLine, xyBezier, Trace, xyRectangle, xyTriangle };
 	
 	enum Steppers : uint8_t { IDstepperX = 0, IDstepperY = 1 };
 	
@@ -206,6 +205,7 @@ namespace RobotArtists {
 	public:
 		xyMotion() :ofVec2f() {}
 		xyMotion(float x, float y):ofVec2f(x,y){}
+		xyMotion(ofVec2f  v) :ofVec2f(v.x,v.y) {}
 
 		void trace() const {
 			ofRobotTrace() << " xyMotion " << x << ", " << y << std::endl;
@@ -214,6 +214,9 @@ namespace RobotArtists {
 	};
 	class xyDataToSend : public SerialData {
 	public:
+
+		typedef void(xyDataToSend::*pfunction)(const XYCommands& command);
+
 		xyDataToSend() :SerialData(2) { setCommand(NoXYCommand); };
 		xyDataToSend(XYCommands cmd) :SerialData(2) { setCommand(cmd); }; // no parameters
 		xyDataToSend(XYCommands cmd, const xyMotion&);
@@ -223,7 +226,12 @@ namespace RobotArtists {
 		uint8_t getCommand() {	return at(1);	}
 		const vector<xyMotion>&getParameters() { return parameters; }
 		void add(const xyMotion& point) { parameters.push_back(point); }
-
+		void add(const ofVec2f&point) { parameters.push_back(xyMotion(point)); }
+		void macro(const XYCommands& command);
+		void circle();
+		void bezier();
+		void elipse();
+		void move(const xyMotion& point);
 	private:
 		vector<xyMotion> parameters;
 	};
@@ -321,15 +329,12 @@ namespace RobotArtists {
 		BotInfo info;
 	};
 
-
 	// stores only valid values for specific joints, does validation, defaults and other things, but no high end logic around motion
 	class ofTrRobotArmInternals : public Pose, public iRobot {
 	public:
 		// constructor required
-		ofTrRobotArmInternals(const robotType& type) : Pose(), iRobot(type){
-		}
-		ofTrRobotArmInternals() : Pose() {
-		}
+		ofTrRobotArmInternals(const robotType& type) : Pose(), iRobot(type){		}
+		ofTrRobotArmInternals() : Pose() {		}
 
 		void setDefault(SpecificJoint joint, int value);
 		void setMin(SpecificJoint joint, int value);

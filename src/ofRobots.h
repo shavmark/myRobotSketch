@@ -205,7 +205,6 @@ namespace RobotArtists {
 
 		void rectangleMacro(const xyMotion& point2, const xyMotion& point3, const xyMotion& point4, float angle = 0);
 		void rotate(const xyMotion& center, float angle, xyMotion& point);
-		void setPosition(const xyMotion& point) { add(xyMove, point); }; // OF compatable
 
 		void add(const xyDataToSend& cmd) { vectorOfCommands.push_back(cmd); }
 		size_t getCount() { return vectorOfCommands.size(); }

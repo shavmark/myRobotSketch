@@ -471,32 +471,14 @@ namespace RobotArtists {
 					getTrossen(0)->add(ofRobotArmCommand(PenPose));
 				}
 				if (getXyRobot(0)) {
-					xyDataToSend data(RobotArtists::PolyLineStream);
-					data.add(xyMotion(0.5f, 0.1f)); // move x steps in this direction
-					data.add(xyMotion(0.1f, 1.0f));
+					xyDataToSend data(xyPolyLine);
+					data.macro(xyBezier);
 					getXyRobot(0)->add(data);
-					return;
-					int count = 10;
-					float slice = 2 * M_PI / count;
-					xyMotion point;
-					float r = 0.1f;
-					for (int i = 0; i < count; i++) {
-						float theta = slice * i;
-						point.x = r*cos(theta);
-						point.y = r*sin(theta);
-						data.add(point);
-					}
-					getXyRobot(0)->add(data);
+
 					//bugbug figure out rotate, size, push/pop the canvas like OF does
 
-					//robot.makerbots[0]->add(RobotArtists::PolyLineStream, 0.09f);
 					return;
 
-					//bugbug just add a command		robot.makerbots[0]->circleMacro(0.05f);
-					getXyRobot(0)->add(xyMove, xyMotion(0.5f, 0.5f));
-					getXyRobot(0)->add(xyMove, xyMotion(.2f, 0.2f));
-					getXyRobot(0)->add(xyMove, xyMotion(0.5f, 0.5f));
-					getXyRobot(0)->add(xyMove, xyMotion(.2f, 0.2f));
 
 				}
 			}
@@ -598,16 +580,6 @@ namespace RobotArtists {
 	}
 	// create a line to function then use it here, that way driver just needs to do the basics
 	void xyRobot::rectangleMacro(const xyMotion& point2, const xyMotion& point3, const xyMotion& point4, float angle) {
-		ofVec2f point1(0, 0);//bugbug need more currency that this
-		//bugbug use poly line here
-		add(xyMove, point2);
-		xyMotion backPoint2;
-		backPoint2.x = -point2.x;
-		backPoint2.y = -point2.y;
-		add(xyMove, backPoint2); // back to 0
-		add(xyMove, point4);
-		add(xyMove, point3);
-		add(xyMove, point2);
 	}
 
 	void xyRobot::add(XYCommands cmd, const vector<xyMotion>& points) {
@@ -625,10 +597,18 @@ namespace RobotArtists {
 		if (driver && data.isSetup()) {
 			ofRobotTrace("xyRobot::sendit") << "cmd:" << (int)data.getCommand() << std::endl;
 			sendToRobot(&data);
-			driver->write((int32_t)data.getParameters().size());
-			for (const auto& parm : data.getParameters()) {
-				parm.trace();
-				driver->write(parm);
+			int32_t c = (int32_t)data.getParameters().size(); // only send less than 200 parameters
+			if (c > 0) {
+				driver->write(c);
+				string fastwrite;
+				for (const auto& parm : data.getParameters()) {
+					parm.trace();
+					fastwrite += ofToString(parm.x);
+					fastwrite += ",";
+					fastwrite += ofToString(parm.y);
+					fastwrite += ",";
+				}
+				size_t count = driver->write((uint8_t*)fastwrite.c_str(), fastwrite.size());
 			}
 			readResults(data.getCommand()); // waits for results bugbug put in a thread?
 		}
@@ -639,10 +619,6 @@ namespace RobotArtists {
 		if (driver) {
 			int count = 0;
 			for (auto& a : vectorOfCommands) {
-				++count;
-				if ((count % 3) == 0) {
-					ofSleepMillis(3000); // do not push data too fast bugbug make this a value retured by the driver once its understood
-				}
 				sendit(a);
 			}
 		}
@@ -669,7 +645,7 @@ namespace RobotArtists {
 				}
 				else if (data[1] == Trace) {
 					int32_t count = getDriver()->readInt32();
-					int32_t index = getDriver()->readInt32();
+					int32_t number = getDriver()->readInt32();
 					int32_t x = getDriver()->readInt32();
 					int32_t y = getDriver()->readInt32();
 					int i = 0; // place to set a break point
@@ -679,10 +655,6 @@ namespace RobotArtists {
 					if (cmd != data[1]) {
 						ofRobotTrace() << "invalid ACK expected " << cmd << std::endl;
 					}
-					int16_t port = getDriver()->readInt16();
-					int16_t direction = getDriver()->readInt16();
-					port = getDriver()->readInt16();
-					direction = getDriver()->readInt16();
 					return true; //bugbug too much data to echo once things are working
 				}
 			}

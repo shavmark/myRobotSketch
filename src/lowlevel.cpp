@@ -267,6 +267,97 @@ namespace RobotArtists {
 		}
 		return false;
 	}
+	void xyDataToSend::move(const xyMotion& to) {
+		add(to);
+	}
+	float getPt(float n1, float n2, float perc) {
+		float diff = n2 - n1;
+
+		return n1 + (diff * perc);
+	}
+	void xyDataToSend::elipse() {
+		float height = 0.1f;
+		float width = 0.1f;
+		for (float y = -height; y <= height; y++) {
+			for (long x = -width; x <= width; x++) {
+				if (x*x*height*height + y*y*width*width <= height*height*width*width) {
+					move(xyMotion(x, y)); 
+				}
+			}
+		}
+
+	}
+	// fun curve
+	void xyDataToSend::bezier() {
+		ofVec2f one(0.01f, 0.01f), two(0.04f, 0.02f), three(0.03f, 0.02f);
+		for (float i = 0; i < 1; i += 0.01) {
+			// The Green Line
+			float xa = getPt(one.x, two.x, i);
+			float ya = getPt(one.y, two.y, i);
+			float xb = getPt(two.x, three.x, i);
+			float yb = getPt(two.y, three.y, i);
+
+			// The Black Dot
+			float x = getPt(xa, xb, i);
+			float y = getPt(ya, yb, i);
+			move(xyMotion(x,y));
+		}
+	}
+	/*A point at angle theta on the circle whose centre is (x0,y0) 
+	 and whose radius is r is (x0 + r cos theta, y0 + r sin theta). 
+	 Now choose theta values evenly spaced between 0 and 2pi.*/
+	void xyDataToSend::circle() {
+		float radius = 0.1;
+		ofVec2f center;//0,0
+		ofVec2f start(radius, 0);
+		ofVec2f val;
+		int count = 100;
+		double slice = 2 * PI / count;
+		for (int i = 0; i <= count; i++)		{
+			double angle = slice * i;
+			float x = (center.x + radius * cos(angle));
+			float y = (center.y + radius * sin(angle));
+			// move to x,y from current location
+			ofVec2f p = ofVec2f(x, y)-start;
+			move(xyMotion(p));
+			start = ofVec2f(x, y);
+		}
+	}
+	//bugbug draw a few basic shapes then make them functions vs one big function
+	void xyDataToSend::macro(const XYCommands& command) {
+		float a = 0.1f;
+		float b = 0.1f;
+		float c = sqrt(a*a + b*b);
+
+		switch (command) {
+		case xyRectangle:
+			move(xyMotion(0.1f, 0.0f));
+			move(xyMotion(0.0f, 0.1f));
+			move(xyMotion(-0.1f, 0.0f));
+			move(xyMotion(0.0f, -0.1f));
+			break;
+		case xyTriangle:
+			// assume a = 0.1, b = 0.1, c = 0.1
+			move(xyMotion(b, a)); // hypotenuse
+			move(xyMotion(-b, 0.0f));
+			move(xyMotion(0.0f, -a));
+			break;
+		case xyLine:
+			move(xyMotion(a, b));
+			move(xyMotion(-a, -b)); // go back just to test
+			break;
+		case xyCircle:
+			circle();
+			break;
+		case xyBezier:
+			bezier();
+			break;
+		default:
+			break;
+		}
+		trace();
+
+	}
 
 	robotType ofRobotSerial::waitForRobot(string& name, int retries, size_t packetsize) {
 		ofRobotTrace() << "wait for mr robot ... " << std::endl;
