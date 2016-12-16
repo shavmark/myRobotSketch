@@ -1,4 +1,4 @@
+ofxComm
 ofxGui
-ofxNetwork
-ofxOsc
+ofxSerial
 ofxXmlSettings
